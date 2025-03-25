@@ -1,0 +1,136 @@
+/* src/components/Carrossel/Carrossel.module.css */
+
+.destinos {
+    padding: 2rem;
+    background-color: #e8f7ff;
+    text-align: center;
+}
+
+.destinos h2 {
+    margin-top: 0;
+    margin-bottom: 40px;
+    font-size: 2.5rem;
+    font-weight: 700;
+    text-transform: uppercase;
+}
+
+.carrosselContainer {
+    display: flex;
+    align-items: center;
+    width: 100%;
+    overflow: hidden;
+    /* Essencial para esconder os slides fora da área visível */
+    position: relative;
+    /* Para posicionar os botões */
+}
+
+/* Container que segura *todos* os slides (vai se mover) */
+.slidesContainer {
+    width: 100%;
+    overflow: hidden;
+    /* Esconde o que está fora */
+    min-width: 100vw;
+    /* Força largura mínima */
+    overflow-x: hidden;
+
+}
+
+.slides {
+    display: flex;
+    /* Todos os slides ficam lado a lado */
+    transition: transform 0.5s ease;
+    /* Animação suave */
+    /* A largura total é definida dinamicamente no JavaScript */
+    min-width: 100%; /* Previne colapso antes do JS carregar */
+}
+
+.slide {
+    /* A largura de cada slide é definida dinamicamente no JavaScript */
+    flex-shrink: 0;
+    /* Impede que os slides diminuam */
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    /* Centraliza o card verticalmente (se necessário) */
+    /* outline: 1px solid red;   Para debug, mostra a largura do slide */
+}
+
+.botaoAnterior,
+.botaoProximo {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    background-color: rgba(0, 0, 0, 0.5);
+    color: white;
+    border: none;
+    padding: 10px 15px;
+    font-size: 24px;
+    cursor: pointer;
+    z-index: 10;
+    border-radius: 5px;
+}
+
+.botaoAnterior {
+    left: 10px;
+}
+
+.botaoProximo {
+    right: 10px;
+}
+
+.botaoAnterior:hover,
+.botaoProximo:hover {
+    background-color: rgba(0, 0, 0, 0.8)
+}
+
+.card {
+    padding: 1.5rem;
+    margin: 0;
+    border-radius: 5px;
+    width: 250px;
+    max-width: 90%;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+    background-color: #fff;
+    min-width: 250px; /* Largura mínima do card */
+    gap: 5px;
+}
+
+.card button{
+    background-color: #007bff;
+    color: white;
+    border: none;
+    padding: 10px;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 16px;
+    transition: background-color 0.3s;
+    margin-top: 10px;
+}
+
+.card button:hover{
+    background-color: #0056b3;
+}
+
+.cardImagem {
+    width: 100%;
+    height: 150px;
+    object-fit: cover;
+    border-radius: 5px;
+    margin-bottom: 1rem;
+}
+
+.cardTitulo {
+    font-size: 18px;
+    margin: 10px 0;
+    color: #333;
+    text-align: center;
+}
+
+.cardPreco {
+    text-align: center;
+    font-size: 16px;
+    color: #646464;
+    font-weight: bold;
+}

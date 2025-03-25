@@ -1,0 +1,86 @@
+/* src/components/Usuario/DashboardUsuario.module.css */
+
+.container {
+    display: flex;
+    min-height: 100vh;
+}
+
+.sidebar {
+    width: 250px;
+    background-color: #f0f0f0;
+    padding: 20px;
+    border-right: 1px solid #ddd;
+}
+
+.mainContent {
+    flex: 1; 
+    padding: 20px;
+}
+
+.welcomeMessage {
+    font-size: 1.5em;
+    color: #333;
+    margin-bottom: 20px;
+}
+
+.menuButton {
+    display: block;
+    width: 100%;
+    padding: 10px 15px;
+    margin-bottom: 5px;
+    background-color: #fff;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    text-align: left;
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+}
+
+.menuButton.active,
+.menuButton:hover {
+    background-color: #e0e0e0;
+    border-color: #ccc;
+}
+
+.logoutButton {
+    background-color: #f44336;
+    color: white;
+    padding: 10px 15px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 1em;
+    margin-top: 20px; 
+    transition: background-color 0.3s ease;
+    width: 100%; 
+}
+
+.logoutButton:hover {
+    background-color: #d32f2f;
+}
+
+.loading {
+    text-align: center;
+    font-size: 1.2em;
+    padding: 20px;
+}
+
+.errorTitle {
+    color: #d32f2f;
+    text-align: center;
+    font-size: 1.8em;
+    margin-bottom: 1em;
+}
+.errorMessage {
+    text-align: center;
+    color: #555;
+    font-size: 1.1em;
+    margin-bottom: 0.7em;
+}
+
+
+.data, .horario, .descricao, .adminInfo, .descricao, .status, .quantidadeTotal{
+    margin: 5px 0;
+    color: #555;
+    font-size: 1rem;
+}

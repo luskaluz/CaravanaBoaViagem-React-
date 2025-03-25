@@ -1,0 +1,44 @@
+/* src/components/Admin/DetalhesCaravana.module.css */
+
+.title {
+    font-size: 1.8em;
+    margin-bottom: 1em;
+    color: #333;
+    text-align: center;
+}
+
+.card {
+    border: none;
+    box-shadow: none;
+
+}
+
+.cardImage {
+    width: 100%;
+    height: auto;
+    max-height: 300px; 
+    object-fit: cover;
+    object-position: center;
+    border-radius: 8px;
+}
+
+
+.sectionTitle {
+    font-size: 1.4em;
+    margin-top: 1.5em;
+    margin-bottom: 0.5em;
+    color: #444;
+    border-bottom: 1.5px solid #ddd;
+    padding-bottom: 0.3em;
+}
+
+.info {
+    font-size: 1.1em;
+    color: #444;
+    margin-bottom: 0.6em;
+    line-height: 1.4;
+}
+
+.info strong {
+    color: #222;
+}

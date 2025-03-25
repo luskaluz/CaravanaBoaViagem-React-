@@ -1,0 +1,54 @@
+/* src/components/Admin/DetalhesCaravana.module.css */
+
+.container {
+    width: 80%; 
+    margin: 20px auto;
+    padding: 20px;
+    background-color: #f8f9fa;
+    border-radius: 8px;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+  }
+  
+  .title {
+    font-size: 1.75em; 
+    margin-bottom: 1rem;
+    color: #333;
+    text-align: center;
+  }
+  
+  .card {
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      overflow: hidden;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        background-color: #fff;
+  }
+  .cardImage{
+     width: 100%;
+      height: 200px;
+      object-fit: cover;
+      object-position: center;
+      display: block;
+  }
+  .info {
+    font-size: 1.1em;
+      line-height: 1.6;
+      margin-bottom: 0.75rem; 
+      color: #555;
+  }
+  
+  .info strong { 
+    font-weight: bold;
+      margin-right: 0.5em;
+  }
+  .cardContent{
+    padding: 1rem;
+  }
+  
+  .loading, .error {
+     text-align: center;
+      font-size: 1.2em;
+      margin-top: 20px;
+  }
+  
+  

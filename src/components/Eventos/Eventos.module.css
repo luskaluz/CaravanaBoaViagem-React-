@@ -1,0 +1,75 @@
+/*Evento.modulecss*/
+.eventos {
+    padding: 2rem;
+    text-align: center;
+     background-color: #f9f9f9;
+}
+
+.eventos h2 {
+    margin-bottom: 50px
+}
+
+.gridEventos {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 20px;
+    padding: 20px;
+    justify-content: center;
+}
+
+.eventoCard {
+    background-color: #fff;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    overflow: hidden;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    width: 250px;
+    display: flex;
+    flex-direction: column;
+    transition: transform 0.2s, box-shadow 0.2s;
+
+}
+
+.eventoCard:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+
+}
+.eventoCardImagem{
+    width: 100%; 
+    height: 150px; 
+    object-fit: cover; 
+    border-radius: 8px 8px 0 0;
+}
+.eventoCardConteudo{
+    padding: 15px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    flex-grow: 1;
+
+}
+.eventoCardNome{
+    margin: 0;
+    font-size: 18px;
+    color: #333;
+
+}
+.eventoCardBotao{
+    background-color: #007bff;
+    color: #fff;
+    border: none;
+    padding: 10px 20px;
+    border-radius: 5px;
+    cursor: pointer;
+    text-align: center;
+    transition: background-color 0.3s ease;
+
+}
+.eventoCardBotao:hover{
+     background-color: #0056b3;
+}
+
+
+
+

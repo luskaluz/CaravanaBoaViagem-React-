@@ -1,0 +1,51 @@
+/* src/components/Sobre/Sobre.module.css */
+
+.servicosSection {
+    padding: 2rem 10rem;
+}
+
+.servicosSection h1 {
+    margin-bottom: 1rem;
+}
+
+.servicos {
+    background: #fff;
+    padding: 20px;
+    margin: 20px 0;
+    border-radius: 10px;
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+    padding: 2rem;
+}
+
+.servicosTitle {
+    color: #004080;
+    margin-bottom: 10px;
+}
+
+.servicosList {
+    list-style-type: none;
+    padding-left: 20px;
+}
+
+.servicosItem {
+    padding: 10px 0;
+    font-size: 18px;
+}
+
+.servicosItem::before {
+    content: "✔";
+    color: #004080;
+    font-weight: bold;
+    margin-right: 10px;
+}
+
+ .sobreDesc {
+    max-width: 800px;
+    margin: 0 auto;
+    text-align: justify;
+    line-height: 2;
+    font-size: 1.1rem;
+    padding: 20px;
+ }
+
+

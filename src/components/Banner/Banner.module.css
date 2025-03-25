@@ -1,0 +1,20 @@
+/* src/components/css/Banner.module.css */
+.banner {
+  background: linear-gradient(rgba(0, 0, 0, 0.3), rgba(0, 0, 0, 0.3)), url('../../../public/images/foto.png') no-repeat center center;
+  background-size: cover;
+  color: white;
+  height: 600px;
+  text-align: center; 
+}
+
+.banner h1 {
+  padding-top: 270px;
+  font-family: "Noto Sans Warang Citi", sans-serif;
+  font-style: normal;
+  font-size: 40px;
+}
+
+.banner p {
+font-size: 18px; 
+margin-top: 10px; 
+}

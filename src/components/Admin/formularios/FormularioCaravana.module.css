@@ -1,0 +1,65 @@
+/*FormularioCaravana.module.css*/
+
+.precoPorPessoa { 
+    font-weight: bold;
+    color: #28a745;
+}
+
+.container{
+  padding: 1rem;
+  border: 1px solid #ccc;
+  border-radius: 0.5rem;
+}
+.form {
+    display: flex;
+    flex-direction: column;
+}
+
+.input,
+.select,
+.textarea {
+    margin-bottom: 0.75rem;
+    padding: 0.5rem;
+    border: 1px solid #ccc;
+    border-radius: 0.25rem;
+    font-size: 1rem;
+}
+
+.select {
+    cursor: pointer;
+}
+
+.textarea {
+    resize: vertical; 
+}
+
+.buttonGroup {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 1rem;
+}
+
+.saveButton,
+.cancelButton {
+    padding: 0.5rem 1rem;
+    border: none;
+    border-radius: 0.25rem;
+    cursor: pointer;
+    font-size: 1rem;
+}
+
+.saveButton {
+    background-color: #28a745;
+    color: white;
+}
+
+.cancelButton {
+    background-color: #dc3545;
+    color: white;
+}
+
+.error{
+  color:red;
+  margin-bottom: .75rem;
+}
+

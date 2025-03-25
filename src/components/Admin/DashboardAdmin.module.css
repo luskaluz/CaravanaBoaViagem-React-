@@ -1,0 +1,84 @@
+/* src/components/Admin/DashboardAdmin.module.css */
+
+.container {
+    display: flex; 
+    min-height: 100vh; 
+    font-family: sans-serif;
+}
+
+.sidebar {
+    width: 250px; 
+    background-color: #f0f0f0;
+    padding: 20px;
+    border-right: 1px solid #ddd;
+}
+.sidebar h2{
+    text-align: center;
+    margin-bottom: 1.5rem;
+}
+.mainContent {
+    flex: 1; 
+    padding: 20px;
+}
+
+.menuButton {
+    display: block;
+    width: 100%;
+    padding: 10px 15px;
+    margin-bottom: 5px;
+    background-color: #fff;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    text-align: left;
+    cursor: pointer;
+    font-size: 1rem;
+    transition: background-color 0.2s ease;
+}
+
+.menuButton.active,
+.menuButton:hover {
+    background-color: #007bff; 
+    color: white;
+    border-color: #007bff;
+}
+
+.logoutButton {
+    display: block;
+    width: 100%;
+    background-color: #dc3545;
+    color: white;
+    padding: 10px 15px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 1rem;
+    margin-top: 20px;
+    transition: background-color 0.2s ease;
+}
+
+.logoutButton:hover {
+    background-color: #c82333;
+}
+
+.addButton {
+    background-color: #28a745;
+    color: white;
+    padding: 10px 15px;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 1rem;
+    margin-bottom: 1rem;
+}
+
+.addButton:hover {
+    background-color: #218838;
+}
+.error {
+    color: red;
+    text-align: center;
+    margin-top: 20px;
+    font-size: 1.2em;
+}
+
+

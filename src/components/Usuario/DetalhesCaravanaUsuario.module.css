@@ -1,0 +1,44 @@
+.container {}
+
+.title {
+    font-size: 1.8em;
+    margin-bottom: 1em;
+    color: #333;
+    text-align: center;
+}
+
+.image {
+    width: 100%;
+    height: auto;
+    max-height: 300px;
+    object-fit: cover;
+    object-position: center;
+    margin-bottom: 15px;
+    border-radius: 8px;
+}
+
+.infoItem {
+    margin: 5px 0;
+    font-size: 1rem;
+    padding:2px;
+}
+
+@media (max-width: 768px) {
+    .image {
+        width: 100%;
+        height: auto;
+    }
+    .container {}
+}
+
+
+.infoItem {
+    font-size: 1.1em;
+    color: #444;
+    margin-bottom: 0.6em;
+    line-height: 1.4;
+}
+
+.infoItem strong {
+    color: #222;
+}

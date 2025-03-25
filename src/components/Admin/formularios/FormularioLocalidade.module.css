@@ -1,0 +1,145 @@
+/* src/components/Admin/FormularioLocalidade.module.css */
+
+.container {
+    background-color: #f8f9fa; 
+    border: 1px solid #dee2e6;
+    border-radius: 8px;
+    padding: 30px;
+    width: 90%;    
+    max-width: 800px; 
+    margin: 30px auto;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1); 
+}
+
+.title{
+    color: #0056b3;
+    text-align: center;
+    margin-bottom: 1.5rem;
+}
+
+.form {
+    display: flex;
+    flex-direction: column;
+}
+
+.formGroup {
+    margin-bottom: 20px; 
+}
+
+.label {
+    display: block; 
+    margin-bottom: 5px; 
+    font-weight: bold; 
+    color: #495057;   
+}
+
+.input, .textarea {
+    width: 100%;   
+    padding: 10px;  
+    border: 1px solid #ced4da; 
+    border-radius: 4px;
+    font-size: 16px;
+     box-sizing: border-box; 
+}
+.input:focus, .textarea:focus{
+    border-color: #80bdff;   
+    outline: 0;              
+   box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
+}
+
+.textarea {
+    resize: vertical;
+    min-height: 100px; 
+}
+
+.imagensContainer {
+    border: 1px dashed #ced4da;
+     padding: 15px;         
+    border-radius: 4px;     
+    margin-bottom: 20px;    
+}
+.imagensContainer:focus-within {
+    border-color: #80bdff;   
+    outline: none;             
+}
+
+.imagensLista {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    list-style: none;
+    padding: 0;
+    margin-top: 10px; 
+}
+
+.imagemItem {
+   display: flex;        
+   flex-direction: column;
+   align-items: center;   
+    margin-bottom: 10px;  
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    padding: 5px;
+}
+
+.miniatura {
+   width: 100px;
+    height: 100px;
+    object-fit: cover;
+   border-radius: 4px; 
+}
+
+.buttonGroup {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 20px;            
+
+}
+
+.saveButton, .cancelButton {
+    padding: 12px 20px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 16px;
+    transition: background-color 0.2s; 
+     width: 48%;      
+
+}
+
+.saveButton {
+    background-color: #28a745; 
+    color: white;
+}
+.saveButton:hover{
+  background-color: #218838;
+}
+
+.cancelButton {
+    background-color: #dc3545; 
+    color: white;
+}
+.cancelButton:hover{
+    background-color: #c82333;
+}
+
+ .removeImageButton{
+    background-color: #f44336;
+    color: white;
+    margin-top: 0.5rem;
+    font-size: 0.8rem;
+    padding: 4px;
+}
+.removeImageButton:hover{
+    opacity: 0.8;
+}
+
+.error {
+    color: #dc3545;   
+    margin-bottom: 10px; 
+    font-weight: bold; 
+}
+.inputFile{
+    margin-bottom: 8px;
+}
+
