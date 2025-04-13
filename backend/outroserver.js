@@ -224,7 +224,7 @@ app.post('/funcionarios', verificarAdmin, async (req, res) => {
               return res.status(400).json({ error: "Formato de email inválido." });
           }
 
-           const phoneRegex = /^(?:$$?\d{2}$$?\s?)?(?:9?\d{4}[-.\s]?\d{4})$/;
+           const phoneRegex = /^(?:(?:\+\d{2}\s?)?(?:9?\d{4})[-.\s]?\d{4})$/;;
 
           if (!phoneRegex.test(telefone)) {
               return res.status(400).json({ error: "Formato de telefone inválido. Use apenas números (10 ou 11 dígitos)." });
