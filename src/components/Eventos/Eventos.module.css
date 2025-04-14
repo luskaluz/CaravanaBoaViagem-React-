@@ -6,7 +6,8 @@
 }
 
 .eventos h2 {
-    margin-bottom: 50px
+    margin-bottom: 50px;
+    font-size: 2.5rem;
 }
 
 .gridEventos {

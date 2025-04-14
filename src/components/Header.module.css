@@ -4,12 +4,14 @@
     list-style: none;
     display: flex;
     justify-content: space-around;
+    align-items: center;
 }
 
 .menu li a {
     color: white;
     text-decoration: none;
     position: relative;
+    font-size: 1.25rem;
 }
 
 .menu li a::after {
@@ -30,5 +32,5 @@
 
 .navbar {
     background-color: #003662;
-    padding: 1rem;
+    padding: 0.5rem;
 }

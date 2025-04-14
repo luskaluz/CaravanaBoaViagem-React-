@@ -56,7 +56,7 @@ function Eventos() {
     return (
         <>
             <section className={styles.eventos}>
-                <h2>Confira!</h2>
+                <h2>CARAVANAS</h2>
                 <div className={styles.gridEventos}>
                     {caravanas.map((caravana) => (
                         <div key={caravana.id} className={styles.eventoCard}>
