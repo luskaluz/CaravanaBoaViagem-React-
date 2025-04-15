@@ -1,131 +1,118 @@
+// src/components/Popup/Popup.js
 import React, { useState, useEffect } from "react";
-import PropTypes from 'prop-types';
 import * as api from '../../services/api';
 import { auth } from "../../services/firebase";
 import styles from "./Popup.module.css";
-import translateStatus from "../translate/translate";
+import translateStatus from "../translate/translate"; 
 
-function PopupConfira({ caravana: initialCaravana, onClose, localidade, isLocalidade }) {
+function PopupConfira({ caravana: initialCaravana, onClose, onCompraSucesso, localidade, isLocalidade }) {
+
     const [imagens, setImagens] = useState([]);
     const [indiceImagem, setIndiceImagem] = useState(0);
+    const [caravanaLocal, setCaravanaLocal] = useState(initialCaravana); 
+    const [localidadeLocal, setLocalidadeLocal] = useState(localidade);
+
     const [quantidadeIngressos, setQuantidadeIngressos] = useState(1);
-    const [caravana, setCaravana] = useState(initialCaravana);
     const [error, setError] = useState(null);
-    const [loading, setLoading] = useState(false);
-
+    const [comprando, setComprando] = useState(false); 
     useEffect(() => {
-        if (!initialCaravana && !isLocalidade) {
-            onClose();
-            return;
+        if (isLocalidade && localidade) {
+            setLocalidadeLocal(localidade);
+            setImagens(localidade.imagens || []);
+            setIndiceImagem(0);
+        } else if (initialCaravana) {
+            setCaravanaLocal(initialCaravana);
+            const imagensParaNavegar = initialCaravana.imagensLocalidade && initialCaravana.imagensLocalidade.length > 0
+                ? initialCaravana.imagensLocalidade
+                : (initialCaravana.imagemCapaLocalidade ? [initialCaravana.imagemCapaLocalidade] : []);
+            setImagens(imagensParaNavegar);
+            setIndiceImagem(0);
         }
-
-        const loadCaravana = async () => {
-            try {
-                setLoading(true);
-                if (initialCaravana) {
-                    setImagens(initialCaravana.imagensLocalidade || []);
-                    setCaravana(initialCaravana);
-                }
-            } catch (error) {
-                setError(error.message);
-                console.error("Erro ao carregar caravana:", error);
-            } finally {
-                setLoading(false);
-            }
-        };
-
-        loadCaravana();
-    }, [initialCaravana, isLocalidade, onClose]);
-
+         setQuantidadeIngressos(1);
+         setError(null);
+    }, [initialCaravana, localidade, isLocalidade]);
     const handleNavegarImagem = (direcao) => {
-        if (imagens.length <= 1) return;
-
-        setIndiceImagem(prevIndice =>
-            direcao === "anterior"
-                ? (prevIndice - 1 + imagens.length) % imagens.length
-                : (prevIndice + 1) % imagens.length
-        );
-    };
-
-    const handleComprarIngresso = async () => {
-        if (!caravana || !caravana.id) {
-            setError("Dados da caravana incompletos");
-            return;
+        if (!imagens || imagens.length <= 1) return;
+        let novoIndice;
+        if (direcao === "anterior") {
+            novoIndice = indiceImagem - 1 < 0 ? imagens.length - 1 : indiceImagem - 1;
+        } else {
+            novoIndice = (indiceImagem + 1) % imagens.length;
         }
-
+        setIndiceImagem(novoIndice);
+    };
+    const handleComprarIngresso = async () => {
         const user = auth.currentUser;
         if (!user) {
             alert("Você precisa estar logado para comprar ingressos.");
             return;
         }
-
-        const vagasDisponiveis = caravana.vagasDisponiveis || 0;
-
-        if (quantidadeIngressos < 1 || quantidadeIngressos > vagasDisponiveis) {
-            alert(`Quantidade inválida. Digite um valor entre 1 e ${vagasDisponiveis}.`);
+        if (quantidadeIngressos < 1) {
+            alert("A quantidade de ingressos deve ser pelo menos 1.");
             return;
         }
+        if (!caravanaLocal || caravanaLocal.vagasDisponiveis < quantidadeIngressos) {
+             const vagasMsg = caravanaLocal ? caravanaLocal.vagasDisponiveis : 'N/A';
+            alert(`Não há ingressos suficientes. Disponíveis: ${vagasMsg}`);
+            return;
+        }
+         if (caravanaLocal.status === 'cancelada') {
+             alert("Não é possível comprar ingressos para uma caravana cancelada.");
+            return;
+         }
+
+
+        setComprando(true);
+        setError(null);
 
         try {
-            setLoading(true);
             await api.comprarIngresso(
-                caravana.id,
+                caravanaLocal.id,
                 user.uid,
                 user.email,
-                Math.min(quantidadeIngressos, vagasDisponiveis)
+                quantidadeIngressos
             );
-
-            const updatedCaravana = await api.getCaravana(caravana.id);
-            setCaravana(updatedCaravana);
+            const caravanaAtualizada = await api.getCaravana(caravanaLocal.id);
+            setCaravanaLocal(caravanaAtualizada);
             setQuantidadeIngressos(1);
+
+            if (onCompraSucesso) {
+                onCompraSucesso(caravanaAtualizada); 
+            } else {
+                 alert("Ingresso(s) comprado(s) com sucesso!");
+            }
+
         } catch (error) {
-            setError("Erro ao comprar ingresso: " + error.message);
+            console.error("Erro ao comprar ingresso (Popup):", error);
+            setError(error.message); 
+            alert("Erro ao comprar ingresso: " + error.message); 
         } finally {
-            setLoading(false);
+            setComprando(false); 
         }
     };
-
-    if (isLocalidade) {
-        const localidadeImagens = localidade?.imagens || [];
-        const imagemPrincipal = localidadeImagens[0] || "./images/imagem_padrao.jpg";
-
+    if (isLocalidade && localidadeLocal) {
+        const imagemPrincipalLocalidade = localidadeLocal.imagens?.[indiceImagem] || "./images/imagem_padrao.jpg";
         return (
             <div className={styles.popup}>
                 <div className={styles.popupContent}>
                     <div className={styles.popupImagens}>
                         <div className={styles.imagemContainer}>
                             <img
-                                src={imagemPrincipal}
-                                alt={localidade?.nome || "Localidade"}
+                                src={imagemPrincipalLocalidade}
+                                alt={localidadeLocal.nome}
                                 className={styles.popupImagemPrincipal}
-                                onError={(e) => {
-                                    e.target.src = "./images/imagem_padrao.jpg";
-                                }}
                             />
-                            {localidadeImagens.length > 1 && (
+                            {localidadeLocal.imagens && localidadeLocal.imagens.length > 1 && (
                                 <>
-                                    <button
-                                        className={`${styles.popupNavegacao} ${styles.anterior}`}
-                                        onClick={() => handleNavegarImagem("anterior")}
-                                        aria-label="Imagem anterior"
-                                    >
-                                        &#10094;
-                                    </button>
-                                    <button
-                                        className={`${styles.popupNavegacao} ${styles.proximo}`}
-                                        onClick={() => handleNavegarImagem("proximo")}
-                                        aria-label="Próxima imagem"
-                                    >
-                                        &#10095;
-                                    </button>
+                                    <button className={`${styles.popupNavegacao} ${styles.anterior}`} onClick={() => handleNavegarImagem("anterior")}>❮</button>
+                                    <button className={`${styles.popupNavegacao} ${styles.proximo}`} onClick={() => handleNavegarImagem("proximo")}>❯</button>
                                 </>
                             )}
                         </div>
                     </div>
                     <div className={styles.popupInfo}>
-                        <h2 className={styles.popupNome}>{localidade?.nome || "Localidade"}</h2>
-                        <p className={styles.popupDescricao}>{localidade?.descricao || "Descrição não disponível"}</p>
-                        {error && <p className={styles.error}>{error}</p>}
+                        <h2 className={styles.popupNome}>{localidadeLocal.nome}</h2>
+                        <p className={styles.popupDescricao}>{localidadeLocal.descricao || "Descrição não disponível."}</p>
                         <div className={styles.popupBotoes}>
                             <button onClick={onClose}>Fechar</button>
                         </div>
@@ -134,142 +121,75 @@ function PopupConfira({ caravana: initialCaravana, onClose, localidade, isLocali
             </div>
         );
     }
-
-    if (!caravana || loading) {
+    if (!isLocalidade && caravanaLocal) {
+        const imagemPrincipalCaravana = imagens[indiceImagem] || "./images/imagem_padrao.jpg";
         return (
             <div className={styles.popup}>
                 <div className={styles.popupContent}>
-                    <p>Carregando...</p>
+                    <div className={styles.popupImagens}>
+                        <div className={styles.imagemContainer}>
+                            <img
+                                src={imagemPrincipalCaravana}
+                                alt={caravanaLocal.nomeLocalidade}
+                                className={styles.popupImagemPrincipal}
+                            />
+                            {imagens.length > 1 && (
+                                <>
+                                    <button className={`${styles.popupNavegacao} ${styles.anterior}`} onClick={() => handleNavegarImagem("anterior")}>❮</button>
+                                    <button className={`${styles.popupNavegacao} ${styles.proximo}`} onClick={() => handleNavegarImagem("proximo")}>❯</button>
+                                </>
+                            )}
+                        </div>
+                    </div>
+                    <div className={styles.popupInfo}>
+                        <h2 className={styles.popupNome}>{caravanaLocal.nomeLocalidade || 'Destino Indefinido'}</h2>
+                        <p className={styles.popupDescricao}>{caravanaLocal.descricaoLocalidade || 'Descrição não disponível.'}</p>
+                        <p className={styles.info}><strong>Status:</strong> {translateStatus(caravanaLocal.status)}</p>
+                        <p><strong>Data:</strong> {caravanaLocal.data ? new Date(caravanaLocal.data).toLocaleDateString() : "N/A"}</p>
+                        <p><strong>Horário de Saída:</strong> {caravanaLocal.horarioSaida || "N/A"}</p>
+                        <p><strong>Vagas Totais:</strong> {caravanaLocal.vagasTotais || "N/A"}</p>
+                        <p><strong>Vagas Disponíveis:</strong>{" "}
+                            <span className={caravanaLocal.vagasDisponiveis === 0 ? styles.semVagas : ""}>
+                                {caravanaLocal.vagasDisponiveis === 0 ? "Esgotado" : caravanaLocal.vagasDisponiveis}
+                            </span>
+                        </p>
+                        {error && <p className={styles.errorPopup}>{error}</p>}
+                        {caravanaLocal.vagasDisponiveis > 0 && caravanaLocal.status !== 'cancelada' && (
+                            <div className={styles.comprarIngressos}>
+                                <label htmlFor={`quantidade-ingressos-${caravanaLocal.id}`}>Comprar ingressos:</label>
+                                <input
+                                    type="number"
+                                    id={`quantidade-ingressos-${caravanaLocal.id}`} 
+                                    placeholder="Quantidade"
+                                    min="1"
+                                    max={caravanaLocal.vagasDisponiveis} 
+                                    value={quantidadeIngressos}
+                                    onChange={(e) => {
+                                        let qtd = parseInt(e.target.value, 10) || 1;
+                                        if (qtd < 1) qtd = 1;
+                                        if (caravanaLocal && qtd > caravanaLocal.vagasDisponiveis) {
+                                             qtd = caravanaLocal.vagasDisponiveis;
+                                        }
+                                        setQuantidadeIngressos(qtd);
+                                    }}
+                                    disabled={comprando}
+                                />
+                            </div>
+                        )}
+                        <div className={styles.popupBotoes}>
+                            {caravanaLocal.vagasDisponiveis > 0 && caravanaLocal.status !== 'cancelada' && (
+                                <button onClick={handleComprarIngresso} className={styles.botaoComprar} disabled={comprando}>
+                                    {comprando ? "Comprando..." : "Comprar"}
+                                </button>
+                            )}
+                            <button onClick={onClose} disabled={comprando}>Fechar</button>
+                        </div>
+                    </div>
                 </div>
             </div>
         );
     }
-
-    const imagemPrincipal = imagens[indiceImagem] || "./images/imagem_padrao.jpg";
-    const vagasDisponiveis = caravana.vagasDisponiveis || 0;
-
-    return (
-        <div className={styles.popup}>
-            <div className={styles.popupContent}>
-                <div className={styles.popupImagens}>
-                    <div className={styles.imagemContainer}>
-                        <img
-                            src={imagemPrincipal}
-                            alt={caravana.nomeLocalidade || "Caravana"}
-                            className={styles.popupImagemPrincipal}
-                            onError={(e) => {
-                                e.target.src = "./images/imagem_padrao.jpg";
-                            }}
-                        />
-                        {imagens.length > 1 && (
-                            <>
-                                <button
-                                    className={`${styles.popupNavegacao} ${styles.anterior}`}
-                                    onClick={() => handleNavegarImagem("anterior")}
-                                    aria-label="Imagem anterior"
-                                >
-                                    &#10094;
-                                </button>
-                                <button
-                                    className={`${styles.popupNavegacao} ${styles.proximo}`}
-                                    onClick={() => handleNavegarImagem("proximo")}
-                                    aria-label="Próxima imagem"
-                                >
-                                    &#10095;
-                                </button>
-                            </>
-                        )}
-                    </div>
-                </div>
-                <div className={styles.popupInfo}>
-                    <h2 className={styles.popupNome}>{caravana.nomeLocalidade || "Caravana"}</h2>
-                    <p className={styles.popupDescricao}>{caravana.descricaoLocalidade || "Descrição não disponível"}</p>
-
-                    <div className={styles.infoGroup}>
-                        <p className={styles.info}>
-                            <strong>Status:</strong> {translateStatus(caravana.status)}
-                        </p>
-                        <p className={styles.info}>
-                            <strong>Data:</strong> {caravana.data ? new Date(caravana.data).toLocaleDateString() : "N/A"}
-                        </p>
-                        <p className={styles.info}>
-                            <strong>Horário de Saída:</strong> {caravana.horarioSaida || "N/A"}
-                        </p>
-                        <p className={styles.info}>
-                            <strong>Vagas Totais:</strong> {caravana.vagasTotais || "N/A"}
-                        </p>
-                        <p className={styles.info}>
-                            <strong>Vagas Disponíveis:</strong>{" "}
-                            <span className={vagasDisponiveis === 0 ? styles.semVagas : styles.comVagas}>
-                                {vagasDisponiveis === 0 ? "Esgotado" : vagasDisponiveis}
-                            </span>
-                        </p>
-                    </div>
-
-                    {vagasDisponiveis > 0 && (
-                        <div className={styles.comprarIngressos}>
-                            <label htmlFor="quantidade-ingressos">Comprar ingressos:</label>
-                            <input
-                                type="number"
-                                id="quantidade-ingressos"
-                                placeholder="Quantidade"
-                                min="1"
-                                max={vagasDisponiveis}
-                                value={quantidadeIngressos}
-                                onChange={(e) => {
-                                    const value = parseInt(e.target.value, 10) || 1;
-                                    setQuantidadeIngressos(Math.min(Math.max(value, 1), vagasDisponiveis));
-                                }}
-                                disabled={loading}
-                            />
-                        </div>
-                    )}
-
-                    <div className={styles.popupBotoes}>
-                        {vagasDisponiveis > 0 && (
-                            <button
-                                onClick={handleComprarIngresso}
-                                className={styles.botaoComprar}
-                                disabled={loading}
-                            >
-                                {loading ? "Processando..." : "Comprar"}
-                            </button>
-                        )}
-                        <button onClick={onClose} disabled={loading}>
-                            Fechar
-                        </button>
-                    </div>
-
-                    {error && <p className={styles.error}>{error}</p>}
-                </div>
-            </div>
-        </div>
-    );
+    return null;
 }
-
-PopupConfira.propTypes = {
-    caravana: PropTypes.shape({
-        id: PropTypes.string,
-        nomeLocalidade: PropTypes.string,
-        descricaoLocalidade: PropTypes.string,
-        imagensLocalidade: PropTypes.arrayOf(PropTypes.string),
-        status: PropTypes.string,
-        data: PropTypes.oneOfType([PropTypes.string, PropTypes.instanceOf(Date)]),
-        horarioSaida: PropTypes.string,
-        vagasTotais: PropTypes.number,
-        vagasDisponiveis: PropTypes.number
-    }),
-    onClose: PropTypes.func.isRequired,
-    localidade: PropTypes.shape({
-        nome: PropTypes.string,
-        descricao: PropTypes.string,
-        imagens: PropTypes.arrayOf(PropTypes.string)
-    }),
-    isLocalidade: PropTypes.bool
-};
-
-PopupConfira.defaultProps = {
-    isLocalidade: false
-};
 
 export default PopupConfira;

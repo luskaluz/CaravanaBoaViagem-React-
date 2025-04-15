@@ -34,9 +34,6 @@ function App() {
     }, []);
 
 
-    if (loading) {
-        return <div>Carregando...</div>;
-    }
 
     if (authError) {
         return <div>Erro de autenticação: {authError.message}</div>;

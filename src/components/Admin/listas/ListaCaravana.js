@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import * as api from '../../../services/api';
 import styles from './ListaCaravana.module.css';
 import ModalDetalhesCaravana from '../modal/ModalDetalhesCaravana';
-import Participantes from '../modal/Participantes'; //  OK
+import Participantes from '../modal/Participantes';
 import { useNavigate } from 'react-router-dom';
 import FormularioCaravana from '../formularios/FormularioCaravana';
 import CaravanaCard from '../../CaravanaCard/CaravanaCard';
@@ -15,11 +15,10 @@ function ListaCaravanasAdmin({ caravanas: propCaravanas, onCaravanaClick }) {
     const [sortBy, setSortBy] = useState('data');
     const [showSubmenu, setShowSubmenu] = useState(false);
     const [modalDetalhes, setModalDetalhes] = useState(null);
-    const [modalParticipantes, setModalParticipantes] = useState(null); // Estado para o ID da caravana
+    const [modalParticipantes, setModalParticipantes] = useState(null);
     const navigate = useNavigate();
     const [showModalEditar, setShowModalEditar] = useState(false);
     const [caravanaParaEditar, setCaravanaParaEditar] = useState(null);
-
 
     const sortByData = (a, b) => {
         const now = new Date();
@@ -27,8 +26,8 @@ function ListaCaravanasAdmin({ caravanas: propCaravanas, onCaravanaClick }) {
 
         const dateA = new Date(a.data);
         const dateB = new Date(b.data);
-        dateA.setHours(0, 0, 0, 0)
-        dateB.setHours(0, 0, 0, 0)
+        dateA.setHours(0, 0, 0, 0);
+        dateB.setHours(0, 0, 0, 0);
 
         const isPastA = dateA < now;
         const isPastB = dateB < now;
@@ -42,11 +41,11 @@ function ListaCaravanasAdmin({ caravanas: propCaravanas, onCaravanaClick }) {
         }
 
         if (!isPastA && !isPastB) {
-            return dateA - dateB
+            return dateA - dateB;
         }
 
         if (isPastA && isPastB) {
-            return dateB - dateA
+            return dateB - dateA;
         }
 
         return isPastA ? 1 : -1;
@@ -98,10 +97,9 @@ function ListaCaravanasAdmin({ caravanas: propCaravanas, onCaravanaClick }) {
                 }
 
                 setCaravanas(filteredData);
-
             } catch (error) {
                 setError(error.message);
-                console.error("Erro ao buscar Caravanas", error)
+                console.error("Erro ao buscar Caravanas", error);
             }
         };
 
@@ -115,18 +113,20 @@ function ListaCaravanasAdmin({ caravanas: propCaravanas, onCaravanaClick }) {
     const handleSortChange = (newSortBy) => {
         setSortBy(newSortBy);
     };
+
     const toggleSubmenu = () => {
         setShowSubmenu(!showSubmenu);
     };
+
     const handleCancelar = async (id) => {
         try {
             await api.cancelCaravan(id);
-            setCaravanas(prevCaravanas => prevCaravanas.map(c => {
-                if (c.id === id) {
-                    return { ...c, status: 'cancelada' };
-                }
-                return c;
-            }));
+            setCaravanas(prevCaravanas => {
+                const updated = prevCaravanas.map(c => 
+                    c.id === id ? { ...c, status: 'cancelada' } : c
+                );
+                return sortCaravanas(updated);
+            });
             alert('Caravana cancelada com sucesso!');
         } catch (error) {
             console.error("Erro ao cancelar Caravana (Front):", error);
@@ -136,10 +136,12 @@ function ListaCaravanasAdmin({ caravanas: propCaravanas, onCaravanaClick }) {
     };
 
     const handleDeletar = async (id) => {
-
         try {
             await api.deleteCaravana(id);
-            setCaravanas(prevCaravanas => prevCaravanas.filter(caravana => caravana.id !== id));
+            setCaravanas(prevCaravanas => {
+                const updated = prevCaravanas.filter(c => c.id !== id);
+                return sortCaravanas(updated);
+            });
             alert('Caravana excluída com sucesso!');
         } catch (error) {
             setError(error.message);
@@ -148,42 +150,32 @@ function ListaCaravanasAdmin({ caravanas: propCaravanas, onCaravanaClick }) {
         }
     };
 
+    const sortCaravanas = (caravanasToSort) => {
+        const sorted = [...caravanasToSort];
+        if (sortBy === 'data') {
+            sorted.sort(sortByData);
+        } else if (sortBy === 'ocupacao') {
+            sorted.sort(sortByOcupacao);
+        } else if (sortBy === 'lucroAtual') {
+            sorted.sort(sortByLucroAtual);
+        }
+        return sorted;
+    };
+
     const handleEdit = (caravana) => {
         setCaravanaParaEditar(caravana);
         setShowModalEditar(true);
     };
 
-    const closeModalEditar = () => {
+    const handleCaravanaSalva = (updatedCaravana) => {
+        setCaravanas(prevCaravanas => {
+            const updated = prevCaravanas.map(c => 
+                c.id === updatedCaravana.id ? updatedCaravana : c
+            );
+            return sortCaravanas(updated);
+        });
         setShowModalEditar(false);
         setCaravanaParaEditar(null);
-
-
-        if (typeof loadCaravanas === 'function') {
-            loadCaravanas();
-        }
-    };
-
-    const handleCaravanaSalva = () => {
-        setShowModalEditar(false);
-        setCaravanaParaEditar(null);
-        loadCaravanas(); // ISSO ESTAVA FALTANDO
-    };
-
-
-    const loadCaravanas = async () => {
-        setError(null);
-        try {
-            let data;
-            if (status) {
-                data = await api.getCaravanasPorStatus(status);
-            } else {
-                data = await api.getCaravanas(sortBy);
-            }
-            setCaravanas(data);
-        } catch (error) {
-            setError(error.message);
-            console.error("Erro ao buscar caravanas:", error);
-        }
     };
 
     const openModalDetalhes = (caravana) => {
@@ -194,7 +186,6 @@ function ListaCaravanasAdmin({ caravanas: propCaravanas, onCaravanaClick }) {
         setModalDetalhes(null);
     };
 
-    // Mudanças aqui: Abre o modal *apenas* com o ID da caravana
     const openModalParticipantes = (caravanaId) => {
         setModalParticipantes(caravanaId);
     };
@@ -215,7 +206,6 @@ function ListaCaravanasAdmin({ caravanas: propCaravanas, onCaravanaClick }) {
                 return 'Status Desconhecido';
         }
     };
-
 
     if (error) {
         return <div>Erro: {error}</div>;
@@ -304,13 +294,12 @@ function ListaCaravanasAdmin({ caravanas: propCaravanas, onCaravanaClick }) {
                             </button>
                             <button
                                 className={styles.participantsButton}
-                                onClick={() => openModalParticipantes(caravana.id)} // Passa só o ID
+                                onClick={() => openModalParticipantes(caravana.id)}
                             >
                                 Participantes
                             </button>
                         </div>
                         <div className={styles.divBotaoExcluir}>
-
                             {caravana.status !== 'cancelada' && (
                                 <button
                                     className={styles.cancelButton}
@@ -319,35 +308,46 @@ function ListaCaravanasAdmin({ caravanas: propCaravanas, onCaravanaClick }) {
                                     Cancelar
                                 </button>
                             )}
-                            <button className={styles.deleteButton} onClick={() => handleDeletar(caravana.id)}>Excluir</button>
-
+                            <button 
+                                className={styles.deleteButton} 
+                                onClick={() => handleDeletar(caravana.id)}
+                            >
+                                Excluir
+                            </button>
                         </div>
                     </CaravanaCard>
                 ))}
             </div>
 
             {showModalEditar && (
-                <div className={styles.modalOverlay} onClick={closeModalEditar}>
+                <div className={styles.modalOverlay} onClick={() => setShowModalEditar(false)}>
                     <div className={styles.modal} onClick={(e) => e.stopPropagation()}>
-                        <button className={styles.closeButton} onClick={closeModalEditar}>&times;</button>
+                        <button className={styles.closeButton} onClick={() => setShowModalEditar(false)}>
+                            &times;
+                        </button>
                         <FormularioCaravana
                             caravana={caravanaParaEditar}
                             onSalvar={handleCaravanaSalva}
-                            onCancelar={closeModalEditar}
+                            onCancelar={() => setShowModalEditar(false)}
                         />
                     </div>
                 </div>
             )}
 
             {modalDetalhes && (
-                <ModalDetalhesCaravana caravana={modalDetalhes} onClose={closeModalDetalhes} />
+                <ModalDetalhesCaravana 
+                    caravana={modalDetalhes} 
+                    onClose={closeModalDetalhes} 
+                />
             )}
-
 
             {modalParticipantes && (
                 <div className={styles.modalOverlay}>
                     <div className={styles.modal}>
-                        <button className={styles.modalClose} onClick={closeModalParticipantes}>
+                        <button 
+                            className={styles.modalClose} 
+                            onClick={closeModalParticipantes}
+                        >
                             &times;
                         </button>
                         <Participantes caravanaId={modalParticipantes} />

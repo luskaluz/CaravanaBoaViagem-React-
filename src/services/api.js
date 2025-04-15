@@ -2,7 +2,7 @@
 import axios from 'axios';
 import {auth} from './firebase'
 
-const API_URL = 'https://caravanaboaviagem-react.onrender.com';
+const API_URL = 'http://localhost:5000';
 
 const apiRequest = async (method, url, data = null, params = null) => {
     try {

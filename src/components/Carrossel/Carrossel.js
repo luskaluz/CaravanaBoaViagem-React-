@@ -74,7 +74,7 @@ function Carrossel() {
     return (
         <>
             <section className={styles.destinos}>
-                <h2>Localidades Disponíveis</h2>
+                <h2>LOCALIDADES</h2>
                 <div className={styles.carrosselContainer}>
                     <button onClick={localidadeAnterior} className={styles.botaoAnterior}>&lt;</button>
                     <div className={styles.slidesContainer} ref={slidesRef}>

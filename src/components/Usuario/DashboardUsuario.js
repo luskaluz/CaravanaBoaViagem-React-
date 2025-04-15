@@ -69,10 +69,6 @@ useEffect(() => {
         return caravanas.filter(caravana => caravana.status === status);
     }
 
-    if (loading) {
-        return <div>Carregando dados do usuário...</div>;
-    }
-
     if (error) {
         return (
             <div>
