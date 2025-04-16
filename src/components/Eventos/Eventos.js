@@ -86,7 +86,7 @@ function Eventos() {
                 theme="light" 
             />
             <section className={styles.eventos}>
-                <h2>Confira!</h2>
+                <h2>CARAVANAS</h2>
                 {caravanas.length === 0 && !loading && !error ? (
                     <p className={styles.nenhumaCaravana}>Nenhuma caravana disponível no momento.</p>
                  ) : (
