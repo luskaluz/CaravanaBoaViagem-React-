@@ -3,8 +3,8 @@ import React, { useState, useEffect, useCallback } from 'react';
 import * as api from '../../services/api';
 import PopupConfira from '../Popup/Popup';
 import styles from './Roteiros.module.css';
-import { ToastContainer, toast } from 'react-toastify'; 
-import 'react-toastify/dist/ReactToastify.css';      
+import { ToastContainer, toast } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
 
 function Roteiros() {
     const [caravanas, setCaravanas] = useState([]);
@@ -23,11 +23,11 @@ function Roteiros() {
         setIsPopupOpen(false);
     };
 
-    const buscarCaravanas = useCallback(async () => { 
+    const buscarCaravanas = useCallback(async () => {
         setLoading(true);
         setError(null);
         try {
-            let caravanasData = await api.getCaravanas(); 
+            let caravanasData = await api.getCaravanas();
             caravanasData = caravanasData.filter(caravana =>
                 caravana.vagasDisponiveis > 0 &&
                 new Date(caravana.data) > new Date() &&
@@ -43,11 +43,11 @@ function Roteiros() {
         } catch (error) {
             setError(error);
             console.error("Erro ao buscar caravanas:", error);
-            toast.error("Erro ao carregar roteiros."); 
+            toast.error("Erro ao carregar roteiros.");
         } finally {
             setLoading(false);
         }
-    }, []); 
+    }, []);
 
     useEffect(() => {
         buscarCaravanas();
@@ -59,7 +59,7 @@ function Roteiros() {
             )
         );
         toast.success("Ingresso(s) comprado(s) com sucesso!");
-    }, []); 
+    }, []);
 
     if (error && caravanas.length === 0) return <div className={styles.error}>Erro ao carregar roteiros. Tente novamente.</div>;
 
@@ -79,19 +79,23 @@ function Roteiros() {
             />
             <h1>Roteiros</h1>
             {caravanas.length === 0 && !loading && !error ? (
-                 <p className={styles.nenhumaCaravana}>Nenhuma caravana encontrada para os próximos roteiros.</p>
-             ) : (
+                <p className={styles.nenhumaCaravana}>Nenhuma caravana encontrada para os próximos roteiros.</p>
+            ) : (
                 <div className={styles.gridCaravanas}>
                     {caravanas.map((caravana) => (
                         <div key={caravana.id} className={styles.roteiroCard}>
                             <img
                                 src={caravana.imagemCapaLocalidade || caravana.imagensLocalidade?.[0] || '/caminho/para/imagem_padrao.jpg'}
-                                alt={caravana.nomeLocalidade || 'Caravana'} 
+                                alt={caravana.nomeLocalidade || 'Caravana'}
                             />
                             <h4 className={styles.titulo}>{caravana.nomeLocalidade || 'Destino Indefinido'}</h4>
                             <p className={styles.data}>Data: {caravana.data ? new Date(caravana.data).toLocaleDateString() : 'N/A'}</p>
                             <p className={styles.vagas}>Vagas: {caravana.vagasDisponiveis === 0 ? 'Esgotado' : caravana.vagasDisponiveis}</p>
-                            <button  className={styles.botao} onClick={() => openPopup(caravana)}>Ver Detalhes</button>
+                            <div className={styles.botaoContainer}>
+                                <button className={styles.botao} onClick={() => openPopup(caravana)}>
+                                    Ver Detalhes
+                                </button>
+                            </div>
                         </div>
                     ))}
                 </div>

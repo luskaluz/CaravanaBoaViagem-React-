@@ -1,58 +1,87 @@
-/* Mesmo que antes */
-
+/* src/pages/Roteiros.module.css */
 .container {
     padding: 20px;
+    max-width: 1200px;
+    margin: 0 auto;
 }
 
-.container h1{
+.container h1 {
     margin-bottom: 20px;
+    text-align: center;
 }
 
 .gridCaravanas {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
-    gap: 20px;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 25px;
 }
+
 .roteiroCard {
     border: 1px solid #ddd;
     border-radius: 8px;
     padding: 16px;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-    text-align: center;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    display: flex;
+    flex-direction: column;
+    height: 100%;
 }
 
 .roteiroCard img {
     width: 100%;
-    height: auto;
+    height: 180px; /* Altura fixa para imagens */
+    object-fit: cover; /* Garante que a imagem cubra o espaço */
     border-radius: 6px;
-    margin-bottom: 8px;
+    margin-bottom: 12px;
 }
 
-.roteiroCard h4 {
-    margin: 0;
+.titulo {
+    margin: 0 0 8px 0;
     font-size: 1.2rem;
     color: #333;
+    min-height: 40px; /* Altura fixa para título */
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
 
-.roteiroCard p {
-    margin: 8px 0;
-    font-size: 0.9rem;
+.data, .vagas {
+    margin: 6px 0;
+    font-size: 0.95rem;
     color: #555;
+    flex-grow: 0;
 }
 
-.roteiroCard button {
-   background-color: #007bff;
+.botaoContainer {
+    margin-top: auto; /* Empurra o botão para baixo */
+    padding-top: 12px;
+}
+
+.botao {
+    background-color: #007bff;
     color: #fff;
     border: none;
     border-radius: 4px;
-    padding: 12px 60px;
-    margin: 8px;
+    padding: 10px 0;
+    width: 100%;
     cursor: pointer;
     transition: background-color 0.2s;
+    font-size: 0.95rem;
+}
+
+.botao:hover {
+    background-color: #0056b3;
+}
+
+.nenhumaCaravana {
     text-align: center;
-}
-.roteiroCard button:hover{
-   background-color: #0056b3;
+    color: #666;
+    font-size: 1.1rem;
+    margin-top: 30px;
 }
 
-
+.error {
+    text-align: center;
+    color: #dc3545;
+    font-size: 1.1rem;
+    margin-top: 30px;
+}

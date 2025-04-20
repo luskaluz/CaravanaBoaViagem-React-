@@ -6,49 +6,59 @@
 .list {
     list-style: none;
     padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
 }
 
 .listItem {
-  display: flex; 
-  justify-content: space-between;
-  align-items: flex-start; 
-  padding: 10px;
-  border-bottom: 1px solid #eee;
+    background-color: white;
+    padding: 15px;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    display: grid;
+    grid-template-columns: 120px 1fr auto;
+    gap: 15px;
+    align-items: center;
+}
+
+.imagemContainer {
+    width: 100%;
+    height: 100px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    border-radius: 4px;
+}
+
+.miniatura {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
 }
 
 .localidadeInfo {
-   display: flex;
-   flex-direction: column;
-   align-items: flex-start; 
-   flex-grow: 1; 
-    margin-right: 1rem;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    padding: 0 10px;
 }
+
 .localidadeInfo p {
-    margin: 0.2rem 0; 
+    margin: 0.2rem 0;
 }
+
 .label {
     font-weight: bold;
     margin-right: 0.5rem;
 }
 
-.imagensContainer {
-    display: flex;
-    flex-wrap: wrap; 
-    gap: 5px;
-    margin-top: 0.5rem; 
-}
-
-.miniatura {
-    width: 100px; 
-    height: 100px; 
-    object-fit: cover;  
-    border: 1px solid #ddd; 
-    border-radius: 4px; 
-}
 .buttonGroup {
-   display: flex;
-   gap: 10px;
-
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    align-self: center;
 }
 
 .editButton, .deleteButton, .detailsButton {
@@ -57,14 +67,12 @@
     border-radius: 4px;
     cursor: pointer;
     font-size: 14px;
-    width: 90px;
-    height: 50px;
+    width: 110px;
     text-align: center;
-    justify-content: center;
 }
 
 .editButton {
-    background-color: #007bff; 
+    background-color: #007bff;
     color: white;
 }
 
@@ -72,23 +80,24 @@
     background-color: #dc3545;
     color: white;
 }
-.detailsButton{
-    background-color: #17a2b8; 
+
+.detailsButton {
+    background-color: #17a2b8;
     color: white;
 }
+
 .editButton:hover, .deleteButton:hover, .detailsButton:hover {
-   opacity: 0.8;
+    opacity: 0.8;
 }
 
-
-
+/* Restante do CSS permanece igual */
 .modalOverlay {
     position: fixed;
     top: 0;
     left: 0;
     width: 100%;
     height: 100%;
-    background-color: rgba(0, 0, 0, 0.5); 
+    background-color: rgba(0, 0, 0, 0.5);
     display: flex;
     justify-content: center;
     align-items: center;
@@ -100,10 +109,10 @@
     padding: 20px;
     border-radius: 8px;
     box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
-    max-width: 80%; 
+    max-width: 80%;
     max-height: 80vh;
     overflow-y: auto;
-    position: relative; 
+    position: relative;
     width: 80%;
 }
 
@@ -119,7 +128,7 @@
 
 .addButton {
     background-color: #28a745;
-    margin-top:15px;
+    margin-top: 15px;
     color: white;
     padding: 10px 15px;
     border: none;
@@ -132,6 +141,7 @@
 .addButton:hover {
     background-color: #218838;
 }
+
 .error {
     color: red;
     text-align: center;

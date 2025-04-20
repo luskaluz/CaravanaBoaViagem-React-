@@ -89,28 +89,37 @@ function ListaLocalidades({ openModalCriarLocalidade }) { // Recebe a prop
             ) : (
                 <ul className={styles.list}>
                     {localidades.map((localidade) => (
-                        <li key={localidade.id} className={styles.listItem}>
-                            <div className={styles.localidadeInfo}>
-                                <p><span className={styles.label}>Nome:</span> {localidade.nome}</p>
-                                {localidade.descricao && (
-                                    <p><span className={styles.label}>Descrição:</span> {localidade.descricao}</p>
-                                )}
-                                {localidade.imagens && localidade.imagens.length > 0 && (
-                                    <img
-                                        src={localidade.imagens[0]}
-                                        alt={`Imagem de ${localidade.nome}`}
-                                        className={styles.miniatura}
-                                    />
-                                )}
-                            </div>
-                            <div className={styles.buttonGroup}>
-                                 <button className={styles.editButton} onClick={() => handleEditar(localidade)}>Editar</button>
-                                <button className={styles.deleteButton} onClick={() => handleDeletar(localidade.id)}>Excluir</button>
-                                <button className={styles.detailsButton} onClick={() => handleCriarCaravana(localidade)}>
-                                     Criar Caravana
-                                </button>
-                            </div>
-                        </li>
+                       <li key={localidade.id} className={styles.listItem}>
+                       {/* Coluna da Imagem */}
+                       <div className={styles.imagemContainer}>
+                           {localidade.imagens && localidade.imagens.length > 0 ? (
+                               <img
+                                   src={localidade.imagens[0]}
+                                   alt={`Imagem de ${localidade.nome}`}
+                                   className={styles.miniatura}
+                               />
+                           ) : (
+                               <div className={styles.miniatura} style={{backgroundColor: '#f0f0f0'}}></div>
+                           )}
+                       </div>
+                       
+                       {/* Coluna das Informações */}
+                       <div className={styles.localidadeInfo}>
+                           <p><span className={styles.label}>Nome:</span> {localidade.nome}</p><br />
+                           {localidade.descricao && (
+                               <p><span className={styles.label}>Descrição:</span><br/><br/> {localidade.descricao}</p>
+                           )}
+                       </div>
+                       
+                       {/* Coluna dos Botões */}
+                       <div className={styles.buttonGroup}>
+                           <button className={styles.editButton} onClick={() => handleEditar(localidade)}>Editar</button>
+                           <button className={styles.deleteButton} onClick={() => handleDeletar(localidade.id)}>Excluir</button>
+                           <button className={styles.detailsButton} onClick={() => handleCriarCaravana(localidade)}>
+                               Criar Caravana
+                           </button>
+                       </div>
+                   </li>
                     ))}
                 </ul>
             )}
