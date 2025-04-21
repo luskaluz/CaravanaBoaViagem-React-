@@ -8,7 +8,8 @@ import 'react-toastify/dist/ReactToastify.css';
 
 function Roteiros() {
     const [caravanas, setCaravanas] = useState([]);
-    const [loading, setLoading] = useState(true)
+    const [caravanasPorMes, setCaravanasPorMes] = useState({});
+    const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const [popupCaravana, setPopupCaravana] = useState(null);
     const [isPopupOpen, setIsPopupOpen] = useState(false);
@@ -23,6 +24,22 @@ function Roteiros() {
         setIsPopupOpen(false);
     };
 
+    const formatarMesAno = (data) => {
+        const options = { month: 'long', year: 'numeric' };
+        return new Date(data).toLocaleDateString('pt-BR', options);
+    };
+
+    const agruparPorMesAno = (caravanas) => {
+        return caravanas.reduce((acc, caravana) => {
+            const mesAno = formatarMesAno(caravana.data);
+            if (!acc[mesAno]) {
+                acc[mesAno] = [];
+            }
+            acc[mesAno].push(caravana);
+            return acc;
+        }, {});
+    };
+
     const buscarCaravanas = useCallback(async () => {
         setLoading(true);
         setError(null);
@@ -33,13 +50,16 @@ function Roteiros() {
                 new Date(caravana.data) > new Date() &&
                 (caravana.status === 'confirmada' || caravana.status === 'nao_confirmada')
             );
+            
             const confirmadas = caravanasData.filter(c => c.status === 'confirmada');
             const naoConfirmadas = caravanasData.filter(c => c.status === 'nao_confirmada');
             confirmadas.sort((a, b) => new Date(a.data) - new Date(b.data));
             naoConfirmadas.sort((a, b) => new Date(a.data) - new Date(b.data));
-            setCaravanas([...confirmadas, ...naoConfirmadas]);
-            // ----------------------------------------
-
+            
+            const caravanasOrdenadas = [...confirmadas, ...naoConfirmadas];
+            setCaravanas(caravanasOrdenadas);
+            setCaravanasPorMes(agruparPorMesAno(caravanasOrdenadas));
+            
         } catch (error) {
             setError(error);
             console.error("Erro ao buscar caravanas:", error);
@@ -52,6 +72,7 @@ function Roteiros() {
     useEffect(() => {
         buscarCaravanas();
     }, [buscarCaravanas]);
+
     const handleCaravanaUpdate = useCallback((caravanaAtualizada) => {
         setCaravanas(prevCaravanas =>
             prevCaravanas.map(c =>
@@ -78,28 +99,35 @@ function Roteiros() {
                 theme="light"
             />
             <h1>Roteiros</h1>
-            {caravanas.length === 0 && !loading && !error ? (
+            
+            {Object.keys(caravanasPorMes).length === 0 && !loading && !error ? (
                 <p className={styles.nenhumaCaravana}>Nenhuma caravana encontrada para os próximos roteiros.</p>
             ) : (
-                <div className={styles.gridCaravanas}>
-                    {caravanas.map((caravana) => (
-                        <div key={caravana.id} className={styles.roteiroCard}>
-                            <img
-                                src={caravana.imagemCapaLocalidade || caravana.imagensLocalidade?.[0] || '/caminho/para/imagem_padrao.jpg'}
-                                alt={caravana.nomeLocalidade || 'Caravana'}
-                            />
-                            <h4 className={styles.titulo}>{caravana.nomeLocalidade || 'Destino Indefinido'}</h4>
-                            <p className={styles.data}>Data: {caravana.data ? new Date(caravana.data).toLocaleDateString() : 'N/A'}</p>
-                            <p className={styles.vagas}>Vagas: {caravana.vagasDisponiveis === 0 ? 'Esgotado' : caravana.vagasDisponiveis}</p>
-                            <div className={styles.botaoContainer}>
-                                <button className={styles.botao} onClick={() => openPopup(caravana)}>
-                                    Ver Detalhes
-                                </button>
+                <div className={styles.mesesContainer}>
+                    {Object.entries(caravanasPorMes).map(([mesAno, caravanasDoMes]) => (
+                        <div key={mesAno} className={styles.mesColuna}>
+                            <h2 className={styles.mesTitulo}>{mesAno}</h2>
+                            <div className={styles.caravanasDoMes}>
+                                {caravanasDoMes.map((caravana) => (
+                                    <div key={caravana.id} className={styles.roteiroCard}>
+                                        <img
+                                            src={caravana.imagemCapaLocalidade || caravana.imagensLocalidade?.[0] || '/caminho/para/imagem_padrao.jpg'}
+                                            alt={caravana.nomeLocalidade || 'Caravana'}
+                                        />
+                                        <h4 className={styles.titulo}>{caravana.nomeLocalidade || 'Destino Indefinido'}</h4>
+                                        <p className={styles.data}>Data: {caravana.data ? new Date(caravana.data).toLocaleDateString() : 'N/A'}</p>
+                                        <p className={styles.vagas}>Vagas: {caravana.vagasDisponiveis === 0 ? 'Esgotado' : caravana.vagasDisponiveis}</p>
+                                        <button className={styles.botao} onClick={() => openPopup(caravana)}>
+                                            Ver Detalhes
+                                        </button>
+                                    </div>
+                                ))}
                             </div>
                         </div>
                     ))}
                 </div>
             )}
+            
             {isPopupOpen && (
                 <PopupConfira
                     caravana={popupCaravana}
