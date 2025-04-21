@@ -8,44 +8,73 @@
 .container h1 {
     margin-bottom: 30px;
     text-align: center;
+    color: #333;
 }
 
 .mesesContainer {
     display: flex;
-    flex-wrap: wrap;
-    gap: 30px;
+    flex-direction: column;
+    gap: 40px;
 }
 
-.mesColuna {
-    flex: 1;
-    min-width: 300px;
+.mesLinha {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
 }
 
 .mesTitulo {
     color: #333;
-    border-bottom: 2px solid #007bff;
-    padding-bottom: 8px;
-    margin-bottom: 20px;
     font-size: 1.5rem;
+    margin: 0;
+    padding-bottom: 8px;
+    border-bottom: 2px solid #007bff;
     text-transform: uppercase;
 }
 
-.caravanasDoMes {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+.caravanasContainer {
+    display: flex;
     gap: 20px;
+    overflow-x: auto;
+    padding-bottom: 15px;
+    scrollbar-width: thin;
+    scrollbar-color: #007bff #f0f0f0;
+}
+
+/* Estilização da barra de rolagem */
+.caravanasContainer::-webkit-scrollbar {
+    height: 8px;
+}
+
+.caravanasContainer::-webkit-scrollbar-track {
+    background: #f0f0f0;
+    border-radius: 4px;
+}
+
+.caravanasContainer::-webkit-scrollbar-thumb {
+    background-color: #007bff;
+    border-radius: 4px;
 }
 
 .roteiroCard {
+    min-width: 250px;
+    max-width: 250px;
+    min-height: 380px;
+    max-height: 380px;
     border: 1px solid #ddd;
     border-radius: 8px;
     padding: 16px;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-    text-align: center;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
     display: flex;
     flex-direction: column;
-    align-items: center;
-    height: 100%;
+    background: white;
+    transition: transform 0.2s;
+    flex-shrink: 0;
+}
+
+.roteiroCard:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
 }
 
 .roteiroCard img {
@@ -54,24 +83,43 @@
     object-fit: cover;
     border-radius: 6px;
     margin-bottom: 12px;
+    flex-shrink: 0;
 }
 
 .titulo {
-    margin: 0 0 8px 0;
     font-size: 1.2rem;
+    margin: 0 0 8px 0;
     color: #333;
-    min-height: 40px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 100%;
+    height: 60px;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    line-height: 1.4;
+    text-align: center;
 }
 
 .data, .vagas {
-    margin: 8px 0;
+    margin: 6px 0;
     font-size: 0.9rem;
     color: #555;
-    width: 100%;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    border-bottom: #555 1px solid;
+    padding-bottom:3px;
+}
+
+.preco{
+    font-size: 1.2rem;
+    color: #007bff;
+    margin-top: auto;
+    margin-bottom: 5px;
+    font-weight: bold;
+    text-align: center;
+    font-weight: bold;
+    padding: 5px 0;
 }
 
 .botao {
@@ -79,15 +127,21 @@
     color: #fff;
     border: none;
     border-radius: 4px;
-    padding: 10px 20px;
-    margin-top: 12px;
+    padding: 10px 0;
+    margin-top: auto;
     cursor: pointer;
     transition: background-color 0.2s;
-    width: auto;
+    font-size: 0.95rem;
+    width: 100%;
 }
 
 .botao:hover {
     background-color: #0056b3;
+}
+
+.botao:disabled {
+    background-color: #cccccc;
+    cursor: not-allowed;
 }
 
 .nenhumaCaravana {
@@ -95,6 +149,9 @@
     color: #666;
     font-size: 1.1rem;
     margin-top: 30px;
+    padding: 20px;
+    background: #f9f9f9;
+    border-radius: 8px;
 }
 
 .error {
@@ -102,4 +159,33 @@
     color: #dc3545;
     font-size: 1.1rem;
     margin-top: 30px;
+    padding: 20px;
+    background: #fef2f2;
+    border-radius: 8px;
+}
+
+/* Responsividade */
+@media (max-width: 768px) {
+    .mesTitulo {
+        font-size: 1.3rem;
+    }
+    
+    .roteiroCard {
+        min-width: 220px;
+        max-width: 220px;
+    }
+}
+
+@media (max-width: 480px) {
+    .container {
+        padding: 15px;
+    }
+    
+    .mesTitulo {
+        font-size: 1.2rem;
+    }
+    
+    .caravanasContainer {
+        gap: 15px;
+    }
 }

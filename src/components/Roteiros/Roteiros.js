@@ -50,16 +50,16 @@ function Roteiros() {
                 new Date(caravana.data) > new Date() &&
                 (caravana.status === 'confirmada' || caravana.status === 'nao_confirmada')
             );
-            
+
             const confirmadas = caravanasData.filter(c => c.status === 'confirmada');
             const naoConfirmadas = caravanasData.filter(c => c.status === 'nao_confirmada');
             confirmadas.sort((a, b) => new Date(a.data) - new Date(b.data));
             naoConfirmadas.sort((a, b) => new Date(a.data) - new Date(b.data));
-            
+
             const caravanasOrdenadas = [...confirmadas, ...naoConfirmadas];
             setCaravanas(caravanasOrdenadas);
             setCaravanasPorMes(agruparPorMesAno(caravanasOrdenadas));
-            
+
         } catch (error) {
             setError(error);
             console.error("Erro ao buscar caravanas:", error);
@@ -99,15 +99,15 @@ function Roteiros() {
                 theme="light"
             />
             <h1>Roteiros</h1>
-            
+
             {Object.keys(caravanasPorMes).length === 0 && !loading && !error ? (
                 <p className={styles.nenhumaCaravana}>Nenhuma caravana encontrada para os próximos roteiros.</p>
             ) : (
                 <div className={styles.mesesContainer}>
                     {Object.entries(caravanasPorMes).map(([mesAno, caravanasDoMes]) => (
-                        <div key={mesAno} className={styles.mesColuna}>
+                        <div key={mesAno} className={styles.mesLinha}>
                             <h2 className={styles.mesTitulo}>{mesAno}</h2>
-                            <div className={styles.caravanasDoMes}>
+                            <div className={styles.caravanasContainer}>
                                 {caravanasDoMes.map((caravana) => (
                                     <div key={caravana.id} className={styles.roteiroCard}>
                                         <img
@@ -115,8 +115,10 @@ function Roteiros() {
                                             alt={caravana.nomeLocalidade || 'Caravana'}
                                         />
                                         <h4 className={styles.titulo}>{caravana.nomeLocalidade || 'Destino Indefinido'}</h4>
+
                                         <p className={styles.data}>Data: {caravana.data ? new Date(caravana.data).toLocaleDateString() : 'N/A'}</p>
                                         <p className={styles.vagas}>Vagas: {caravana.vagasDisponiveis === 0 ? 'Esgotado' : caravana.vagasDisponiveis}</p>
+                                        <p className={styles.preco}>{caravana.preco ? `R$ ${caravana.preco.toFixed(2)}` : 'N/A'}</p>
                                         <button className={styles.botao} onClick={() => openPopup(caravana)}>
                                             Ver Detalhes
                                         </button>
@@ -127,7 +129,7 @@ function Roteiros() {
                     ))}
                 </div>
             )}
-            
+
             {isPopupOpen && (
                 <PopupConfira
                     caravana={popupCaravana}
