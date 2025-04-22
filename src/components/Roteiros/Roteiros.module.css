@@ -1,58 +1,191 @@
-/* Mesmo que antes */
-
+/* src/pages/Roteiros.module.css */
 .container {
     padding: 20px;
+    max-width: 1200px;
+    margin: 0 auto;
 }
 
-.container h1{
-    margin-bottom: 20px;
+.container h1 {
+    margin-bottom: 30px;
+    text-align: center;
+    color: #333;
 }
 
-.gridCaravanas {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+.mesesContainer {
+    display: flex;
+    flex-direction: column;
+    gap: 40px;
+}
+
+.mesLinha {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+.mesTitulo {
+    color: #333;
+    font-size: 1.5rem;
+    margin: 0;
+    padding-bottom: 8px;
+    border-bottom: 2px solid #007bff;
+    text-transform: uppercase;
+}
+
+.caravanasContainer {
+    display: flex;
     gap: 20px;
+    overflow-x: auto;
+    padding-bottom: 15px;
+    scrollbar-width: thin;
+    scrollbar-color: #007bff #f0f0f0;
 }
+
+/* Estilização da barra de rolagem */
+.caravanasContainer::-webkit-scrollbar {
+    height: 8px;
+}
+
+.caravanasContainer::-webkit-scrollbar-track {
+    background: #f0f0f0;
+    border-radius: 4px;
+}
+
+.caravanasContainer::-webkit-scrollbar-thumb {
+    background-color: #007bff;
+    border-radius: 4px;
+}
+
 .roteiroCard {
+    min-width: 250px;
+    max-width: 250px;
+    min-height: 380px;
+    max-height: 380px;
     border: 1px solid #ddd;
     border-radius: 8px;
     padding: 16px;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-    text-align: center;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    display: flex;
+    flex-direction: column;
+    background: white;
+    transition: transform 0.2s;
+    flex-shrink: 0;
+}
+
+.roteiroCard:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
 }
 
 .roteiroCard img {
     width: 100%;
-    height: auto;
+    height: 150px;
+    object-fit: cover;
     border-radius: 6px;
-    margin-bottom: 8px;
+    margin-bottom: 12px;
+    flex-shrink: 0;
 }
 
-.roteiroCard h4 {
-    margin: 0;
+.titulo {
     font-size: 1.2rem;
+    margin: 0 0 8px 0;
     color: #333;
+    height: 60px;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    line-height: 1.4;
+    text-align: center;
 }
 
-.roteiroCard p {
-    margin: 8px 0;
+.data, .vagas {
+    margin: 6px 0;
     font-size: 0.9rem;
     color: #555;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    border-bottom: #555 1px solid;
+    padding-bottom:3px;
 }
 
-.roteiroCard button {
-   background-color: #007bff;
+.preco{
+    font-size: 1.2rem;
+    color: #007bff;
+    margin-top: auto;
+    margin-bottom: 5px;
+    font-weight: bold;
+    text-align: center;
+    font-weight: bold;
+    padding: 5px 0;
+}
+
+.botao {
+    background-color: #007bff;
     color: #fff;
     border: none;
     border-radius: 4px;
-    padding: 12px 60px;
-    margin: 8px;
+    padding: 10px 0;
+    margin-top: auto;
     cursor: pointer;
     transition: background-color 0.2s;
+    font-size: 0.95rem;
+    width: 100%;
+}
+
+.botao:hover {
+    background-color: #0056b3;
+}
+
+.botao:disabled {
+    background-color: #cccccc;
+    cursor: not-allowed;
+}
+
+.nenhumaCaravana {
     text-align: center;
-}
-.roteiroCard button:hover{
-   background-color: #0056b3;
+    color: #666;
+    font-size: 1.1rem;
+    margin-top: 30px;
+    padding: 20px;
+    background: #f9f9f9;
+    border-radius: 8px;
 }
 
+.error {
+    text-align: center;
+    color: #dc3545;
+    font-size: 1.1rem;
+    margin-top: 30px;
+    padding: 20px;
+    background: #fef2f2;
+    border-radius: 8px;
+}
 
+/* Responsividade */
+@media (max-width: 768px) {
+    .mesTitulo {
+        font-size: 1.3rem;
+    }
+    
+    .roteiroCard {
+        min-width: 220px;
+        max-width: 220px;
+    }
+}
+
+@media (max-width: 480px) {
+    .container {
+        padding: 15px;
+    }
+    
+    .mesTitulo {
+        font-size: 1.2rem;
+    }
+    
+    .caravanasContainer {
+        gap: 15px;
+    }
+}

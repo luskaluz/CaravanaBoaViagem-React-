@@ -36,11 +36,6 @@ function App() {
         return () => unsubscribe();
     }, []); // Array de dependências vazio, executa só uma vez
 
-    // Enquanto carrega o estado de autenticação, mostra um loader
-    if (loading) {
-        // Você pode retornar um componente de loading mais elaborado aqui
-        return <div className={styles.loadingScreen}>Carregando...</div>;
-    }
 
     // Se houve erro na autenticação inicial
     if (authError) {
