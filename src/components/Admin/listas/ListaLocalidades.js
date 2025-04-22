@@ -129,7 +129,7 @@ function ListaLocalidades({ openModalCriarLocalidade }) { // Recebe a prop
             )}
              {showModalCriarCaravana && (
                 <ModalCriarCaravana
-                    localidadeId={selectedLocalidade.id}
+                preSelectedLocalidadeId={selectedLocalidade.id}
                     onClose={closeModalCriarCaravana}
                     onCaravanaCreated={handleCaravanaCreated}
                 />

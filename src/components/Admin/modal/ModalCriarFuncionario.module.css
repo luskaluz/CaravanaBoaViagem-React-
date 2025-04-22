@@ -1,5 +1,3 @@
-
-
 .modalOverlay {
     position: fixed;
     top: 0;
@@ -18,13 +16,13 @@
 .modal {
     background-color: white;
     padding: 25px 30px; 
-    border-radius: 8px;
+    border-radius: 8px; 
     box-shadow: 0 5px 15px rgba(0, 0, 0, 0.25); 
     width: 90%;
-    max-width: 550px; 
+    max-width: 600px; 
     position: relative;
-    max-height: 85vh; 
-    overflow-y: auto;  
+    max-height: 90vh; 
+    overflow-y: auto;   
 }
 
 .closeButton {
@@ -33,17 +31,12 @@
     right: 15px; 
     background: none;
     border: none;
-    font-size: 1.7rem; 
-    line-height: 1; 
+    font-size: 1.7rem;
+    line-height: 1;
     cursor: pointer;
     color: #888;
     padding: 0;
 }
 .closeButton:hover {
     color: #333;
-}
-
-.modal > div > form,
-.modal > form {
-    margin: 0;
 }

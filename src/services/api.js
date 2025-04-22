@@ -2,7 +2,7 @@
 import axios from 'axios';
 import {auth} from './firebase'
 
-const API_URL = 'https://caravanaboaviagem-react.onrender.com';
+const API_URL = 'http://localhost:5000';
 
 const apiRequest = async (method, url, data = null, params = null) => {
     try {
@@ -36,6 +36,7 @@ const apiRequest = async (method, url, data = null, params = null) => {
 // --- Funcionários ---
 export const createFuncionario = async (funcionarioData) => apiRequest('post', '/funcionarios', funcionarioData);
 export const getFuncionarios = async () => apiRequest('get', '/funcionarios');
+export const getFuncionarioById = async (uid) => apiRequest('get', `/funcionarios/${uid}`);
 export const updateFuncionario = async (id, funcionarioData) => apiRequest('put', `/funcionarios/${id}`, funcionarioData);
 export const deleteFuncionario = async (id) => apiRequest('delete', `/funcionarios/${id}`);
 export const getCaravanasFuncionario = async (uid) => apiRequest('get', `/funcionarios/${uid}/caravanas`);

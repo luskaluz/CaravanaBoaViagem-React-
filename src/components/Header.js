@@ -11,7 +11,6 @@ function Header() {
                 <li><a href="/">Início</a></li>
                 <li><a href="/sobre">Sobre</a></li>
                 <li><a href="/roteiros">Roteiros</a></li>
-                <li><a href="/galeria">Galeria</a></li>
                 <li><a href="/cadastro">Cadastro</a></li>
             </ul>
         </nav>

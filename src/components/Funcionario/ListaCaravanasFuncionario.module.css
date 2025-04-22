@@ -1,0 +1,94 @@
+/* src/components/Funcionario/ListaCaravanasFuncionario.module.css */
+
+
+.cardContainer {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 20px;
+    justify-content: flex-start;
+
+}
+
+.card {
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    padding: 15px;
+    width: 300px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    transition: transform 0.2s ease;
+
+     display: flex;
+     flex-direction: column;
+
+}
+
+.card:hover {
+    transform: translateY(-5px);
+}
+
+.image {
+    width: 100%;
+    height: 200px; 
+    object-fit: cover;
+    border-radius: 8px 8px 0 0;
+    margin-bottom: 10px;
+}
+
+.cardTitle {
+    font-size: 1.2rem;
+    margin-bottom: 5px;
+    color: #333;
+}
+
+.cardDate,
+.cardTime {
+    font-size: 0.9rem;
+    color: #666;
+    margin-bottom: 3px;
+}
+
+.detailsButton, .participantesButton { 
+  background-color: #007bff;
+  color: white;
+  border: none;
+  padding: 8px 12px;
+  border-radius: 5px;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+  margin-top: 5px;
+  align-self: flex-start;
+}
+
+.detailsButton:hover, .participantesButton:hover {
+    background-color: #0056b3;
+}
+.participantesButton{
+  background-color: #28a745; 
+}
+
+.participantesButton:hover {
+     background-color: #1f7932;
+
+}
+.caravanaInativa {
+    opacity: 0.6;
+    pointer-events: none;
+}
+
+
+.containerMensagem {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 25px;
+    background-color: #f8f8f8;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    margin: 20px;
+    width: 100%;
+
+}
+
+.containerMensagem p {
+    text-align: center;
+}

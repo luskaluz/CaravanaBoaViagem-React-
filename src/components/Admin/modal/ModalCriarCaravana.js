@@ -1,25 +1,15 @@
-// src/components/Admin/ModalCriarCaravana.js
 import React from 'react';
 import FormularioCaravana from '../formularios/FormularioCaravana';
-import styles from './ModalCriarCaravana.module.css'; 
+import styles from './ModalCriarLocalidade.module.css';
 
-function ModalCriarCaravana({ localidadeId, onClose, onCaravanaCreated }) {
-
-    const handleCaravanaSalva = () => {
-        onClose();
-        if (onCaravanaCreated) {
-           onCaravanaCreated()
-        }
-    };
-
-
+function ModalCriarCaravana({ preSelectedLocalidadeId, onClose, onCaravanaCreated }) {
     return (
         <div className={styles.modalOverlay} onClick={onClose}>
             <div className={styles.modal} onClick={(e) => e.stopPropagation()}>
- 
+                <button className={styles.closeButton} onClick={onClose}>×</button>
                 <FormularioCaravana
-                    localidadeId={localidadeId}
-                    onSalvar={handleCaravanaSalva}
+                    preSelectedLocalidadeId={preSelectedLocalidadeId}
+                    onSalvar={onCaravanaCreated}
                     onCancelar={onClose}
                 />
             </div>

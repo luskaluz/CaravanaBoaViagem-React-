@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import styles from './DetalhesCaravanaUsuario.module.css';
+// Mantém o import do CSS do usuário para consistência visual
+import styles from '../Usuario/DetalhesCaravanaUsuario.module.css'; // Ajuste o caminho se necessário
 import * as api from '../../services/api';
 
 const PLACEHOLDER_IMAGE_URL = "https://via.placeholder.com/80x120?text=Foto";
 
-function DetalhesCaravanaUsuario({ caravana, onClose }) {
-    const [descricaoLocalidade, setDescricaoLocalidade] = useState('');
+// Remove 'onClose' das props
+function DetalhesCaravanaFuncionario({ caravana }) {
+    const [descricao, setDescricao] = useState('');
     const [isLoadingDesc, setIsLoadingDesc] = useState(false);
 
     useEffect(() => {
@@ -13,30 +15,38 @@ function DetalhesCaravanaUsuario({ caravana, onClose }) {
             if (caravana && caravana.localidadeId) {
                 setIsLoadingDesc(true);
                 try {
-                    const localidadeData = await api.getDescricaoLocalidade(caravana.localidadeId);
-                    setDescricaoLocalidade(localidadeData.descricao || '');
-                } catch (error) { console.error(error); setDescricaoLocalidade('Erro.'); }
+                    const descricaoData = await api.getDescricaoLocalidade(caravana.localidadeId);
+                    setDescricao(descricaoData.descricao || '');
+                } catch (err) { console.error(err); setDescricao('Erro ao carregar.');}
                 finally { setIsLoadingDesc(false); }
-            } else { setDescricaoLocalidade('N/A'); }
+            } else { setDescricao('N/A'); }
         };
         fetchDescricao();
     }, [caravana]);
 
-    // --- SUBCOMPONENTE ATUALIZADO ---
+    // --- ADICIONADO DE VOLTA ---
+    const formatStatus = (status) => {
+        switch (status) {
+            case 'confirmada': return 'Confirmada';
+            case 'nao_confirmada': return 'Não Confirmada';
+            case 'cancelada': return 'Cancelada';
+            case 'concluida': return 'Concluída';
+            default: return 'Desconhecido';
+        }
+    };
+    // --- FIM ADIÇÃO ---
+
     const EmployeeInfoDetailed = ({ employee, role }) => {
-         // Caso 1: Funcionário não atribuído (null ou undefined)
         if (!employee) {
             return (
                  <div className={`${styles.employeeBlock} ${styles.employeeNotConfirmed}`}>
-                     {/* NENHUMA IMAGEM AQUI */}
                     <div className={styles.employeeDetails}>
                         <p className={styles.infoStrong}><strong>{role}:</strong> Não Confirmado</p>
                     </div>
                  </div>
             );
         }
-         // Caso 2: Erro ao buscar (mostra placeholder)
-         if (employee.error) {
+        if (employee.error) {
             return (
                  <div className={styles.employeeBlock}>
                     <img src={PLACEHOLDER_IMAGE_URL} alt={role} className={styles.employeePhoto}/>
@@ -46,7 +56,6 @@ function DetalhesCaravanaUsuario({ caravana, onClose }) {
                  </div>
             );
          }
-        // Caso 3: Sucesso (mostra foto real ou placeholder)
         return (
             <div className={styles.employeeBlock}>
                 <img src={employee.fotoUrl || PLACEHOLDER_IMAGE_URL} alt={employee.nome || role} className={styles.employeePhoto} onError={(e) => { e.target.onerror = null; e.target.src=PLACEHOLDER_IMAGE_URL }}/>
@@ -58,20 +67,10 @@ function DetalhesCaravanaUsuario({ caravana, onClose }) {
             </div>
         );
     };
-     // --- FIM SUBCOMPONENTE ---
 
+    if (!caravana) return null;
 
-    if (!caravana) return <div>Selecione uma caravana.</div>;
-
-    const formatStatus = (status) => {
-        switch (status) {
-            case 'confirmada': return 'Confirmada';
-            case 'nao_confirmada': return 'Não Confirmada';
-            case 'cancelada': return 'Cancelada';
-            case 'concluida': return 'Concluída';
-            default: return 'Desconhecido';
-        }
-    };
+    const vagasOcupadas = caravana.vagasOcupadas || 0;
 
     return (
         <div className={styles.container}>
@@ -82,23 +81,30 @@ function DetalhesCaravanaUsuario({ caravana, onClose }) {
             <p className={styles.infoItem}><strong>Localidade:</strong> {caravana.nomeLocalidade || 'N/A'}</p>
             <p className={styles.infoItem}><strong>Data: </strong>{caravana.data ? new Date(caravana.data).toLocaleDateString() : 'N/A'}</p>
             <p className={styles.infoItem}><strong>Horário de Saída: </strong> {caravana.horarioSaida || 'A definir'}</p>
-            <p className={styles.infoItem}><strong>Ingressos Comprados:</strong> {caravana.quantidadeTotalUsuario || 'N/A'}</p>
+            {/* Status agora usa a função definida */}
             <p className={styles.infoItem}><strong>Status:</strong> {formatStatus(caravana.status)}</p>
 
             <div className={styles.infoSection}>
                  <h3>Descrição da Localidade</h3>
-                {isLoadingDesc ? <p>Carregando...</p> : <p className={styles.descricao}>{descricaoLocalidade || 'Sem descrição disponível.'}</p>}
+                {isLoadingDesc ? <p>Carregando...</p> : <p className={styles.descricao}>{descricao || 'Sem descrição disponível.'}</p>}
             </div>
 
             <div className={styles.infoSection}>
                 <h3>Equipe Responsável</h3>
-                {/* Chamadas não mudam, a lógica está no subcomponente */}
                 <EmployeeInfoDetailed employee={caravana.administrador} role="Administrador" />
                 <EmployeeInfoDetailed employee={caravana.motorista} role="Motorista" />
                 <EmployeeInfoDetailed employee={caravana.guia} role="Guia" />
+            </div>
+
+             <div className={styles.infoSection}>
+                <h3>Participantes e Vagas (Visão Funcionário)</h3>
+                <p className={styles.infoItem}><strong>Participantes Atuais:</strong> {vagasOcupadas}</p>
+                <p className={styles.infoItem}><strong>Vagas Totais:</strong> {caravana.vagasTotais || 0}</p>
+                <p className={styles.infoItem}><strong>Vagas Disponíveis:</strong> {caravana.vagasDisponiveis ?? 'N/A'}</p>
+                <p className={styles.infoItem}><strong>Preço por Ingresso:</strong> R$ {(caravana.preco || 0).toFixed(2)}</p>
             </div>
         </div>
     );
 }
 
-export default DetalhesCaravanaUsuario;
+export default DetalhesCaravanaFuncionario;

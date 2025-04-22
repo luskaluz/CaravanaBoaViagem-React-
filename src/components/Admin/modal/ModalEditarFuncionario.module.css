@@ -1,0 +1,103 @@
+
+
+.modalOverlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.6);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;/* src/components/Admin/Participantes.module.css */
+
+    .container {
+      padding: 15px;
+      max-height: 400px; /* Ou altura desejada para rolagem */
+      overflow-y: auto;
+    }
+    
+    .container h2, .container h3 { /* Estilo para título se definido aqui */
+       text-align: center;
+       margin-top: 0;
+       margin-bottom: 20px;
+       color: #333;
+    }
+    
+    .loading, .error {
+      text-align: center;
+      padding: 20px;
+      color: #777;
+    }
+    .error {
+      color: red;
+    }
+    
+    .table {
+      width: 100%;
+      border-collapse: collapse; /* Remove espaço entre bordas */
+      margin-top: 15px;
+      font-size: 0.95rem;
+    }
+    
+    .table th, .table td {
+      border: 1px solid #ddd; /* Borda nas células */
+      padding: 10px 12px; /* Padding interno */
+      text-align: left; /* Alinhamento padrão */
+      vertical-align: middle; /* Alinhamento vertical */
+    }
+    
+    .table th {
+      background-color: #f2f2f2; /* Fundo do cabeçalho */
+      font-weight: 600;
+      color: #333;
+    }
+    
+    .table tbody tr:nth-child(even) {
+      background-color: #f9f9f9; /* Linhas alternadas */
+    }
+    
+    .table tbody tr:hover {
+      background-color: #e9e9e9; /* Hover nas linhas */
+    }
+    
+    .table td {
+      color: #555;
+    }
+    padding: 20px;
+    box-sizing: border-box;
+}
+
+.modal {
+    background-color: white;
+    padding: 25px 30px; 
+    border-radius: 8px; 
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.25); 
+    width: 90%;
+    max-width: 550px;
+    position: relative;
+    max-height: 85vh;  
+    overflow-y: auto;  
+}
+
+.closeButton {
+    position: absolute;
+    top: 15px; 
+    right: 15px; 
+    background: none;
+    border: none;
+    font-size: 1.7rem; 
+    line-height: 1; 
+    cursor: pointer;
+    color: #888;
+    padding: 0;
+}
+.closeButton:hover {
+    color: #333;
+}
+
+.modal > div > form,
+.modal > form {
+    margin: 0;
+}

@@ -1,11 +1,10 @@
-/* src/components/Admin/formularios/FormularioCaravana.module.css */
+/* src/components/Admin/formularios/FormularioFuncionario.module.css */
 
 .container {
-    padding: 25px;
-    background-color: #f8f9fa;
+    padding: 20px;
+    background-color: #fff;
     border-radius: 8px;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
-    margin-bottom: 20px;
+    max-height:800px;
 }
 
 .title {
@@ -26,30 +25,15 @@
     text-align: center;
 }
 
-.loading {
-     text-align: center;
-    padding: 20px;
-    font-size: 1.1rem;
-    color: #555;
-}
-
-
 .form {
     display: flex;
     flex-direction: column;
-    gap: 15px; /* Espaço entre grupos/linhas */
+    gap: 18px;
 }
 
 .formGroup {
     display: flex;
     flex-direction: column;
-    flex: 1; /* Faz grupos em uma linha ocuparem espaço igual */
-}
-
-.formRow {
-    display: flex;
-    gap: 15px; /* Espaço entre os formGroups na mesma linha */
-    flex-wrap: wrap; /* Permite quebrar linha em telas menores */
 }
 
 .label {
@@ -69,8 +53,8 @@
     color: #495057;
     background-color: #fff;
     transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
-    box-sizing: border-box;
-    width: 100%; /* Ocupa toda a largura do .formGroup */
+    box-sizing: border-box; 
+    width: 100%; 
 }
 
 .input:focus,
@@ -80,16 +64,44 @@
     box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
 }
 
-.input.readOnly {
-    background-color: #e9ecef; /* Fundo cinza para campos readonly */
-    cursor: not-allowed;
+.inputFile {
+    padding: 8px;
+    border: 1px solid #ced4da;
+    border-radius: 4px;
+    font-size: 0.9rem;
+    cursor: pointer;
+    margin-bottom: 10px; 
 }
 
-.separator {
+.imagemPreviewContainer {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start; 
+    gap: 10px; 
+    margin-top: 10px;
+}
+
+.imagemPreview {
+    max-width: 150px;   
+    max-height: 150px;  
+    width: auto;      
+    height: auto;      
+    object-fit: cover;
+}
+
+.removeImageButton {
+    background-color: #f44336; 
+    color: white;
     border: none;
-    border-top: 1px solid #ddd;
-    margin-top: 10px; /* Espaço acima */
-    margin-bottom: 20px; /* Espaço abaixo */
+    padding: 5px 10px;
+    font-size: 0.85rem;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+}
+
+.removeImageButton:hover {
+    background-color: #d32f2f; 
 }
 
 
@@ -124,13 +136,13 @@
 }
 
 .cancelButton {
-    background-color: #6c757d; /* Cinza para cancelar */
+    background-color: #dc3545;
     color: white;
 }
 .cancelButton:hover:not(:disabled) {
-    background-color: #5a6268;
+    background-color: #c82333;
 }
 .cancelButton:disabled {
-    background-color: #cccccc;
+    background-color: #f0a8b0;
     cursor: not-allowed;
 }
