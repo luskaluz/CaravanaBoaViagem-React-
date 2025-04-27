@@ -1,0 +1,150 @@
+/* src/components/Admin/listas/ListaLocalidades.module.css */
+/* (Aplicado também a ListaTransportesAdmin) */
+
+.container {
+    padding: 20px;
+    background-color: #f8f9fa; /* Fundo para a área da lista */
+}
+
+/* Cabeçalho opcional para título e botão Adicionar */
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 25px;
+  padding-bottom: 15px;
+  border-bottom: 1px solid #e0e0e0;
+}
+.header h2 { margin: 0; color: #333; font-size: 1.5rem; }
+/* Estilo do botão Adicionar (pode vir do DashboardAdmin.module.css se global) */
+.addButton {
+    background-color: #28a745;
+    color: white;
+    padding: 10px 15px;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 1rem;
+}
+.addButton:hover { background-color: #218838; }
+
+
+.list {
+    list-style: none;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 15px; /* Espaço entre os cards */
+}
+
+.listItem {
+    background-color: white;
+    padding: 15px;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    display: grid;
+    grid-template-columns: 100px 1fr auto; /* Imagem(100px), Info(flex), Botões(auto) */
+    gap: 20px; /* Espaço entre colunas */
+    align-items: center; /* Alinha itens verticalmente no centro */
+}
+
+.imagemContainer {
+    width: 100%; /* Ocupa os 100px da coluna */
+    height: 80px; /* Altura da imagem */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    border-radius: 4px;
+    background-color: #f0f0f0; /* Fundo para placeholder */
+}
+
+.miniatura {
+    width: 100%;
+    height: 100%;
+    object-fit: cover; /* Cobre a área */
+}
+
+/* Container para informações (Localidade ou Transporte) */
+.localidadeInfo {
+    display: flex;
+    flex-direction: column;
+    justify-content: center; /* Centraliza verticalmente se houver espaço */
+    padding: 0 10px;
+    gap: 6px; /* Espaço entre os <p> de informação */
+}
+
+.localidadeInfo p {
+    margin: 0;
+    line-height: 1.4; /* Espaçamento entre linhas de texto */
+    font-size: 0.95rem;
+    color: #555;
+}
+
+.label {
+    font-weight: bold;
+    margin-right: 0.5rem;
+    color: #333;
+}
+
+/* Estilos para a seção de quantidade */
+.quantidadeContainer {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 8px;
+}
+.quantidadeValor {
+    font-weight: bold;
+    min-width: 25px;
+    text-align: center;
+    font-size: 1rem;
+    color: #333;
+}
+.qtyButton {
+    background-color: #007bff; /* Azul para botões de ação */
+    color: white;
+    border: none;
+    font-weight: bold;
+    cursor: pointer;
+    border-radius: 4px;
+    padding: 3px 9px; /* Tamanho dos botões +/- */
+    line-height: 1;
+    transition: background-color 0.2s;
+}
+.qtyButton:hover:not(:disabled) { background-color: #0056b3; }
+.qtyButton:disabled { background-color: #a0cfff; cursor: not-allowed; }
+
+/* Estilo para a linha "Disponíveis" */
+.quantidadeDisponivel {
+    margin-top: 5px;
+    font-size: 0.9em;
+    color: #666;
+}
+.quantidadeDisponivel .label { font-weight: normal; }
+
+
+/* Container para os botões de ação (Editar/Excluir/Criar Caravana) */
+.buttonGroup {
+    display: flex;
+    flex-direction: column; /* Botões empilhados */
+    gap: 10px;
+    align-self: center; /* Alinha o grupo no centro da coluna do grid */
+}
+
+.editButton, .deleteButton, .detailsButton {
+    padding: 8px 12px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 14px;
+    width: 110px; /* Largura fixa */
+    text-align: center;
+    transition: opacity 0.2s;
+}
+.editButton:hover, .deleteButton:hover, .detailsButton:hover { opacity: 0.8; }
+
+.editButton { background-color: #007bff; color: white; }
+.deleteButton { background-color: #dc3545; color: white; }
+.detailsButton { background-color: #17a2b8; color: white; } /* Botão 'Criar Caravana' */
+

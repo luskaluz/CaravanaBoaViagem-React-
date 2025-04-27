@@ -1,10 +1,10 @@
 /* src/components/Admin/ListaFuncionariosAdmin.module.css */
 
+/* --- Container e Cabeçalho (Mantidos) --- */
 .container {
   padding: 25px;
-  background-color: #f8f9fa;
-  border-radius: 8px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+  background-color: #f8f9fa; /* Fundo geral da seção */
+  /* Removido radius/shadow do container geral */
 }
 
 .header {
@@ -39,45 +39,50 @@
   background-color: #218838;
 }
 
+/* --- Lista (Adaptado de Localidades para dar espaço entre cards) --- */
 .list {
   list-style: none;
   padding: 0;
   margin: 0;
-}
-
-.listItem {
   display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 15px;
-  border-bottom: 1px solid #eee;
-  transition: background-color 0.2s ease;
-  gap: 15px;
-  flex-wrap: wrap;
+  flex-direction: column; /* Empilha os cards */
+  gap: 15px; /* Espaço ENTRE os cards */
 }
 
-.listItem:last-child {
-  border-bottom: none;
+/* --- Item da Lista (ESTILO CARD APLICADO) --- */
+.listItem {
+    background-color: white; /* <<< Fundo branco do card */
+    padding: 15px;           /* <<< Padding interno do card */
+    border-radius: 8px;      /* <<< Bordas arredondadas do card */
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1); /* <<< Sombra do card */
+    display: flex;           /* <<< Mantém flex para layout interno */
+    justify-content: space-between; /* Empurra info+foto para esquerda e botões para direita */
+    align-items: center;     /* Alinha verticalmente */
+    gap: 15px;               /* Espaço entre bloco de info/foto e botões */
+    /* Removido border-bottom, flex-wrap e transition de background no hover (o card já é distinto) */
 }
+/* Opcional: Adicionar hover no card inteiro */
+/* .listItem:hover {
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+} */
 
-.listItem:hover {
-  background-color: #f1f1f1;
-}
 
+/* --- Bloco Foto + Info (Mantido do Funcionário Original) --- */
 .funcionarioDetalhes {
   display: flex;
   align-items: center;
-  gap: 15px; /* Espaço entre foto e info */
-  flex-grow: 1; /* Ocupa espaço disponível */
-  min-width: 200px; /* Evita espremer demais */
+  gap: 15px;
+  flex-grow: 1; /* Ocupa o máximo de espaço possível */
+  min-width: 200px;
 }
 
 .funcionarioFoto {
   width: 90px;
   height: 120px;
-  object-fit: cover; 
+  object-fit: cover;
   border: 1px solid #ddd;
   flex-shrink: 0;
+  border-radius: 4px; /* Adicionado para suavizar a foto */
 }
 
 .funcionarioInfo {
@@ -99,21 +104,27 @@
   color: #333;
 }
 
+/* --- Grupo de Botões (Mantido do Funcionário Original - horizontal) --- */
 .buttonGroup {
   display: flex;
   gap: 10px;
-  flex-shrink: 0;
+  flex-shrink: 0; /* Impede que os botões encolham */
+  /* Removido align-self: center pois o align-items do listItem já centraliza */
+  /* Removido flex-direction: column para manter botões lado a lado */
 }
 
+/* --- Botões (Mantidos do Funcionário Original) --- */
 .editButton, .deleteButton {
   padding: 8px 15px;
   border: none;
-  border-radius: 5px;
+  border-radius: 5px; /* Ajustado para consistência */
   cursor: pointer;
   font-size: 0.9rem;
   font-weight: 500;
-  transition: background-color 0.2s ease, opacity 0.2s ease;
+  transition: background-color 0.2s ease; /* Simplificado */
   white-space: nowrap;
+  /* width: 110px; */ /* Removido width fixo para botões se ajustarem ao texto */
+  /* text-align: center; */ /* Desnecessário */
 }
 
 .editButton {
@@ -132,6 +143,8 @@
   background-color: #c82333;
 }
 
+
+/* --- Loading e Error (Mantidos) --- */
 .loading, .error {
   text-align: center;
   padding: 20px;

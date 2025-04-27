@@ -79,3 +79,10 @@ export const checkInscricao = async (caravanaId, usuarioId) => apiRequest('get',
 export const getCaravanasUsuario = async (userId) => {
     return apiRequest('get', `/usuario/${userId}/caravanas`); 
   };
+
+// --- Transporte ---
+export const createTransporte = async (transporteData) => apiRequest('post', '/transportes', transporteData);
+export const getTransportes = async () => apiRequest('get', '/transportes');
+export const updateTransporte = async (id, transporteData) => apiRequest('put', `/transportes/${id}`, transporteData);
+export const deleteTransporte = async (id) => apiRequest('delete', `/transportes/${id}`);
+export const updateTransporteQuantidade = async (id, novaQuantidadeTotal) => apiRequest('put', `/transportes/${id}/quantidade`, { quantidade: novaQuantidadeTotal });

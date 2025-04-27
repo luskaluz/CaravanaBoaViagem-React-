@@ -6,9 +6,11 @@ import styles from './DashboardAdmin.module.css';
 import ListaCaravanasAdmin from './listas/ListaCaravana';
 import ListaLocalidades from './listas/ListaLocalidades';
 import ListaFuncionariosAdmin from './listas/ListaFuncionariosAdmin';
+import ListaTransportesAdmin from './listas/ListaTransporte'; // 
 import FormularioCaravana from './formularios/FormularioCaravana';
 import FormularioLocalidade from './formularios/FormularioLocalidade';
 import FormularioFuncionario from './formularios/FormularioFuncionario';
+// import FormularioTransporte from './formularios/FormularioTransporte'; // Importe se precisar usar aqui
 
 function DashboardAdmin() {
     const [user, setUser] = useState(null);
@@ -19,11 +21,13 @@ function DashboardAdmin() {
         caravanas: false,
         localidades: false,
         funcionarios: false,
+        transportes: false, // <<< ADICIONADO Chave
     });
     const [itemParaEditar, setItemParaEditar] = useState({
         caravanas: null,
         localidades: null,
         funcionarios: null,
+        transportes: null, // <<< ADICIONADO Chave
     });
 
     const navigate = useNavigate();
@@ -107,12 +111,20 @@ function DashboardAdmin() {
                 >
                     Localidades
                 </button>
+                {/* <<< ADICIONADO Botão Transportes >>> */}
+                <button
+                    className={`${styles.menuButton} ${activeTab === 'transportes' ? styles.active : ''}`}
+                    onClick={() => setActiveTab('transportes')}
+                >
+                    Transportes
+                </button>
                 <button onClick={handleLogout} className={styles.logoutButton}>
                     Logout
                 </button>
             </div>
 
             <div className={styles.mainContent}>
+                {/* Bloco Caravanas (IDÊNTICO AO ORIGINAL) */}
                 {activeTab === 'caravanas' && (
                     <>
                         {modoEdicao.caravanas ? (
@@ -123,7 +135,7 @@ function DashboardAdmin() {
                             />
                         ) : (
                             <>
-
+                                {/* Botão Criar pode estar aqui ou na Lista */}
                                 <ListaCaravanasAdmin
                                     onEditar={(item) => handleEditar('caravanas', item)}
                                 />
@@ -132,6 +144,7 @@ function DashboardAdmin() {
                     </>
                 )}
 
+                {/* Bloco Funcionários (IDÊNTICO AO ORIGINAL) */}
                 {activeTab === 'funcionarios' && (
                     <>
                         {modoEdicao.funcionarios ? (
@@ -142,7 +155,7 @@ function DashboardAdmin() {
                             />
                         ) : (
                             <>
-
+                                {/* Botão Criar pode estar aqui ou na Lista */}
                                 <ListaFuncionariosAdmin
                                     onEditar={(item) => handleEditar('funcionarios', item)}
                                 />
@@ -151,6 +164,7 @@ function DashboardAdmin() {
                     </>
                 )}
 
+                {/* Bloco Localidades (IDÊNTICO AO ORIGINAL) */}
                 {activeTab === 'localidades' && (
                     <>
                         {modoEdicao.localidades ? (
@@ -161,7 +175,7 @@ function DashboardAdmin() {
                             />
                         ) : (
                             <>
-
+                                {/* Botão Criar pode estar aqui ou na Lista */}
                                 <ListaLocalidades
                                     onEditar={(item) => handleEditar('localidades', item)}
                                 />
@@ -169,6 +183,16 @@ function DashboardAdmin() {
                         )}
                     </>
                 )}
+
+                 {/* <<< ADICIONADO Bloco Transportes >>> */}
+                 {activeTab === 'transportes' && (
+                     <>
+                        {/* Renderiza apenas a lista, pois ela gerencia seus próprios modais */}
+                        <ListaTransportesAdmin />
+                        {/* Se precisasse editar direto aqui, seria: */}
+                        {/* modoEdicao.transportes ? <FormularioTransporte transporte={itemParaEditar.transportes} ... /> : <ListaTransportesAdmin ... /> */}
+                     </>
+                 )}
             </div>
         </div>
     );

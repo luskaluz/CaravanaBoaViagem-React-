@@ -1411,7 +1411,142 @@ app.get('/participantes/:caravanaId', verificarAutenticacao, verificarFuncionari
 });
 
 
+// server.js
 
+// --- ROTAS DE TRANSPORTES ---
+
+// POST /transportes - Criar novo transporte (requer admin)
+app.post('/transportes', verificarAutenticacao, verificarAdmin, async (req, res) => {
+    try {
+        // Adiciona 'fornecedor'
+        const { nome, assentos, custoAluguel, imagemUrl, quantidade, fornecedor } = req.body;
+
+        // Validação
+        if (!nome || !assentos || custoAluguel === undefined || custoAluguel === null || !fornecedor) { // Fornecedor agora é obrigatório
+            return res.status(400).json({ error: "Nome, assentos, custo e fornecedor são obrigatórios." });
+        }
+        const assentosNum = parseInt(assentos, 10);
+        const custoNum = parseFloat(custoAluguel);
+        const quantidadeNum = parseInt(quantidade, 10);
+        const quantidadeFinal = (!isNaN(quantidadeNum) && quantidadeNum >= 0) ? quantidadeNum : 1;
+
+        if (isNaN(assentosNum) || assentosNum <= 0) return res.status(400).json({ error: "Assentos inválidos." });
+        if (isNaN(custoNum) || custoNum < 0) return res.status(400).json({ error: "Custo inválido." });
+
+        const novoTransporte = {
+            nome,
+            assentos: assentosNum,
+            custoAluguel: custoNum,
+            imagemUrl: imagemUrl || null,
+            quantidade: quantidadeFinal,
+            fornecedor: fornecedor, // Salva o fornecedor
+            createdAt: admin.firestore.FieldValue.serverTimestamp()
+        };
+
+        const docRef = await db.collection('transportes').add(novoTransporte);
+        res.status(201).json({ id: docRef.id, ...novoTransporte });
+
+    } catch (error) {
+        console.error("Erro ao criar transporte:", error);
+        res.status(500).json({ error: "Erro interno ao criar transporte.", details: error.message });
+    }
+});
+
+
+
+// GET /transportes - Listar todos os transportes (requer admin ou funcionário?)
+// Por enquanto, vamos deixar como admin/funcionário, ajuste se necessário
+app.post('/transportes', verificarAutenticacao, verificarAdmin, async (req, res) => {
+    try {
+        const { nome, assentos, custoAluguel, imagemUrl, quantidadeTotal, fornecedor } = req.body;
+        if (!nome || !assentos || custoAluguel === undefined || custoAluguel === null || !fornecedor) {
+            return res.status(400).json({ error: "Nome, assentos, custo e fornecedor são obrigatórios." });
+        }
+        const assentosNum = parseInt(assentos, 10);
+        const custoNum = parseFloat(custoAluguel);
+        const quantidadeTotalNum = parseInt(quantidadeTotal, 10);
+        const quantidadeFinal = (!isNaN(quantidadeTotalNum) && quantidadeTotalNum >= 0) ? quantidadeTotalNum : 1;
+        if (isNaN(assentosNum) || assentosNum <= 0) return res.status(400).json({ error: "Assentos inválidos." });
+        if (isNaN(custoNum) || custoNum < 0) return res.status(400).json({ error: "Custo inválido." });
+
+        const novoTransporte = {
+            nome, assentos: assentosNum, custoAluguel: custoNum, imagemUrl: imagemUrl || null,
+            quantidadeTotal: quantidadeFinal, quantidadeDisponivel: quantidadeFinal,
+            fornecedor: fornecedor, createdAt: admin.firestore.FieldValue.serverTimestamp()
+        };
+        const docRef = await db.collection('transportes').add(novoTransporte);
+        res.status(201).json({ id: docRef.id, ...novoTransporte });
+    } catch (error) { console.error("Erro criar transporte:", error); res.status(500).json({ error: "Erro interno.", details: error.message }); }
+});
+
+app.get('/transportes', verificarAutenticacao, verificarFuncionarioOuAdmin, async (req, res) => {
+     try {
+         const snapshot = await db.collection('transportes').orderBy('nome').get();
+         const transportes = [];
+         snapshot.forEach(doc => { transportes.push({ id: doc.id, ...doc.data() }); });
+         res.status(200).json(transportes);
+     } catch (error) { console.error("Erro listar transportes:", error); res.status(500).json({ error: "Erro interno." }); }
+});
+
+app.put('/transportes/:id', verificarAutenticacao, verificarAdmin, async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { nome, assentos, custoAluguel, imagemUrl, fornecedor } = req.body;
+        const transporteRef = db.collection('transportes').doc(id);
+        const docSnap = await transporteRef.get();
+        if (!docSnap.exists) return res.status(404).json({ error: "Transporte não encontrado." });
+        const dadosAtualizados = {}; let hasUpdate = false;
+        if (nome !== undefined) { if (!nome) return res.status(400).json({ error: "Nome vazio." }); dadosAtualizados.nome = nome; hasUpdate = true; }
+        if (assentos !== undefined) { const n = parseInt(assentos, 10); if (isNaN(n) || n <= 0) return res.status(400).json({ error: "Assentos inválidos." }); dadosAtualizados.assentos = n; hasUpdate = true; }
+        if (custoAluguel !== undefined) { const n = parseFloat(custoAluguel); if (isNaN(n) || n < 0) return res.status(400).json({ error: "Custo inválido." }); dadosAtualizados.custoAluguel = n; hasUpdate = true; }
+        if (imagemUrl !== undefined) { dadosAtualizados.imagemUrl = imagemUrl; hasUpdate = true; }
+        if (fornecedor !== undefined) { if (!fornecedor) return res.status(400).json({ error: "Fornecedor vazio." }); dadosAtualizados.fornecedor = fornecedor; hasUpdate = true; }
+        if (!hasUpdate) return res.status(400).json({ error: "Nenhum dado válido." });
+        dadosAtualizados.lastUpdate = admin.firestore.FieldValue.serverTimestamp();
+        await transporteRef.update(dadosAtualizados);
+        const updatedDoc = await transporteRef.get();
+        res.status(200).json({ id: updatedDoc.id, ...updatedDoc.data() });
+    } catch (error) { console.error(`Erro atualizar transporte ${req.params.id}:`, error); res.status(500).json({ error: "Erro interno.", details: error.message }); }
+});
+
+app.put('/transportes/:id/quantidade', verificarAutenticacao, verificarAdmin, async (req, res) => {
+     try {
+         const { id } = req.params;
+         const { quantidade } = req.body;
+         const transporteRef = db.collection('transportes').doc(id);
+         const quantidadeTotalNum = parseInt(quantidade, 10);
+         if (isNaN(quantidadeTotalNum) || quantidadeTotalNum < 0) {
+             return res.status(400).json({ error: "Quantidade total inválida." });
+         }
+         await transporteRef.update({
+             quantidadeTotal: quantidadeTotalNum,
+             quantidadeDisponivel: quantidadeTotalNum, // Atualiza disponível junto por enquanto
+             lastUpdate: admin.firestore.FieldValue.serverTimestamp()
+         });
+         res.status(200).json({ message: "Quantidade total atualizada.", novaQuantidadeTotal: quantidadeTotalNum });
+     } catch (error) {
+          if (error.code === 5) { return res.status(404).json({ error: "Transporte não encontrado." }); }
+         console.error(`Erro att qtd transporte ${req.params.id}:`, error);
+         res.status(500).json({ error: "Erro interno.", details: error.message });
+     }
+});
+
+app.delete('/transportes/:id', verificarAutenticacao, verificarAdmin, async (req, res) => {
+    try {
+        const { id } = req.params;
+        const transporteRef = db.collection('transportes').doc(id);
+        const docSnap = await transporteRef.get();
+        if (!docSnap.exists) return res.status(404).json({ error: "Transporte não encontrado." });
+        // Adicionar verificação de uso em caravanas aqui se necessário
+        await transporteRef.delete();
+        res.status(204).send();
+    } catch (error) { console.error(`Erro excluir transporte ${req.params.id}:`, error); res.status(500).json({ error: "Erro interno.", details: error.message }); }
+});
+
+
+// --- FIM ROTAS DE TRANSPORTES ---
+
+// ... resto do server.js
 
 
 // CRON JOBS (Tarefas Agendadas)
