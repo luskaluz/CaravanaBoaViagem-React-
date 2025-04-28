@@ -337,6 +337,51 @@ const verificarFuncionarioOuAdmin = async (req, res, next) => {
 };
 
 
+async function alocarTransporte(pessoas, transportesDisponiveis) {
+    if (pessoas <= 0) return { alocacao: [], custoTotal: 0 };
+    if (!transportesDisponiveis || transportesDisponiveis.length === 0) return null; // Impossível sem transportes
+
+    // 1. Calcula custo por assento e ordena do mais barato para o mais caro por assento
+    const transportesOrdenados = transportesDisponiveis
+        .map(t => ({ ...t, custoPorAssento: t.assentos > 0 ? t.custoAluguel / t.assentos : Infinity }))
+        .sort((a, b) => a.custoPorAssento - b.custoPorAssento);
+
+    let pessoasRestantes = pessoas;
+    const alocacaoFinal = [];
+    let custoTotal = 0;
+    const disponibilidadeTemp = new Map(transportesOrdenados.map(t => [t.id, t.quantidadeDisponivel]));
+
+    // 2. Algoritmo Guloso Principal (preencher com os mais eficientes)
+    for (const transporte of transportesOrdenados) {
+        if (pessoasRestantes <= 0) break;
+        if (transporte.assentos <= 0) continue; // Ignora transporte sem assentos
+
+        const disponivel = disponibilidadeTemp.get(transporte.id) || 0;
+        if (disponivel <= 0) continue; // Pula se não houver mais deste tipo
+
+        // Quantos deste tipo precisamos/podemos usar?
+        const maxNecessarios = Math.ceil(pessoasRestantes / transporte.assentos);
+        const usar = Math.min(maxNecessarios, disponivel); // Usa o mínimo entre o necessário e o disponível
+
+        alocacaoFinal.push({
+            transporteId: transporte.id,
+            nome: transporte.nome,
+            assentos: transporte.assentos,
+            quantidadeUsada: usar
+        });
+        custoTotal += usar * transporte.custoAluguel;
+        pessoasRestantes -= usar * transporte.assentos;
+        disponibilidadeTemp.set(transporte.id, disponivel - usar); // Atualiza disponibilidade temporária
+    }
+
+    if (pessoasRestantes > 0) {
+        console.warn(`Alocação falhou: Faltaram ${pessoasRestantes} assentos.`);
+        return null; // Não foi possível alocar todos
+    }
+
+    return { alocacao: alocacaoFinal, custoTotal };
+}
+
 
 
 // ROTAS DE USUÁRIOS (Cliente Final)
@@ -791,40 +836,54 @@ app.get('/funcionarios/:uid/caravanas', verificarAutenticacao, async (req, res) 
 
 app.post('/caravanas', verificarAutenticacao, verificarAdmin, async (req, res) => {
     try {
+        // Adiciona os novos campos de data
         const {
             localidadeId, data, horarioSaida, vagasTotais, despesas,
-            lucroAbsoluto, ocupacaoMinima, preco, // Preço agora vem do frontend
-            administradorUid, motoristaUid, guiaUid // Novos campos
+            lucroAbsoluto, ocupacaoMinima, preco,
+            administradorUid, motoristaUid, guiaUid,
+            dataConfirmacaoTransporte, dataFechamentoVendas // <<< NOVOS CAMPOS
         } = req.body;
 
+        // Validações principais (campos de cálculo e funcionários como antes)
         if (!localidadeId || !data || !vagasTotais || !despesas || !lucroAbsoluto || !ocupacaoMinima || !preco) {
             return res.status(400).json({ error: "Preencha todos os campos obrigatórios para cálculo e preço." });
         }
+        // <<< REMOVIDO validação de UID obrigatório no backend >>>
+        // if (!administradorUid || !motoristaUid) { ... }
 
-        // Adicionar validações numéricas aqui... (como na versão anterior do form)
+        // Validação básica das novas datas (se elas são obrigatórias ou não, defina aqui)
+        // Exemplo: Tornando-as opcionais por enquanto (salva null se não vierem)
+        if (dataConfirmacaoTransporte && !/^\d{4}-\d{2}-\d{2}$/.test(dataConfirmacaoTransporte)) {
+             return res.status(400).json({ error: "Formato inválido para Data Conf. Transporte (Use YYYY-MM-DD)." });
+        }
+        if (dataFechamentoVendas && !/^\d{4}-\d{2}-\d{2}$/.test(dataFechamentoVendas)) {
+             return res.status(400).json({ error: "Formato inválido para Data Fech. Vendas (Use YYYY-MM-DD)." });
+        }
+        // Opcional: Adicionar validação da ordem das datas (Transporte <= Fechamento <= Viagem)
+        // if (dataConfirmacaoTransporte && dataFechamentoVendas && dataConfirmacaoTransporte > dataFechamentoVendas) ...
+        // if (dataFechamentoVendas && data && dataFechamentoVendas > data) ...
 
         const localidadeRef = db.collection('localidades').doc(localidadeId);
         const localidadeDoc = await localidadeRef.get();
         if (!localidadeDoc.exists) {
             return res.status(404).json({ error: 'Localidade selecionada não encontrada.' });
         }
-         // Opcional: Validar se os UIDs de funcionários existem e têm o cargo correto
 
         const novaCaravana = {
-            localidadeId,
-            data,
+            localidadeId, data, // Data da Viagem
             horarioSaida: horarioSaida || null,
-            vagasTotais: parseInt(vagasTotais, 10),
-            vagasDisponiveis: parseInt(vagasTotais, 10),
-            despesas: parseFloat(despesas),
-            lucroAbsoluto: parseFloat(lucroAbsoluto),
-            ocupacaoMinima: parseInt(ocupacaoMinima, 10),
-            preco: parseFloat(preco), // Salva o preço calculado no front
+            vagasTotais: parseInt(vagasTotais, 10) || 0,
+            vagasDisponiveis: parseInt(vagasTotais, 10) || 0,
+            despesas: parseFloat(despesas) || 0,
+            lucroAbsoluto: parseFloat(lucroAbsoluto) || 0,
+            ocupacaoMinima: parseInt(ocupacaoMinima, 10) || 0,
+            preco: parseFloat(preco) || 0,
             status: "nao_confirmada",
-            administradorUid: administradorUid, // Salva UID
-            motoristaUid: motoristaUid,     // Salva UID
-            guiaUid: guiaUid || null,       // Salva UID ou null
-            // Removidos: nomeAdministrador, emailAdministrador, telefoneAdministrador
+            administradorUid: administradorUid, // Pode ser null se veio 'nao_confirmado'
+            motoristaUid: motoristaUid,     // Pode ser null se veio 'nao_confirmado'
+            guiaUid: guiaUid,               // Pode ser null
+            dataConfirmacaoTransporte: dataConfirmacaoTransporte || null, // <<< SALVA NOVA DATA
+            dataFechamentoVendas: dataFechamentoVendas || null,       // <<< SALVA NOVA DATA
             createdAt: admin.firestore.FieldValue.serverTimestamp()
         };
 
@@ -837,84 +896,92 @@ app.post('/caravanas', verificarAutenticacao, verificarAdmin, async (req, res) =
     }
 });
 
-// Rota PUT /caravanas/:id (Atualizada)
+// --- Rota PUT /caravanas/:id ATUALIZADA ---
 app.put('/caravanas/:id', verificarAutenticacao, verificarAdmin, async (req, res) => {
     const { id } = req.params;
+    // Adiciona os novos campos de data
     const {
         localidadeId, data, horarioSaida, vagasTotais, despesas,
-        lucroAbsoluto, ocupacaoMinima, preco, // Preço agora vem do front
-        administradorUid, motoristaUid, guiaUid // Novos campos
+        lucroAbsoluto, ocupacaoMinima, preco,
+        administradorUid, motoristaUid, guiaUid,
+        dataConfirmacaoTransporte, dataFechamentoVendas // <<< NOVOS CAMPOS
     } = req.body;
 
     try {
         const caravanaRef = db.collection('caravanas').doc(id);
         const caravanaDoc = await caravanaRef.get();
-
-        if (!caravanaDoc.exists) {
-            return res.status(404).json({ error: 'Caravana não encontrada.' });
-        }
+        if (!caravanaDoc.exists) { return res.status(404).json({ error: 'Caravana não encontrada.' }); }
         const caravanaAtual = caravanaDoc.data();
 
-        // Validações (semelhantes ao POST e à versão anterior do form)
-        if (!localidadeId || !data || !vagasTotais || !despesas || !lucroAbsoluto || !ocupacaoMinima || !preco) {
-            return res.status(400).json({ error: "Preencha todos os campos obrigatórios." });
-        }
+        // Validações (campos principais e numéricos)
+        if (!localidadeId || !data || !vagasTotais || !despesas || !lucroAbsoluto || !ocupacaoMinima || !preco ) {
+             return res.status(400).json({ error: "Campos principais não podem ser vazios na atualização." });
+         }
+        // <<< REMOVIDO validação de UID obrigatório no backend >>>
+        // Adicionar validações numéricas, de data, etc.
 
-         // Adicionar validações numéricas e de data...
+         // Validação básica das novas datas
+         if (dataConfirmacaoTransporte !== undefined && dataConfirmacaoTransporte !== null && !/^\d{4}-\d{2}-\d{2}$/.test(dataConfirmacaoTransporte)) {
+             return res.status(400).json({ error: "Formato inválido para Data Conf. Transporte (Use YYYY-MM-DD)." });
+         }
+         if (dataFechamentoVendas !== undefined && dataFechamentoVendas !== null && !/^\d{4}-\d{2}-\d{2}$/.test(dataFechamentoVendas)) {
+             return res.status(400).json({ error: "Formato inválido para Data Fech. Vendas (Use YYYY-MM-DD)." });
+         }
+         // Opcional: Adicionar validação da ordem das datas
 
-        // Lógica para ajustar vagas disponíveis (como na sua versão anterior)
+        // Lógica para ajustar vagas disponíveis (mantida)
         let novasVagasDisponiveis = caravanaAtual.vagasDisponiveis;
-        const vagasTotaisNum = parseInt(vagasTotais, 10);
-        const vagasOcupadas = caravanaAtual.vagasTotais - caravanaAtual.vagasDisponiveis;
-        if (vagasTotaisNum < caravanaAtual.vagasTotais) {
+        const vagasTotaisNum = parseInt(vagasTotais, 10) || 0;
+        if(vagasTotaisNum !== caravanaAtual.vagasTotais){
+             const vagasOcupadas = (caravanaAtual.vagasTotais || 0) - (caravanaAtual.vagasDisponiveis ?? caravanaAtual.vagasTotais);
              if (vagasTotaisNum < vagasOcupadas) {
-                  return res.status(400).json({ error: `Não é possível diminuir as vagas totais para ${vagasTotaisNum}, pois já existem ${vagasOcupadas} vagas ocupadas.` });
+                  return res.status(400).json({ error: `Vagas totais (${vagasTotaisNum}) não podem ser menores que as já ocupadas (${vagasOcupadas}).` });
              }
              novasVagasDisponiveis = vagasTotaisNum - vagasOcupadas;
-        } else if (vagasTotaisNum > caravanaAtual.vagasTotais) {
-             novasVagasDisponiveis += (vagasTotaisNum - caravanaAtual.vagasTotais);
         }
 
+        // Verifica nova localidade se mudou
         if (localidadeId !== caravanaAtual.localidadeId) {
-            const localidadeRefCheck = db.collection('localidades').doc(localidadeId);
-            const localidadeDocCheck = await localidadeRefCheck.get();
-            if (!localidadeDocCheck.exists) {
-                return res.status(404).json({ error: 'Nova localidade selecionada não encontrada.' });
-            }
+             const locCheck = await db.collection('localidades').doc(localidadeId).get();
+             if (!locCheck.exists) return res.status(404).json({ error: 'Nova localidade não encontrada.' });
         }
-        // Opcional: Validar UIDs de funcionários
 
+        // Monta objeto apenas com campos que podem ser atualizados
         const dadosAtualizados = {
-            localidadeId,
-            data,
-            horarioSaida: horarioSaida !== undefined ? horarioSaida : caravanaAtual.horarioSaida,
+            localidadeId, data,
+            horarioSaida: horarioSaida !== undefined ? (horarioSaida || null) : caravanaAtual.horarioSaida,
             vagasTotais: vagasTotaisNum,
             vagasDisponiveis: novasVagasDisponiveis,
-            despesas: parseFloat(despesas),
-            lucroAbsoluto: parseFloat(lucroAbsoluto),
-            ocupacaoMinima: parseInt(ocupacaoMinima, 10),
-            preco: parseFloat(preco),
-            administradorUid: administradorUid,
+            despesas: parseFloat(despesas) || 0,
+            lucroAbsoluto: parseFloat(lucroAbsoluto) || 0,
+            ocupacaoMinima: parseInt(ocupacaoMinima, 10) || 0,
+            preco: parseFloat(preco) || 0,
+            administradorUid: administradorUid, // Assume que o front envia o UID correto ou null
             motoristaUid: motoristaUid,
-            guiaUid: guiaUid !== undefined ? (guiaUid || null) : caravanaAtual.guiaUid, // Permite remover guia com '' ou null
+            guiaUid: guiaUid !== undefined ? (guiaUid || null) : caravanaAtual.guiaUid,
+            // <<< ATUALIZA NOVAS DATAS (se vierem na requisição) >>>
+            dataConfirmacaoTransporte: dataConfirmacaoTransporte !== undefined ? (dataConfirmacaoTransporte || null) : caravanaAtual.dataConfirmacaoTransporte,
+            dataFechamentoVendas: dataFechamentoVendas !== undefined ? (dataFechamentoVendas || null) : caravanaAtual.dataFechamentoVendas,
             lastUpdate: admin.firestore.FieldValue.serverTimestamp()
-            // status não é alterado aqui diretamente
         };
 
         await caravanaRef.update(dadosAtualizados);
 
+        // Retorna dados completos após atualização
         const caravanaAtualizadaDoc = await caravanaRef.get();
-        // Busca nomes para retornar resposta completa (opcional mas bom)
-        const adminData = await getFuncionarioData(caravanaAtualizadaDoc.data().administradorUid);
-        const motoristaData = await getFuncionarioData(caravanaAtualizadaDoc.data().motoristaUid);
-        const guiaData = await getFuncionarioData(caravanaAtualizadaDoc.data().guiaUid);
+        const [adminData, motoristaData, guiaData] = await Promise.all([
+             getFuncionarioData(caravanaAtualizadaDoc.data().administradorUid),
+             getFuncionarioData(caravanaAtualizadaDoc.data().motoristaUid),
+             getFuncionarioData(caravanaAtualizadaDoc.data().guiaUid)
+        ]);
+        const metrics = calculateCaravanaMetrics(caravanaAtualizadaDoc.data()); // Recalcula métricas
+        const locData = await getLocalidadeData(caravanaAtualizadaDoc.data().localidadeId);
 
         res.status(200).json({
             id: caravanaAtualizadaDoc.id,
             ...caravanaAtualizadaDoc.data(),
-            administradorNome: adminData.nome,
-            motoristaNome: motoristaData.nome,
-            guiaNome: guiaData.nome
+            ...locData, ...metrics, // Inclui métricas e dados da localidade
+            administrador: adminData, motorista: motoristaData, guia: guiaData // Inclui objetos dos funcionários
         });
 
     } catch (error) {
@@ -922,6 +989,7 @@ app.put('/caravanas/:id', verificarAutenticacao, verificarAdmin, async (req, res
         res.status(500).json({ error: "Erro interno ao atualizar caravana.", details: error.message });
     }
 });
+
 
 
 
