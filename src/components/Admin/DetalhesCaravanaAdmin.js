@@ -8,6 +8,13 @@ function DetalhesCaravanaAdmin({ caravana, onClose }) {
     const [descricao, setDescricao] = useState('');
     const [isLoadingDesc, setIsLoadingDesc] = useState(false);
 
+    // Função para formatar datas (ex: DD/MM/YYYY)
+    const formatDate = (dateString) => {
+        if (!dateString) return 'N/A';
+        try { return new Date(dateString + 'T00:00:00').toLocaleDateString('pt-BR'); } // Adiciona T00 para evitar problemas de fuso
+        catch (e) { return 'Data Inválida'; }
+    };
+
     useEffect(() => {
         const fetchDescricao = async () => {
             if (caravana && caravana.localidadeId) {
@@ -32,25 +39,19 @@ function DetalhesCaravanaAdmin({ caravana, onClose }) {
         }
     };
 
-    // --- SUBCOMPONENTE ATUALIZADO ---
     const EmployeeInfoDetailed = ({ employee, role, originalUid }) => {
-        // Caso 1: Funcionário não atribuído (employee é null ou undefined)
         if (!employee) {
             return (
-                 <div className={`${styles.employeeBlock} ${styles.employeeNotConfirmed}`}> {/* Classe opcional para estilizar diferente */}
-                    {/* NENHUMA IMAGEM AQUI */}
+                 <div className={`${styles.employeeBlock} ${styles.employeeNotConfirmed}`}>
                     <div className={styles.employeeDetails}>
                         <p className={styles.infoStrong}><strong>{role}:</strong> Não Confirmado</p>
                     </div>
                  </div>
             );
         }
-
-        // Caso 2: Houve um erro ao buscar o funcionário
         if (employee.error) {
              return (
                  <div className={styles.employeeBlock}>
-                    {/* Mostra placeholder no erro */}
                     <img src={PLACEHOLDER_IMAGE_URL} alt={role} className={styles.employeePhoto}/>
                     <div className={styles.employeeDetails}>
                         <p className={styles.infoStrong}><strong>{role}:</strong> Erro ao buscar</p>
@@ -59,17 +60,9 @@ function DetalhesCaravanaAdmin({ caravana, onClose }) {
                  </div>
              );
         }
-
-        // Caso 3: Sucesso, temos dados do funcionário
         return (
             <div className={styles.employeeBlock}>
-                {/* Mostra foto real ou placeholder */}
-                <img
-                    src={employee.fotoUrl || PLACEHOLDER_IMAGE_URL}
-                    alt={employee.nome || role}
-                    className={styles.employeePhoto}
-                    onError={(e) => { e.target.onerror = null; e.target.src=PLACEHOLDER_IMAGE_URL }}
-                />
+                <img src={employee.fotoUrl || PLACEHOLDER_IMAGE_URL} alt={employee.nome || role} className={styles.employeePhoto} onError={(e) => { e.target.onerror = null; e.target.src=PLACEHOLDER_IMAGE_URL }}/>
                 <div className={styles.employeeDetails}>
                     <p className={styles.infoStrong}><strong>{role}:</strong> {employee.nome || 'N/A'}</p>
                     <p className={styles.infoSmall}><strong>Email:</strong> {employee.email || 'N/A'}</p>
@@ -78,7 +71,6 @@ function DetalhesCaravanaAdmin({ caravana, onClose }) {
             </div>
         );
     };
-    // --- FIM SUBCOMPONENTE ---
 
     if (!caravana) return null;
 
@@ -89,10 +81,10 @@ function DetalhesCaravanaAdmin({ caravana, onClose }) {
     const vagasOcupadas = caravana.vagasOcupadas || 0;
     const ocupacaoPercentual = caravana.ocupacaoPercentual ?? (caravana.vagasTotais > 0 ? (vagasOcupadas / caravana.vagasTotais) * 100 : 0);
 
-
     return (
         <div className={styles.container}>
             <div className={styles.modalContent}>
+                 <button onClick={onClose} className={styles.closeButton}>×</button>
                 <h2 className={styles.title}>Detalhes da Caravana</h2>
                 <div className={styles.card}>
                      {caravana.imagensLocalidade && caravana.imagensLocalidade.length > 0 && ( <img src={caravana.imagensLocalidade[0]} alt={caravana.nomeLocalidade || 'Localidade'} className={styles.cardImage}/> )}
@@ -100,16 +92,34 @@ function DetalhesCaravanaAdmin({ caravana, onClose }) {
                         <h3 className={styles.sectionTitle}>Informações Gerais</h3>
                         <p className={styles.info}><strong>Localidade:</strong> {caravana.nomeLocalidade || 'N/A'}</p>
                         <p className={styles.info}><strong>Descrição:</strong> {isLoadingDesc ? 'Carregando...' : (descricao || 'Sem descrição')}</p>
-                        <p className={styles.info}><strong>Data:</strong> {caravana.data ? new Date(caravana.data).toLocaleDateString() : 'N/A'}</p>
-                        <p className={styles.info}><strong>Horário de Saída:</strong> {caravana.horarioSaida || 'N/A'}</p>
+                        <p className={styles.info}><strong>Data Viagem:</strong> {formatDate(caravana.data)}</p>
+                        <p className={styles.info}><strong>Data Fech. Vendas:</strong> {formatDate(caravana.dataFechamentoVendas)}</p>
+                        <p className={styles.info}><strong>Data Conf. Transporte:</strong> {formatDate(caravana.dataConfirmacaoTransporte)}</p>
+                        <p className={styles.info}><strong>Horário Saída:</strong> {caravana.horarioSaida || 'N/A'}</p>
                         <p className={styles.info}><strong>Status:</strong> {translateStatus(caravana.status)}</p>
 
                         <h3 className={styles.sectionTitle}>Equipe Responsável</h3>
-                        {/* Chamadas não mudam, a lógica está no subcomponente */}
                         <EmployeeInfoDetailed employee={caravana.administrador} role="Administrador" originalUid={caravana.administradorUid} />
                         <EmployeeInfoDetailed employee={caravana.motorista} role="Motorista" originalUid={caravana.motoristaUid} />
                         <EmployeeInfoDetailed employee={caravana.guia} role="Guia" originalUid={caravana.guiaUid} />
 
+                        <h3 className={styles.sectionTitle}>Transporte</h3>
+                        <p className={styles.info}><strong>Status Transporte:</strong> {caravana.transporteConfirmado ? 'Confirmado/Alocado' : 'Aguardando Confirmação'}</p>
+                        {caravana.transporteConfirmado && caravana.transportesAlocados && caravana.transportesAlocados.length > 0 && (
+                            <>
+                                <p><strong>Veículos Alocados:</strong></p>
+                                <ul className={styles.listaTransportes}>
+                                    {caravana.transportesAlocados.map((transporte, index) => (
+                                        <li key={transporte.id || index}>
+                                            {transporte.nome || 'Veículo'} (Placa: {transporte.placa || 'N/A'}, Assentos: {transporte.assentos || '?'})
+                                        </li>
+                                    ))}
+                                </ul>
+                            </>
+                         )}
+                         {caravana.transporteConfirmado && (!caravana.transportesAlocados || caravana.transportesAlocados.length === 0) && (
+                            <p className={styles.info}>Nenhum veículo foi necessário ou alocado.</p>
+                         )}
 
                         <h3 className={styles.sectionTitle}>Vagas</h3>
                         <p className={styles.info}><strong>Vagas Totais:</strong> {caravana.vagasTotais || 0}</p>
@@ -119,7 +129,7 @@ function DetalhesCaravanaAdmin({ caravana, onClose }) {
 
                         <h3 className={styles.sectionTitle}>Financeiro</h3>
                         <p className={styles.info}><strong>Preço por Ingresso:</strong> {formatCurrency(caravana.preco)}</p>
-                        <p className={styles.info}><strong>Despesas:</strong> {formatCurrency(caravana.despesas)}</p>
+                        <p className={styles.info}><strong>Despesas Estimadas:</strong> {formatCurrency(caravana.despesas)}</p>
                         <p className={styles.info}><strong>Arrecadação Atual:</strong> {formatCurrency(caravana.receitaAtual)}</p>
                         <p className={styles.info}><strong>Lucro Atual:</strong> {formatCurrency(caravana.lucroAtual)}</p>
                         <p className={styles.info}><strong>Lucro Máximo Previsto:</strong> {formatCurrency(caravana.lucroMaximo)}</p>

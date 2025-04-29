@@ -72,7 +72,7 @@ function PopupConfira({ caravana: initialCaravana, onClose, onCompraSucesso, loc
                 user.email,
                 quantidadeIngressos
             );
-            const caravanaAtualizada = await api.getCaravana(caravanaLocal.id);
+            const caravanaAtualizada = await api.getCaravanaById(caravanaLocal.id);
             setCaravanaLocal(caravanaAtualizada);
             setQuantidadeIngressos(1);
 

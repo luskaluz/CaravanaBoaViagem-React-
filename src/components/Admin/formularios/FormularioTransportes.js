@@ -4,7 +4,7 @@ import { uploadImage } from '../../../services/cloudinary';
 import styles from './FormularioFuncionario.module.css';
 
 function FormularioTransporte({ transporte, onSalvar, onCancelar }) {
-    const [formData, setFormData] = useState({ nome: '', assentos: '', custoAluguel: '', quantidadeTotal: '1', fornecedor: '' });
+    const [formData, setFormData] = useState({ nome: '', assentos: '', fornecedor: '', placa: ''}); // Removido qtd
     const [imagemUrl, setImagemUrl] = useState(null);
     const [arquivoImagem, setArquivoImagem] = useState(null);
     const [previewImagem, setPreviewImagem] = useState(null);
@@ -12,6 +12,8 @@ function FormularioTransporte({ transporte, onSalvar, onCancelar }) {
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState(null);
     const [isUploading, setIsUploading] = useState(false);
+    // Novo estado para disponibilidade (apenas na edição)
+    const [disponivel, setDisponivel] = useState(true);
 
     useEffect(() => {
         if (transporte) {
@@ -19,17 +21,17 @@ function FormularioTransporte({ transporte, onSalvar, onCancelar }) {
             setFormData({
                 nome: transporte.nome || '',
                 assentos: transporte.assentos || '',
-                custoAluguel: transporte.custoAluguel !== undefined ? String(transporte.custoAluguel) : '',
-                quantidadeTotal: '',
                 fornecedor: transporte.fornecedor || '',
+                placa: transporte.placa || '',
             });
             setImagemUrl(transporte.imagemUrl || null);
             setPreviewImagem(transporte.imagemUrl || null);
+            setDisponivel(transporte.disponivel !== undefined ? transporte.disponivel : true); // Define disponibilidade
             setArquivoImagem(null);
         } else {
             setIsEditMode(false);
-            setFormData({ nome: '', assentos: '', custoAluguel: '', quantidadeTotal: '1', fornecedor: '' });
-            setImagemUrl(null); setArquivoImagem(null); setPreviewImagem(null);
+            setFormData({ nome: '', assentos: '', fornecedor: '', placa: '' });
+            setImagemUrl(null); setArquivoImagem(null); setPreviewImagem(null); setDisponivel(true); // Default disponível
         }
         setError(null);
     }, [transporte]);
@@ -58,19 +60,18 @@ function FormularioTransporte({ transporte, onSalvar, onCancelar }) {
         if (fileInput) fileInput.value = null;
      };
 
-    const handleSubmit = async (e) => {
-        e.preventDefault();
-        setError(null);
-        const assentosNum = parseInt(formData.assentos, 10);
-        const custoNum = parseFloat(formData.custoAluguel);
-        const quantidadeTotalNum = isEditMode ? 0 : parseInt(formData.quantidadeTotal, 10);
+     const handleDisponibilidadeChange = (e) => {
+         setDisponivel(e.target.checked);
+     };
 
-        if (!formData.nome || !formData.assentos || formData.custoAluguel === '' || !formData.fornecedor || (!isEditMode && formData.quantidadeTotal === '')) {
-             setError("Todos os campos (exceto imagem) são obrigatórios."); return;
+    const handleSubmit = async (e) => {
+        e.preventDefault(); setError(null);
+        const assentosNum = parseInt(formData.assentos, 10);
+
+        if (!formData.nome || !formData.assentos || !formData.fornecedor || !formData.placa) {
+            setError("Nome, Fornecedor, Placa e Assentos são obrigatórios."); return;
         }
         if (isNaN(assentosNum) || assentosNum <= 0) { setError("Assentos inválidos."); return; }
-        if (isNaN(custoNum) || custoNum < 0) { setError("Custo inválido."); return; }
-        if (!isEditMode && (isNaN(quantidadeTotalNum) || quantidadeTotalNum < 0)) { setError("Quantidade total inicial inválida."); return; }
 
         setIsLoading(true);
         let finalImageUrl = imagemUrl;
@@ -85,16 +86,18 @@ function FormularioTransporte({ transporte, onSalvar, onCancelar }) {
         } else if (!imagemUrl && isEditMode) { finalImageUrl = null; }
           else if (!imagemUrl && !isEditMode) { finalImageUrl = null; }
 
+        // Dados para criar/atualizar (sem custo/quantidade inicial)
         const dataToSend = {
-            nome: formData.nome, assentos: assentosNum, custoAluguel: custoNum,
+            nome: formData.nome, assentos: assentosNum,
             imagemUrl: finalImageUrl, fornecedor: formData.fornecedor,
-             ...(!isEditMode && { quantidadeTotal: quantidadeTotalNum })
+            placa: formData.placa,
+            // Adiciona disponibilidade apenas na edição
+            ...(isEditMode && { disponivel: disponivel })
         };
-         if (isEditMode) { delete dataToSend.quantidadeTotal; }
 
         try {
             if (isEditMode) { await api.updateTransporte(transporte.id, dataToSend); }
-            else { await api.createTransporte(dataToSend); }
+            else { await api.createTransporte(dataToSend); } // Backend inicializa disponivel=true
             onSalvar();
         } catch (err) { console.error(err); setError(err.message); }
         finally { setIsLoading(false); }
@@ -102,7 +105,7 @@ function FormularioTransporte({ transporte, onSalvar, onCancelar }) {
 
     return (
         <div className={styles.container}>
-            <h2 className={styles.title}>{isEditMode ? "Editar Transporte" : "Criar Transporte"}</h2>
+            <h2 className={styles.title}>{isEditMode ? "Editar Transporte" : "Adicionar Veículo"}</h2>
             {error && <div className={styles.error}>{error}</div>}
             <form onSubmit={handleSubmit} className={styles.form}>
                  <div className={styles.formGroup}>
@@ -114,17 +117,18 @@ function FormularioTransporte({ transporte, onSalvar, onCancelar }) {
                     <input type="text" id="transp-fornecedor" name="fornecedor" value={formData.fornecedor} onChange={handleChange} required className={styles.input}/>
                  </div>
                  <div className={styles.formGroup}>
+                    <label htmlFor="transp-placa" className={styles.label}>Placa:</label>
+                    <input type="text" id="transp-placa" name="placa" value={formData.placa} onChange={handleChange} required className={styles.input}/>
+                 </div>
+                 <div className={styles.formGroup}>
                     <label htmlFor="transp-assentos" className={styles.label}>Nº de Assentos:</label>
                     <input type="number" id="transp-assentos" name="assentos" value={formData.assentos} onChange={handleChange} required min="1" className={styles.input}/>
                  </div>
-                 <div className={styles.formGroup}>
-                    <label htmlFor="transp-custo" className={styles.label}>Custo do Aluguel (R$):</label>
-                    <input type="number" id="transp-custo" name="custoAluguel" value={formData.custoAluguel} onChange={handleChange} required min="0" step="0.01" className={styles.input}/>
-                 </div>
-                 {!isEditMode && (
-                     <div className={styles.formGroup}>
-                        <label htmlFor="transp-quantidadeTotal" className={styles.label}>Quantidade Total Inicial:</label>
-                        <input type="number" id="transp-quantidadeTotal" name="quantidadeTotal" value={formData.quantidadeTotal} onChange={handleChange} required min="0" className={styles.input}/>
+                 {/* <<< CHECKBOX DE DISPONIBILIDADE (Só na Edição) >>> */}
+                 {isEditMode && (
+                     <div className={styles.formGroupCheck}>
+                        <input type="checkbox" id="transp-disponivel" name="disponivel" checked={disponivel} onChange={handleDisponibilidadeChange} className={styles.checkbox}/>
+                        <label htmlFor="transp-disponivel" className={styles.labelCheck}>Disponível para Alocação</label>
                     </div>
                  )}
                  <div className={styles.formGroup}>
@@ -134,7 +138,7 @@ function FormularioTransporte({ transporte, onSalvar, onCancelar }) {
                      {previewImagem && !isUploading && (
                          <div className={styles.imagemPreviewContainer}>
                               <img src={previewImagem} alt="Preview" className={styles.imagemPreview} />
-                              <button type="button" onClick={handleRemoverImagem} className={styles.removeImageButton} disabled={isLoading}>Remover Imagem</button>
+                              <button type="button" onClick={handleRemoverImagem} className={styles.removeImageButton} disabled={isLoading}>Remover</button>
                          </div>
                     )}
                  </div>

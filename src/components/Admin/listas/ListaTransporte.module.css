@@ -148,3 +148,45 @@
 .deleteButton { background-color: #dc3545; color: white; }
 .detailsButton { background-color: #17a2b8; color: white; } /* Botão 'Criar Caravana' */
 
+.disponibilidadeContainer {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 8px;
+}
+
+.toggleButton {
+    padding: 4px 10px;
+    border-radius: 15px; /* Botão arredondado */
+    cursor: pointer;
+    font-size: 0.85rem;
+    font-weight: bold;
+    border: 1px solid;
+    min-width: 60px; /* Largura mínima */
+    text-align: center;
+    transition: background-color 0.3s, color 0.3s, border-color 0.3s;
+}
+
+.toggleButton:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+.toggleOn {
+    background-color: #d4edda; /* Fundo verde claro */
+    color: #155724; /* Texto verde escuro */
+    border-color: #c3e6cb;
+}
+.toggleOn:hover:not(:disabled) {
+     background-color: #c3e6cb;
+}
+
+
+.toggleOff {
+    background-color: #f8d7da; /* Fundo vermelho claro */
+    color: #721c24; /* Texto vermelho escuro */
+    border-color: #f5c6cb;
+}
+.toggleOff:hover:not(:disabled) {
+    background-color: #f5c6cb;
+}
