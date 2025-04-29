@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import * as api from '../../../services/api';
 import ModalCriarTransporte from '../modal/ModalCriarTransporte';
 import ModalEditarTransporte from '../modal/ModalEditarTransporte';
-import styles from './ListaLocalidades.module.css';
+import styles from './ListaTransporte.module.css';
 
 const PLACEHOLDER_TRANSPORT_IMAGE = "https://via.placeholder.com/100x80?text=Transp";
 

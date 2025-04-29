@@ -157,7 +157,6 @@
 
 .toggleButton {
     padding: 4px 10px;
-    border-radius: 15px; /* Botão arredondado */
     cursor: pointer;
     font-size: 0.85rem;
     font-weight: bold;
