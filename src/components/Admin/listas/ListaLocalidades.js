@@ -5,13 +5,28 @@ import ModalCriarCaravana from '../modal/ModalCriarCaravana';
 import FormularioLocalidade from '../formularios/FormularioLocalidade';
 
 
-function ListaLocalidades({ openModalCriarLocalidade }) { // Recebe a prop
+function ListaLocalidades({ openModalCriarLocalidade }) {
     const [localidades, setLocalidades] = useState([]);
     const [error, setError] = useState(null);
     const [showModalCriarCaravana, setShowModalCriarCaravana] = useState(false);
     const [selectedLocalidade, setSelectedLocalidade] = useState(null);
     const [showModalEditar, setShowModalEditar] = useState(false);
     const [localidadeParaEditar, setLocalidadeParaEditar] = useState(null);
+    const [isLoading, setIsLoading] = useState(false); // Adicionado Loading
+
+    const loadLocalidades = async () => {
+        setIsLoading(true); // Inicia loading
+        setError(null);
+        try {
+            const data = await api.getLocalidades();
+            setLocalidades(data);
+        } catch (error) {
+            setError(error.message);
+            console.error("Erro ao buscar localidades:", error);
+        } finally {
+             setIsLoading(false); // Termina loading
+        }
+    };
 
 
     useEffect(() => {
@@ -19,15 +34,17 @@ function ListaLocalidades({ openModalCriarLocalidade }) { // Recebe a prop
     }, []);
 
     const handleDeletar = async (id) => {
-        try {
-            if (window.confirm("Tem certeza que deseja excluir esta localidade?")) {
+        if (window.confirm("Tem certeza que deseja excluir esta localidade?")) {
+            try {
                 await api.deleteLocalidade(id);
+                // Remove localmente para feedback imediato
                 setLocalidades(prevLocalidades => prevLocalidades.filter(localidade => localidade.id !== id));
                 alert('Localidade excluída com sucesso!');
+            } catch (error) {
+                setError(error.message);
+                console.error("Erro ao deletar Localidade:", error);
+                alert(`Erro ao excluir: ${error.message}`);
             }
-        } catch (error) {
-            setError(error.message);
-            console.error("Erro ao deletar Localidade:", error)
         }
     };
 
@@ -42,20 +59,15 @@ function ListaLocalidades({ openModalCriarLocalidade }) { // Recebe a prop
         setSelectedLocalidade(null);
     };
 
+    // --- CORREÇÃO AQUI ---
     const handleCaravanaCreated = () => {
-        loadLocalidades();
+        alert('Caravana criada com sucesso!'); // Feedback opcional
+        closeModalCriarCaravana(); // <<< FECHA O MODAL
+        // Opcional: Recarregar localidades se a criação de caravana afetar algo aqui
+        // loadLocalidades();
     };
+    // --- FIM CORREÇÃO ---
 
-
-    const loadLocalidades = async () => {
-        try {
-            setError(null);
-            const data = await api.getLocalidades();
-            setLocalidades(data);
-        } catch (error) {
-            setError(error.message);
-        }
-    };
 
     const handleEditar = (localidade) => {
         setLocalidadeParaEditar(localidade);
@@ -70,56 +82,45 @@ function ListaLocalidades({ openModalCriarLocalidade }) { // Recebe a prop
     const handleLocalidadeSalva = () => {
         setShowModalEditar(false);
         setLocalidadeParaEditar(null);
-        loadLocalidades();
+        loadLocalidades(); // Recarrega localidades após salvar edição
+        alert('Localidade atualizada com sucesso!'); // Feedback
     };
 
 
-    if (error) return <div>Erro: {error}</div>;
+    if (error) return <div className={styles.error}>Erro ao carregar localidades: {error}</div>;
 
     return (
         <div className={styles.container}>
-            <h2>Lista de Localidades</h2>
-             {/* Chama a função passada por prop */}
-            <button onClick={openModalCriarLocalidade} className={styles.addButton}>
-                Criar Localidade
-            </button>
+             {/* Cabeçalho como em outras listas */}
+             <div className={styles.header || ''}>
+                <h2>Lista de Localidades</h2>
+                 {/* Botão Criar pode vir do Dashboard Admin ou ficar aqui */}
+                 {/* <button onClick={openModalCriarLocalidade} className={styles.addButton}> Criar Localidade </button> */}
+             </div>
 
-            {localidades.length === 0 ? (
+             {isLoading && <p className={styles.loading}>Carregando localidades...</p>}
+
+            {!isLoading && !error && localidades.length === 0 ? (
                 <p>Nenhuma localidade cadastrada.</p>
-            ) : (
+            ) : !isLoading && !error && (
                 <ul className={styles.list}>
                     {localidades.map((localidade) => (
                        <li key={localidade.id} className={styles.listItem}>
-                       {/* Coluna da Imagem */}
-                       <div className={styles.imagemContainer}>
-                           {localidade.imagens && localidade.imagens.length > 0 ? (
-                               <img
-                                   src={localidade.imagens[0]}
-                                   alt={`Imagem de ${localidade.nome}`}
-                                   className={styles.miniatura}
-                               />
-                           ) : (
-                               <div className={styles.miniatura} style={{backgroundColor: '#f0f0f0'}}></div>
-                           )}
-                       </div>
-                       
-                       {/* Coluna das Informações */}
-                       <div className={styles.localidadeInfo}>
-                           <p><span className={styles.label}>Nome:</span> {localidade.nome}</p><br />
-                           {localidade.descricao && (
-                               <p><span className={styles.label}>Descrição:</span><br/><br/> {localidade.descricao}</p>
-                           )}
-                       </div>
-                       
-                       {/* Coluna dos Botões */}
-                       <div className={styles.buttonGroup}>
-                           <button className={styles.editButton} onClick={() => handleEditar(localidade)}>Editar</button>
-                           <button className={styles.deleteButton} onClick={() => handleDeletar(localidade.id)}>Excluir</button>
-                           <button className={styles.detailsButton} onClick={() => handleCriarCaravana(localidade)}>
-                               Criar Caravana
-                           </button>
-                       </div>
-                   </li>
+                           <div className={styles.imagemContainer}>
+                               {localidade.imagens && localidade.imagens.length > 0 ? (
+                                   <img src={localidade.imagens[0]} alt={localidade.nome} className={styles.miniatura}/>
+                               ) : ( <div className={styles.miniatura} style={{backgroundColor: '#f0f0f0'}}></div> )}
+                           </div>
+                           <div className={styles.localidadeInfo}>
+                               <p><span className={styles.label}>Nome:</span> {localidade.nome}</p><br />
+                               {localidade.descricao && ( <p><span className={styles.label}>Descrição:</span><br/><br/> {localidade.descricao}</p> )}
+                           </div>
+                           <div className={styles.buttonGroup}>
+                               <button className={styles.editButton} onClick={() => handleEditar(localidade)}>Editar</button>
+                               <button className={styles.deleteButton} onClick={() => handleDeletar(localidade.id)}>Excluir</button>
+                               <button className={styles.detailsButton} onClick={() => handleCriarCaravana(localidade)}>Criar Caravana</button>
+                           </div>
+                       </li>
                     ))}
                 </ul>
             )}
@@ -127,20 +128,20 @@ function ListaLocalidades({ openModalCriarLocalidade }) { // Recebe a prop
             {showModalEditar && (
                 <div className={styles.modalOverlay} onClick={closeModalEditar}>
                     <div className={styles.modal} onClick={(e) => e.stopPropagation()}>
-                        <button className={styles.closeButton} onClick={closeModalEditar}>&times;</button>
+                        <button className={styles.closeButton} onClick={closeModalEditar}>×</button>
                         <FormularioLocalidade
                             localidade={localidadeParaEditar}
-                             onSalvar={handleLocalidadeSalva}
+                            onSalvar={handleLocalidadeSalva} // Usa a função que fecha o modal
                             onCancelar={closeModalEditar}
                         />
                     </div>
                 </div>
             )}
-             {showModalCriarCaravana && (
+            {showModalCriarCaravana && (
                 <ModalCriarCaravana
-                preSelectedLocalidadeId={selectedLocalidade.id}
+                    preSelectedLocalidadeId={selectedLocalidade?.id} // Passa ID com segurança
                     onClose={closeModalCriarCaravana}
-                    onCaravanaCreated={handleCaravanaCreated}
+                    onCaravanaCreated={handleCaravanaCreated} // Usa a função que fecha o modal
                 />
             )}
         </div>

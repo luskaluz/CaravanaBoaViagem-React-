@@ -1,17 +1,20 @@
 import React, { useState, useEffect } from 'react';
 import styles from './DetalhesCaravanaAdmin.module.css';
 import * as api from '../../services/api';
+// Importe o modal de alocação manual que você criará
+import AlocacaoManualModal from './modal/AlocacaoManualModal';
 
 const PLACEHOLDER_IMAGE_URL = "https://via.placeholder.com/80x120?text=Foto";
 
-function DetalhesCaravanaAdmin({ caravana, onClose }) {
+function DetalhesCaravanaAdmin({ caravana, onClose, onCaravanaUpdate }) { // Adicionado onCaravanaUpdate
     const [descricao, setDescricao] = useState('');
     const [isLoadingDesc, setIsLoadingDesc] = useState(false);
+    // Estado para controlar o modal de alocação manual
+    const [showAlocacaoModal, setShowAlocacaoModal] = useState(false);
 
-    // Função para formatar datas (ex: DD/MM/YYYY)
     const formatDate = (dateString) => {
         if (!dateString) return 'N/A';
-        try { return new Date(dateString + 'T00:00:00').toLocaleDateString('pt-BR'); } // Adiciona T00 para evitar problemas de fuso
+        try { return new Date(dateString + 'T00:00:00').toLocaleDateString('pt-BR'); }
         catch (e) { return 'Data Inválida'; }
     };
 
@@ -35,30 +38,17 @@ function DetalhesCaravanaAdmin({ caravana, onClose }) {
             case 'nao_confirmada': return 'Não Confirmada';
             case 'cancelada': return 'Cancelada';
             case 'concluida': return 'Concluída';
+            case 'erro_alocacao_transporte': return 'Erro Alocação'; // Exemplo de status de erro
             default: return 'Desconhecido';
         }
     };
 
     const EmployeeInfoDetailed = ({ employee, role, originalUid }) => {
         if (!employee) {
-            return (
-                 <div className={`${styles.employeeBlock} ${styles.employeeNotConfirmed}`}>
-                    <div className={styles.employeeDetails}>
-                        <p className={styles.infoStrong}><strong>{role}:</strong> Não Confirmado</p>
-                    </div>
-                 </div>
-            );
+            return ( <div className={`${styles.employeeBlock} ${styles.employeeNotConfirmed}`}><div className={styles.employeeDetails}><p className={styles.infoStrong}><strong>{role}:</strong> Não Confirmado</p></div></div> );
         }
         if (employee.error) {
-             return (
-                 <div className={styles.employeeBlock}>
-                    <img src={PLACEHOLDER_IMAGE_URL} alt={role} className={styles.employeePhoto}/>
-                    <div className={styles.employeeDetails}>
-                        <p className={styles.infoStrong}><strong>{role}:</strong> Erro ao buscar</p>
-                        <p className={styles.infoSmall}>UID: {employee.uid || originalUid || 'N/A'}</p>
-                    </div>
-                 </div>
-             );
+             return ( <div className={styles.employeeBlock}><img src={PLACEHOLDER_IMAGE_URL} alt={role} className={styles.employeePhoto}/><div className={styles.employeeDetails}><p className={styles.infoStrong}><strong>{role}:</strong> Erro</p><p className={styles.infoSmall}>UID: {originalUid || 'N/A'}</p></div></div> );
         }
         return (
             <div className={styles.employeeBlock}>
@@ -72,6 +62,18 @@ function DetalhesCaravanaAdmin({ caravana, onClose }) {
         );
     };
 
+     // Funções para o modal de alocação
+     const openAlocacaoModal = () => setShowAlocacaoModal(true);
+     const closeAlocacaoModal = () => setShowAlocacaoModal(false);
+     const handleAlocacaoSalva = () => {
+         closeAlocacaoModal();
+         if (onCaravanaUpdate) {
+             onCaravanaUpdate(); // Chama a função do pai para recarregar a lista/dados
+         }
+         alert("Alocação manual salva! Os dados podem levar um momento para atualizar.");
+     };
+
+
     if (!caravana) return null;
 
     const formatCurrency = (value) => `R$ ${(parseFloat(value) || 0).toFixed(2)}`;
@@ -81,10 +83,16 @@ function DetalhesCaravanaAdmin({ caravana, onClose }) {
     const vagasOcupadas = caravana.vagasOcupadas || 0;
     const ocupacaoPercentual = caravana.ocupacaoPercentual ?? (caravana.vagasTotais > 0 ? (vagasOcupadas / caravana.vagasTotais) * 100 : 0);
 
+    // Determina a capacidade real (total inicial ou alocada)
+    const capacidadeReal = caravana.transporteConfirmado && caravana.transportesAlocados?.length > 0
+                           ? caravana.transportesAlocados.reduce((sum, t) => sum + (t.assentos || 0), 0)
+                           : caravana.vagasTotais || 0;
+    const vagasDisponiveisReais = Math.max(0, capacidadeReal - (vagasOcupadas + (caravana.administradorUid ? 1 : 0))); // Calcula disponíveis reais
+
+
     return (
         <div className={styles.container}>
             <div className={styles.modalContent}>
-                 <button onClick={onClose} className={styles.closeButton}>×</button>
                 <h2 className={styles.title}>Detalhes da Caravana</h2>
                 <div className={styles.card}>
                      {caravana.imagensLocalidade && caravana.imagensLocalidade.length > 0 && ( <img src={caravana.imagensLocalidade[0]} alt={caravana.nomeLocalidade || 'Localidade'} className={styles.cardImage}/> )}
@@ -105,13 +113,16 @@ function DetalhesCaravanaAdmin({ caravana, onClose }) {
 
                         <h3 className={styles.sectionTitle}>Transporte</h3>
                         <p className={styles.info}><strong>Status Transporte:</strong> {caravana.transporteConfirmado ? 'Confirmado/Alocado' : 'Aguardando Confirmação'}</p>
+                        {/* Exibe lista de transportes alocados */}
                         {caravana.transporteConfirmado && caravana.transportesAlocados && caravana.transportesAlocados.length > 0 && (
                             <>
-                                <p><strong>Veículos Alocados:</strong></p>
+                                <p className={styles.info}><strong>Veículos Alocados:</strong></p>
                                 <ul className={styles.listaTransportes}>
                                     {caravana.transportesAlocados.map((transporte, index) => (
                                         <li key={transporte.id || index}>
                                             {transporte.nome || 'Veículo'} (Placa: {transporte.placa || 'N/A'}, Assentos: {transporte.assentos || '?'})
+                                            {/* Aqui você poderia adicionar a exibição do motorista alocado para este veículo, se implementado */}
+                                            {/* {transporte.motoristaUid && <span> - Motorista: {NOME_DO_MOTORISTA}</span>} */}
                                         </li>
                                     ))}
                                 </ul>
@@ -120,12 +131,24 @@ function DetalhesCaravanaAdmin({ caravana, onClose }) {
                          {caravana.transporteConfirmado && (!caravana.transportesAlocados || caravana.transportesAlocados.length === 0) && (
                             <p className={styles.info}>Nenhum veículo foi necessário ou alocado.</p>
                          )}
+                         {/* <<< BOTÃO DE ALOCAÇÃO MANUAL >>> */}
+                         {/* Mostra o botão se a caravana não estiver cancelada */}
+                         {caravana.status !== 'cancelada' && (
+                            <button onClick={openAlocacaoModal} className={styles.botaoAlocarManual}>
+                                {caravana.transporteConfirmado ? 'Alterar Alocação Manual' : 'Alocar Manualmente'}
+                            </button>
+                         )}
+
 
                         <h3 className={styles.sectionTitle}>Vagas</h3>
-                        <p className={styles.info}><strong>Vagas Totais:</strong> {caravana.vagasTotais || 0}</p>
-                        <p className={styles.info}><strong>Vagas Disponiveis:</strong> {caravana.vagasDisponiveis ?? 'N/A'}</p>
+                        <p className={styles.info}><strong>Vagas Totais (Inicial):</strong> {caravana.vagasTotais || 0}</p>
+                         {/* Mostra capacidade real após alocação */}
+                         {caravana.transporteConfirmado && <p className={styles.info}><strong>Capacidade Real (Alocada):</strong> {capacidadeReal}</p>}
+                        <p className={styles.info}><strong>Vagas Disponíveis (Real):</strong> {vagasDisponiveisReais}</p>
                         <p className={styles.info}><strong>Total de Bilhetes Vendidos:</strong> {vagasOcupadas}</p>
-                        <p className={styles.info}><strong>Ocupação:</strong> {formatPercentage(ocupacaoPercentual)} </p>
+                        <p className={styles.info}><strong>Ocupação (Baseado no Total Inicial):</strong> {formatPercentage(ocupacaoPercentual)} </p>
+                         {/* Opcional: Calcular ocupação baseada na capacidade real */}
+                         {caravana.transporteConfirmado && capacidadeReal > 0 && <p className={styles.info}><strong>Ocupação (Baseado na Cap. Real):</strong> {formatPercentage((vagasOcupadas / capacidadeReal) * 100)} </p>}
 
                         <h3 className={styles.sectionTitle}>Financeiro</h3>
                         <p className={styles.info}><strong>Preço por Ingresso:</strong> {formatCurrency(caravana.preco)}</p>
@@ -138,6 +161,15 @@ function DetalhesCaravanaAdmin({ caravana, onClose }) {
                     </div>
                 </div>
             </div>
+
+             {/* Renderiza o Modal de Alocação Manual */}
+             {showAlocacaoModal && (
+                <AlocacaoManualModal
+                    caravana={caravana}
+                    onClose={closeAlocacaoModal}
+                    onAlocacaoSalva={handleAlocacaoSalva}
+                />
+            )}
         </div>
     );
 }

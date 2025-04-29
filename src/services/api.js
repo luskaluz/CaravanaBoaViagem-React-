@@ -78,6 +78,7 @@ export const getTransportes = async () => apiRequest('get', '/transportes');
 export const updateTransporte = async (id, transporteData) => apiRequest('put', `/transportes/${id}`, transporteData);
 export const deleteTransporte = async (id) => apiRequest('delete', `/transportes/${id}`);
 export const updateTransporteDisponibilidade = async (id, novoEstado) => apiRequest('put', `/transportes/${id}/disponibilidade`, { disponivel: novoEstado });
+export const updateAlocacaoManual = async (caravanaId, transportesIds) => apiRequest('put', `/caravanas/${caravanaId}/alocacao-manual`, { transportesSelecionadosIds: transportesIds });
 
 
 // --- Usuários ---
@@ -85,3 +86,4 @@ export const registrarUsuario = async (userData) => apiRequest('post', '/registe
 export const getDadosUsuario = async (uid) => apiRequest('get', `/user/${uid}`);
 export const getCaravanasUsuarioPorStatus = async (userId, status) => apiRequest('get', `/usuario/${userId}/caravanas/${status}`);
 export const getCaravanasUsuario = async (userId) => apiRequest('get', `/usuario/${userId}/caravanas`);
+
