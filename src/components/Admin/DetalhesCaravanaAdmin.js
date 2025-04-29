@@ -88,7 +88,6 @@ function DetalhesCaravanaAdmin({ caravana, onClose, onCaravanaUpdate }) {
     return (
         <div className={styles.container}>
             <div className={styles.modalContent}>
-                 <button onClick={onClose} className={styles.closeButton}>×</button>
                 <h2 className={styles.title}>Detalhes da Caravana</h2>
                 <div className={styles.card}>
                      {caravana.imagensLocalidade?.[0] && ( <img src={caravana.imagensLocalidade[0]} alt={caravana.nomeLocalidade || 'Localidade'} className={styles.cardImage}/> )}
@@ -106,44 +105,7 @@ function DetalhesCaravanaAdmin({ caravana, onClose, onCaravanaUpdate }) {
                         <EmployeeInfoDetailed employee={caravana.motorista} role="Motorista Principal" originalUid={caravana.motoristaUid} />
                         <EmployeeInfoDetailed employee={caravana.guia} role="Guia" originalUid={caravana.guiaUid} />
 
-                        <h3 className={styles.sectionTitle}>Transporte</h3>
-                         {caravana.transporteAlocado ? (
-                             <div className={styles.transporteAlocadoInfo}>
-                                 <p><span className={styles.label}>Veículo Definido:</span> {caravana.transporteAlocado.nome || '?'}</p>
-                                 <p><span className={styles.label}>Placa:</span> {caravana.transporteAlocado.placa || 'N/A'}</p>
-                                 <p><span className={styles.label}>Assentos:</span> {caravana.transporteAlocado.assentos || '?'}</p>
-                                 {/* Adicionar exibição do motorista específico do veículo AQUI se implementar */}
-                                 {/* <p><span className={styles.label}>Motorista Veículo:</span> { NOME_MOTORISTA_VEICULO || 'Não definido' }</p> */}
-                             </div>
-                         ) : (
-                             <p className={styles.info}>Aguardando definição do transporte.</p>
-                         )}
-                         {caravana.status === 'confirmada' && (
-                            <button onClick={handleOpenDefineTransporte} className={styles.botaoAlocarManual} disabled={savingTransporte}>
-                                {caravana.transporteAlocado ? 'Alterar Transporte/Placa' : 'Definir Transporte/Placa'}
-                            </button>
-                         )}
-                         {showDefineTransporte && (
-                             <div className={styles.defineTransporteSection}>
-                                 <h4>{caravana.transporteAlocado ? 'Alterar' : 'Definir'} Transporte e Placa</h4>
-                                 {defineTransporteError && <p className={styles.errorInline}>{defineTransporteError}</p>}
-                                 <div className={styles.formGroupInline}>
-                                     <label htmlFor="select-tipo-transporte">Tipo:</label>
-                                     <select id="select-tipo-transporte" value={selectedTransporteTipoId} onChange={(e) => setSelectedTransporteTipoId(e.target.value)} disabled={savingTransporte} className={styles.selectInline}>
-                                         <option value="">Selecione...</option>
-                                         {tiposTransporte.map(t => ( <option key={t.id} value={t.id}>{t.nome} ({t.assentos})</option> ))}
-                                     </select>
-                                 </div>
-                                 <div className={styles.formGroupInline}>
-                                     <label htmlFor="input-placa">Placa:</label>
-                                     <input type="text" id="input-placa" value={placaInput} onChange={(e) => setPlacaInput(e.target.value.toUpperCase())} placeholder="AAA-0000" disabled={savingTransporte} className={styles.inputInline}/>
-                                 </div>
-                                 <div className={styles.buttonGroupInline}>
-                                     <button onClick={handleSalvarTransporteDefinido} disabled={savingTransporte} className={styles.saveButtonInline}>Confirmar</button>
-                                     <button onClick={handleCloseDefineTransporte} disabled={savingTransporte} className={styles.cancelButtonInline}>Cancelar</button>
-                                 </div>
-                             </div>
-                         )}
+                        
 
                         <h3 className={styles.sectionTitle}>Vagas</h3>
                         <p className={styles.info}><strong>Capacidade {caravana.transporteAlocado ? 'Definida:' : '(Inicial Mínima):'}</strong> {capacidadeReal}</p>

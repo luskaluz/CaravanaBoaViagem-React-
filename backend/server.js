@@ -1630,72 +1630,198 @@ app.get('/participantes/:caravanaId', verificarAutenticacao, verificarFuncionari
 
 app.post('/transportes', verificarAutenticacao, verificarAdmin, async (req, res) => {
     try {
-        // Removido placa, fornecedor (mantido?), imagemUrl (mantida)
-        const { nome, assentos, imagemUrl, fornecedor } = req.body;
-        if (!nome || !assentos || !fornecedor) { // Fornecedor mantido como obrigatório? Se não, remova daqui e do erro.
-            return res.status(400).json({ error: "Nome, assentos e fornecedor são obrigatórios." });
+        const { nome, placa, fornecedor, assentos, imagemUrl } = req.body;
+
+        // Validação básica
+        if (!nome || !placa || !fornecedor || !assentos) {
+            return res.status(400).json({ error: "Nome, Placa, Fornecedor e Assentos são obrigatórios." });
         }
         const assentosNum = parseInt(assentos, 10);
-        if (isNaN(assentosNum) || assentosNum <= 0) return res.status(400).json({ error: "Assentos inválidos." });
+        if (isNaN(assentosNum) || assentosNum <= 0) {
+            return res.status(400).json({ error: "Número de assentos inválido." });
+        }
 
-        const nomeCheck = await db.collection('transportes').where('nome', '==', nome).limit(1).get();
-        if (!nomeCheck.empty) return res.status(400).json({ error: `Tipo '${nome}' já existe.` });
+        // Opcional: Verificar se placa já existe (pode impactar performance em coleções grandes)
+        // const placaCheck = await db.collection('transportes').where('placa', '==', placa).limit(1).get();
+        // if (!placaCheck.empty) {
+        //     return res.status(400).json({ error: `Veículo com placa ${placa} já cadastrado.` });
+        // }
 
         const novoTransporte = {
-            nome, assentos: assentosNum, imagemUrl: imagemUrl || null,
-            fornecedor: fornecedor,
-            // Removido placa, disponibilidade agora é implícita (tipo sempre existe)
+            nome,
+            placa,
+            fornecedor,
+            assentos: assentosNum,
+            imagemUrl: imagemUrl || null, // Garante que seja null se não fornecido
+            disponivel: true, // Novo veículo começa como disponível
             createdAt: admin.firestore.FieldValue.serverTimestamp()
         };
+
         const docRef = await db.collection('transportes').add(novoTransporte);
         res.status(201).json({ id: docRef.id, ...novoTransporte });
-    } catch (error) { console.error(error); res.status(500).json({ error: "Erro interno.", details: error.message }); }
+
+    } catch (error) {
+        console.error("Erro ao criar transporte:", error);
+        res.status(500).json({ error: "Erro interno ao criar transporte.", details: error.message });
+    }
 });
 
-// PUT /transportes/:id - Atualizar TIPO (sem placa)
+
 app.put('/transportes/:id', verificarAutenticacao, verificarAdmin, async (req, res) => {
     try {
         const { id } = req.params;
-        // Removido placa, disponivel
-        const { nome, assentos, imagemUrl, fornecedor } = req.body;
+        const { nome, placa, fornecedor, assentos, imagemUrl, disponivel } = req.body; // Inclui 'disponivel' aqui também
+
         const transporteRef = db.collection('transportes').doc(id);
         const docSnap = await transporteRef.get();
-        if (!docSnap.exists) return res.status(404).json({ error: "Tipo não encontrado." });
-        const dadosAtualizados = {}; let hasUpdate = false;
-        if (nome !== undefined) { if (!nome) return res.status(400).json({ error: "Nome vazio." }); dadosAtualizados.nome = nome; hasUpdate = true; }
-        if (assentos !== undefined) { const n = parseInt(assentos, 10); if (isNaN(n) || n <= 0) return res.status(400).json({ error: "Assentos inválidos." }); dadosAtualizados.assentos = n; hasUpdate = true; }
-        if (imagemUrl !== undefined) { dadosAtualizados.imagemUrl = imagemUrl; hasUpdate = true; }
-        if (fornecedor !== undefined) { if (!fornecedor) return res.status(400).json({ error: "Fornecedor vazio." }); dadosAtualizados.fornecedor = fornecedor; hasUpdate = true; }
-        // <<< REMOVIDO lógica da placa e disponibilidade >>>
 
-        if (!hasUpdate) return res.status(400).json({ error: "Nenhum dado válido." });
+        if (!docSnap.exists) {
+            return res.status(404).json({ error: "Veículo não encontrado." });
+        }
+
+        const dadosAtualizados = {};
+        let hasUpdate = false; // Flag para verificar se algo foi realmente alterado
+
+        // Valida e adiciona campos ao objeto de atualização se eles foram fornecidos
+        if (nome !== undefined) {
+            if (!nome) return res.status(400).json({ error: "Nome não pode ser vazio." });
+            dadosAtualizados.nome = nome; hasUpdate = true;
+        }
+        if (placa !== undefined) {
+            if (!placa) return res.status(400).json({ error: "Placa não pode ser vazia." });
+             // Opcional: Adicionar verificação de unicidade da placa ao editar (exceto para o próprio ID)
+            dadosAtualizados.placa = placa; hasUpdate = true;
+        }
+        if (fornecedor !== undefined) {
+             if (!fornecedor) return res.status(400).json({ error: "Fornecedor não pode ser vazio." });
+            dadosAtualizados.fornecedor = fornecedor; hasUpdate = true;
+        }
+        if (assentos !== undefined) {
+            const n = parseInt(assentos, 10);
+            if (isNaN(n) || n <= 0) return res.status(400).json({ error: "Número de assentos inválido." });
+            dadosAtualizados.assentos = n; hasUpdate = true;
+        }
+        // Trata imagemUrl (pode ser string ou null)
+        if (imagemUrl !== undefined) {
+            dadosAtualizados.imagemUrl = imagemUrl; hasUpdate = true;
+        }
+        // Trata disponibilidade (boolean)
+        if (disponivel !== undefined && typeof disponivel === 'boolean') {
+            // Opcional: Verificar se está tentando tornar indisponível um veículo alocado
+            // const caravanasUsando = await db.collection('caravanas')
+            //     .where('transportesAlocados', 'array-contains', { id: id /* ... outros dados se necessário */})
+            //     .where('status', 'in', ['confirmada', 'nao_confirmada']) // Status relevantes
+            //     .limit(1).get();
+            // if (!caravanasUsando.empty && !disponivel) {
+            //     return res.status(400).json({ error: "Veículo está alocado em uma caravana ativa, não pode ser marcado como indisponível." });
+            // }
+            dadosAtualizados.disponivel = disponivel; hasUpdate = true;
+        }
+
+        if (!hasUpdate) {
+            return res.status(400).json({ error: "Nenhum dado válido para atualizar foi fornecido." });
+        }
+
         dadosAtualizados.lastUpdate = admin.firestore.FieldValue.serverTimestamp();
+
         await transporteRef.update(dadosAtualizados);
-        const updatedDoc = await transporteRef.get();
+
+        const updatedDoc = await transporteRef.get(); // Pega o documento atualizado para retornar
         res.status(200).json({ id: updatedDoc.id, ...updatedDoc.data() });
-    } catch (error) { console.error(error); res.status(500).json({ error: "Erro interno.", details: error.message }); }
+
+    } catch (error) {
+        console.error(`Erro ao atualizar transporte ${req.params.id}:`, error);
+        res.status(500).json({ error: "Erro interno ao atualizar transporte.", details: error.message });
+    }
 });
 
-// DELETE /transportes/:id - Excluir TIPO (mantém verificação de uso)
+// DELETE /transportes/:id - Excluir um veículo
 app.delete('/transportes/:id', verificarAutenticacao, verificarAdmin, async (req, res) => {
-     try {
-         const { id } = req.params;
-         const transporteRef = db.collection('transportes').doc(id);
-         const docSnap = await transporteRef.get();
-         if (!docSnap.exists) return res.status(404).json({ error: "Tipo não encontrado." });
-         // Verifica se o TIPO (pelo ID) está em uso
-         const caravanasUsandoSnap = await db.collection('caravanas')
-             .where('transporteAlocado.id', '==', id) // Busca pelo ID dentro do objeto
-             .where('data', '>=', new Date().toISOString().split('T')[0])
-             .where('status', '!=', 'cancelada')
-             .limit(1).get();
-         if (!caravanasUsandoSnap.empty) {
-             return res.status(400).json({ error: "Este tipo de transporte está alocado em caravanas futuras." });
-         }
-         await transporteRef.delete();
-         res.status(204).send();
-     } catch (error) { console.error(error); res.status(500).json({ error: "Erro interno." }); }
- });
+    try {
+        const { id } = req.params;
+        const transporteRef = db.collection('transportes').doc(id);
+        const docSnap = await transporteRef.get();
+
+        if (!docSnap.exists) {
+            return res.status(404).json({ error: "Veículo não encontrado." });
+        }
+
+        // **Importante: Verificar se o veículo está alocado em alguma caravana futura/ativa**
+        // Esta query precisa buscar dentro do array `transportesAlocados` de cada caravana.
+        // Firestore não suporta query direta em campos dentro de objetos em arrays de forma simples.
+        // Alternativa 1: Buscar todas as caravanas ativas/futuras e filtrar no backend (menos eficiente).
+        // Alternativa 2: Manter um campo `caravanaAtualId` no próprio documento do transporte (melhor).
+        // Vou assumir a Alternativa 2 para o exemplo (você precisaria atualizar a lógica de alocação para setar este campo):
+        // if (docSnap.data().caravanaAtualId) {
+        //    // Verificar se a caravana associada (docSnap.data().caravanaAtualId) ainda está ativa/futura
+        //    const caravanaDoc = await db.collection('caravanas').doc(docSnap.data().caravanaAtualId).get();
+        //    if (caravanaDoc.exists) {
+        //        const cData = caravanaDoc.data();
+        //        const hoje = new Date().toISOString().split('T')[0];
+        //        if (cData.data >= hoje && cData.status !== 'cancelada' && cData.status !== 'concluida') {
+        //             return res.status(400).json({ error: `Não é possível excluir. Veículo está alocado na caravana ${cData.localidadeId || caravanaDoc.id} (${formatDate(cData.data)}). Libere-o primeiro.` });
+        //        }
+        //    }
+        // }
+        // Simplificação por agora: Apenas checa o campo 'disponivel' como no seu código frontend.
+        if (!docSnap.data().disponivel) {
+             return res.status(400).json({ error: "Não é possível excluir. Veículo está marcado como indisponível (potencialmente em uso). Marque-o como disponível primeiro." });
+        }
+
+
+        await transporteRef.delete();
+        res.status(204).send(); // 204 No Content é padrão para DELETE bem-sucedido
+
+    } catch (error) {
+        console.error(`Erro ao excluir transporte ${req.params.id}:`, error);
+        res.status(500).json({ error: "Erro interno ao excluir transporte." });
+    }
+});
+
+// PUT /transportes/:id/disponibilidade - Rota específica para o toggle do botão na lista
+app.put('/transportes/:id/disponibilidade', verificarAutenticacao, verificarAdmin, async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { disponivel } = req.body; // Espera um boolean { disponivel: true/false }
+
+        if (disponivel === undefined || typeof disponivel !== 'boolean') {
+            return res.status(400).json({ error: "Valor de 'disponivel' (true/false) é obrigatório." });
+        }
+
+        const transporteRef = db.collection('transportes').doc(id);
+        const docSnap = await transporteRef.get();
+
+        if (!docSnap.exists) {
+            return res.status(404).json({ error: "Veículo não encontrado." });
+        }
+
+         // Opcional: Adicionar verificação se está tentando tornar indisponível um veículo alocado (similar ao PUT geral)
+         // if (!disponivel && docSnap.data().caravanaAtualId) { ... }
+         // Ou a verificação simplificada do seu frontend:
+         // if (!disponivel) { // Se está tentando marcar como INDISPONÍVEL
+             // Aqui poderia ter a lógica para verificar se ele está alocado.
+             // Se estiver alocado, retornar erro 400.
+         //}
+
+
+        await transporteRef.update({
+            disponivel: disponivel,
+            lastUpdate: admin.firestore.FieldValue.serverTimestamp()
+        });
+
+        // Retorna apenas uma mensagem de sucesso ou o status atualizado
+        res.status(200).json({ message: `Disponibilidade atualizada para ${disponivel}.` });
+        // Alternativamente, retornar o objeto atualizado:
+        // const updatedDoc = await transporteRef.get();
+        // res.status(200).json({ id: updatedDoc.id, ...updatedDoc.data() });
+
+    } catch (error) {
+        console.error(`Erro ao atualizar disponibilidade do transporte ${req.params.id}:`, error);
+        res.status(500).json({ error: "Erro interno ao atualizar disponibilidade.", details: error.message });
+    }
+});
+
+
 
 
 // GET /transportes - Listar TIPOS de transporte

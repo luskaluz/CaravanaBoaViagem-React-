@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import * as api from '../../../services/api';
 import ModalCriarTransporte from '../modal/ModalCriarTransporte';
 import ModalEditarTransporte from '../modal/ModalEditarTransporte';
-import styles from './ListaLocalidades.module.css'; // Continua usando o estilo de localidades
+import styles from './ListaTransporte.module.css';
 
 const PLACEHOLDER_TRANSPORT_IMAGE = "https://via.placeholder.com/100x80?text=Transp";
 
@@ -25,20 +25,24 @@ function ListaTransportesAdmin() {
     useEffect(() => { carregarTransportes(); }, []);
 
     const handleDelete = async (id) => {
-        if (window.confirm("Tem certeza que deseja excluir este veículo?")) {
+        if (window.confirm("Tem certeza?")) {
             try {
-                 // Adicionar verificação no backend é mais seguro, mas uma checagem rápida aqui pode ajudar
                  const veiculo = transportes.find(t => t.id === id);
-                 if (veiculo && !veiculo.disponivel) {
-                      alert("Não é possível excluir um veículo que está alocado (não disponível). Libere-o primeiro.");
-                      return;
-                 }
-                 await api.deleteTransporte(id);
-                 carregarTransportes();
-                 alert("Excluído!");
+                 if (veiculo && !veiculo.disponivel) { alert("Libere o veículo antes de excluir."); return; }
+                 await api.deleteTransporte(id); carregarTransportes(); alert("Excluído!");
             }
             catch (err) { setError(err.message); alert(`Erro: ${err.message}`); }
         }
+    };
+
+    const handleToggleDisponibilidade = async (id, estadoAtual) => {
+        const novoEstado = !estadoAtual;
+        setUpdatingAvailability(prev => ({ ...prev, [id]: true }));
+        try {
+            await api.updateTransporteDisponibilidade(id, novoEstado);
+             setTransportes(prev => prev.map(t => t.id === id ? { ...t, disponivel: novoEstado } : t));
+        } catch (err) { console.error(err); alert(`Erro: ${err.message}`); }
+        finally { setUpdatingAvailability(prev => ({ ...prev, [id]: false })); }
     };
 
     const handleAbrirModalCriar = () => setShowCreateModal(true);
@@ -46,7 +50,6 @@ function ListaTransportesAdmin() {
     const handleAbrirModalEditar = (transporte) => { setTransporteParaEditar(transporte); setShowEditModal(true); };
     const handleFecharModalEditar = () => { setShowEditModal(false); setTransporteParaEditar(null); };
     const handleTransporteSalvo = () => { handleFecharModalCriar(); handleFecharModalEditar(); carregarTransportes(); };
-
 
     return (
         <div className={styles.container}>
@@ -67,8 +70,14 @@ function ListaTransportesAdmin() {
                              <div className={styles.localidadeInfo}>
                                  <p><span className={styles.label}>Nome:</span> {transp.nome}</p>
                                  <p><span className={styles.label}>Fornecedor:</span> {transp.fornecedor || 'N/A'}</p>
+                                 <p><span className={styles.label}>Placa:</span> {transp.placa || 'N/A'}</p>
                                  <p><span className={styles.label}>Assentos:</span> {transp.assentos}</p>
-
+                                  <div className={styles.disponibilidadeContainer}>
+                                     <span className={styles.label}>Disponível:</span>
+                                     <button onClick={() => handleToggleDisponibilidade(transp.id, transp.disponivel)} disabled={updatingAvailability[transp.id]} className={`${styles.toggleButton} ${transp.disponivel ? styles.toggleOn : styles.toggleOff}`} title={transp.disponivel ? 'Marcar Indisponível' : 'Marcar Disponível'}>
+                                         {updatingAvailability[transp.id] ? '...' : (transp.disponivel ? 'Sim' : 'Não')}
+                                     </button>
+                                 </div>
                              </div>
                              <div className={styles.buttonGroup}>
                                  <button onClick={() => handleAbrirModalEditar(transp)} className={styles.editButton}>Editar</button>
