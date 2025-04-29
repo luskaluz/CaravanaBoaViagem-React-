@@ -59,7 +59,6 @@ function FormularioCaravana({ caravana, preSelectedLocalidadeId, onSalvar, onCan
             setSelectedGuiaUid(caravana.guiaUid || '');
             setDataFechamentoVendas(formatDateForInput(caravana.dataFechamentoVendas));
             setPrecoManual(caravana.preco !== undefined ? String(caravana.preco) : '');
-            // Data de Confirmação Transporte removida
         } else {
             setIsEditMode(false);
             setLocalidadeId(preSelectedLocalidadeId || '');
@@ -68,7 +67,6 @@ function FormularioCaravana({ caravana, preSelectedLocalidadeId, onSalvar, onCan
             setSelectedAdminUid(''); setSelectedMotoristaUid(''); setSelectedGuiaUid('');
             setDataFechamentoVendas('');
             setPrecoManual('');
-             // Data de Confirmação Transporte removida
         }
     }, [caravana, preSelectedLocalidadeId]);
 
@@ -95,7 +93,7 @@ function FormularioCaravana({ caravana, preSelectedLocalidadeId, onSalvar, onCan
 
         const dtViagem = new Date(dataViagem + 'T00:00:00');
         const dtFechVendas = dataFechamentoVendas ? new Date(dataFechamentoVendas + 'T00:00:00') : null;
-        if (dtFechVendas && dtViagem && dtFechVendas > dtViagem) { setError("Data Fechamento > Viagem."); return; }
+        if (dtFechVendas && dtViagem && dtFechVendas >= dtViagem) { setError("Data Fechamento deve ser anterior à Data da Viagem."); return; }
 
         setIsLoading(true);
         const caravanaData = {
@@ -107,7 +105,6 @@ function FormularioCaravana({ caravana, preSelectedLocalidadeId, onSalvar, onCan
             motoristaUid: selectedMotoristaUid === "nao_confirmado" ? null : selectedMotoristaUid,
             guiaUid: (selectedGuiaUid === "nao_confirmado" || selectedGuiaUid === "") ? null : selectedGuiaUid,
             dataFechamentoVendas: dataFechamentoVendas || null,
-            // dataConfirmacaoTransporte não é mais enviado daqui
         };
 
         try {

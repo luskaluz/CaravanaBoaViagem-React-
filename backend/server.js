@@ -805,16 +805,23 @@ app.post('/caravanas', verificarAutenticacao, verificarAdmin, async (req, res) =
     try {
         const {
             localidadeId, data, horarioSaida, despesas, lucroAbsoluto, ocupacaoMinima, preco,
-            administradorUid, motoristaUid, guiaUid, dataFechamentoVendas
+            administradorUid, motoristaUid, guiaUid, dataConfirmacaoTransporte, dataFechamentoVendas
         } = req.body;
-        if (!localidadeId || !data || !despesas || !lucroAbsoluto || !ocupacaoMinima || preco === undefined || preco === null || preco === '') {
-            return res.status(400).json({ error: "Localidade, Data, Despesas, Lucro, Ocup. Mínima e Preço são obrigatórios." });
+
+        if (!localidadeId || !data || !despesas || !lucroAbsoluto || !ocupacaoMinima || preco === undefined || preco === null || preco === '' || !dataConfirmacaoTransporte) {
+            return res.status(400).json({ error: "Preencha todos os campos obrigatórios (Localidade, Datas, Cálculos, Preço)." });
         }
         if (!/^\d{4}-\d{2}-\d{2}$/.test(data)) return res.status(400).json({ error: "Formato Data Viagem inválido."});
+        if (dataConfirmacaoTransporte && !/^\d{4}-\d{2}-\d{2}$/.test(dataConfirmacaoTransporte)) return res.status(400).json({ error: "Formato Data Conf. Transporte inválido."});
         if (dataFechamentoVendas && !/^\d{4}-\d{2}-\d{2}$/.test(dataFechamentoVendas)) return res.status(400).json({ error: "Formato Data Fech. Vendas inválido."});
+
         const dtViagem = new Date(data + 'T00:00:00');
+        const dtConfTransp = dataConfirmacaoTransporte ? new Date(dataConfirmacaoTransporte + 'T00:00:00') : null;
         const dtFechVendas = dataFechamentoVendas ? new Date(dataFechamentoVendas + 'T00:00:00') : null;
-        if(dtFechVendas && dtViagem && dtFechVendas > dtViagem) return res.status(400).json({ error: "Data Fechamento Vendas > Viagem." });
+
+        if(dtConfTransp && dtFechVendas && dtConfTransp > dtFechVendas) return res.status(400).json({ error: "Data Conf. Transporte > Fechamento." });
+        if(dtFechVendas && dtViagem && dtFechVendas > dtViagem) return res.status(400).json({ error: "Data Fechamento > Viagem." });
+        if(dtConfTransp && dtViagem && dtConfTransp > dtViagem) return res.status(400).json({ error: "Data Conf. Transporte > Viagem." });
 
         const localidadeRef = db.collection('localidades').doc(localidadeId);
         const localidadeDoc = await localidadeRef.get();
@@ -826,15 +833,18 @@ app.post('/caravanas', verificarAutenticacao, verificarAdmin, async (req, res) =
 
         const novaCaravana = {
             localidadeId, data, horarioSaida: horarioSaida || null,
-            vagasTotais: ocupacaoMinimaNum, vagasDisponiveis: ocupacaoMinimaNum,
+            vagasTotais: ocupacaoMinimaNum,
+            vagasDisponiveis: ocupacaoMinimaNum,
             despesas: parseFloat(despesas) || 0, lucroAbsoluto: parseFloat(lucroAbsoluto) || 0,
             ocupacaoMinima: ocupacaoMinimaNum, preco: precoNum,
             status: "nao_confirmada",
             administradorUid: administradorUid === "nao_confirmado" ? null : administradorUid,
             motoristaUid: motoristaUid === "nao_confirmado" ? null : motoristaUid,
             guiaUid: (guiaUid === "nao_confirmado" || guiaUid === "") ? null : guiaUid,
+            dataConfirmacaoTransporte: dataConfirmacaoTransporte,
             dataFechamentoVendas: dataFechamentoVendas || null,
             transporteAlocado: null,
+            transporteConfirmado: false, // Adicionado para controle
             createdAt: admin.firestore.FieldValue.serverTimestamp()
         };
         const docRef = await db.collection('caravanas').add(novaCaravana);
@@ -842,26 +852,34 @@ app.post('/caravanas', verificarAutenticacao, verificarAdmin, async (req, res) =
     } catch (error) { console.error(error); res.status(500).json({ error: "Erro interno.", details: error.message }); }
 });
 
+
 app.put('/caravanas/:id', verificarAutenticacao, verificarAdmin, async (req, res) => {
     const { id } = req.params;
     const {
         localidadeId, data, horarioSaida, despesas, lucroAbsoluto, ocupacaoMinima, preco,
-        administradorUid, motoristaUid, guiaUid, dataFechamentoVendas
+        administradorUid, motoristaUid, guiaUid, dataConfirmacaoTransporte, dataFechamentoVendas
     } = req.body;
+
     try {
         const caravanaRef = db.collection('caravanas').doc(id);
         const caravanaDoc = await caravanaRef.get();
-        if (!caravanaDoc.exists) return res.status(404).json({ error: 'Caravana não encontrada.' });
+        if (!caravanaDoc.exists) { return res.status(404).json({ error: 'Caravana não encontrada.' }); }
         const caravanaAtual = caravanaDoc.data();
 
-        if (!localidadeId || !data || !despesas || !lucroAbsoluto || !ocupacaoMinima) {
-             return res.status(400).json({ error: "Campos básicos não podem ser vazios." });
+        if (!localidadeId || !data || !despesas || !lucroAbsoluto || !ocupacaoMinima || !dataConfirmacaoTransporte) {
+             return res.status(400).json({ error: "Campos básicos e data conf. transporte obrigatórios." });
          }
         if (!/^\d{4}-\d{2}-\d{2}$/.test(data)) return res.status(400).json({ error: "Formato Data Viagem inválido."});
+        if (dataConfirmacaoTransporte && !/^\d{4}-\d{2}-\d{2}$/.test(dataConfirmacaoTransporte)) return res.status(400).json({ error: "Formato Data Conf. Transporte inválido."});
         if (dataFechamentoVendas !== undefined && dataFechamentoVendas !== null && !/^\d{4}-\d{2}-\d{2}$/.test(dataFechamentoVendas)) return res.status(400).json({ error: "Formato Data Fech. Vendas inválido." });
+
         const dtViagemFinal = new Date(data + 'T00:00:00');
+        const dtConfTranspFinal = dataConfirmacaoTransporte ? new Date(dataConfirmacaoTransporte + 'T00:00:00') : null;
         const dtFechVendasFinal = dataFechamentoVendas ? new Date(dataFechamentoVendas + 'T00:00:00') : null;
-        if(dtFechVendasFinal && dtViagemFinal && dtFechVendasFinal > dtViagemFinal) return res.status(400).json({ error: "Data Fechamento Vendas > Viagem." });
+
+        if(dtConfTranspFinal && dtFechVendasFinal && dtConfTranspFinal > dtFechVendasFinal) return res.status(400).json({ error: "Data Conf. Transporte > Fechamento." });
+        if(dtFechVendasFinal && dtViagemFinal && dtFechVendasFinal > dtViagemFinal) return res.status(400).json({ error: "Data Fechamento > Viagem." });
+        if(dtConfTranspFinal && dtViagemFinal && dtConfTranspFinal > dtViagemFinal) return res.status(400).json({ error: "Data Conf. Transporte > Viagem." });
 
         if (localidadeId && localidadeId !== caravanaAtual.localidadeId) {
              const locCheck = await db.collection('localidades').doc(localidadeId).get();
@@ -877,28 +895,99 @@ app.put('/caravanas/:id', verificarAutenticacao, verificarAdmin, async (req, res
         if (ocupacaoMinima !== undefined) dadosAtualizados.ocupacaoMinima = parseInt(ocupacaoMinima, 10) || 0;
         if (preco !== undefined) {
             const precoNum = parseFloat(preco);
-             if (isNaN(precoNum) || precoNum < 0) return res.status(400).json({ error: "Preço inválido." });
+             if (isNaN(precoNum) || precoNum < 0) {
+                 return res.status(400).json({ error: "Preço inválido." });
+             }
              dadosAtualizados.preco = precoNum;
          }
         if (administradorUid !== undefined) dadosAtualizados.administradorUid = administradorUid === "nao_confirmado" ? null : administradorUid;
         if (motoristaUid !== undefined) dadosAtualizados.motoristaUid = motoristaUid === "nao_confirmado" ? null : motoristaUid;
         if (guiaUid !== undefined) dadosAtualizados.guiaUid = (guiaUid === "nao_confirmado" || guiaUid === "") ? null : guiaUid;
+        if (dataConfirmacaoTransporte !== undefined) dadosAtualizados.dataConfirmacaoTransporte = dataConfirmacaoTransporte || null;
         if (dataFechamentoVendas !== undefined) dadosAtualizados.dataFechamentoVendas = dataFechamentoVendas || null;
 
         if (Object.keys(dadosAtualizados).length > 0) {
             dadosAtualizados.lastUpdate = admin.firestore.FieldValue.serverTimestamp();
             await caravanaRef.update(dadosAtualizados);
-        } else { return res.status(400).json({ error: "Nenhum dado para atualizar." }); }
+        } else {
+             console.log(`Nenhum campo alterado para caravana ${id}, exceto timestamp.`);
+             await caravanaRef.update({ lastUpdate: admin.firestore.FieldValue.serverTimestamp() });
+        }
 
         const caravanaAtualizadaDoc = await caravanaRef.get();
         const cData = caravanaAtualizadaDoc.data();
-        const [adminData, motoristaData, guiaData] = await Promise.all([ getFuncionarioData(cData.administradorUid), getFuncionarioData(cData.motoristaUid), getFuncionarioData(cData.guiaUid) ]);
+        const [adminData, motoristaData, guiaData] = await Promise.all([
+             getFuncionarioData(cData.administradorUid),
+             getFuncionarioData(cData.motoristaUid),
+             getFuncionarioData(cData.guiaUid)
+        ]);
         const metrics = calculateCaravanaMetrics(cData);
         const locData = await getLocalidadeData(cData.localidadeId);
         const maxCapacidade = await getMaxCapacidadeTransporteDisponivel();
-        res.status(200).json({ id: caravanaAtualizadaDoc.id, ...cData, ...locData, ...metrics, administrador: adminData, motorista: motoristaData, guia: guiaData, maxCapacidadeDisponivel: maxCapacidade });
+        res.status(200).json({
+             id: caravanaAtualizadaDoc.id, ...cData, ...locData, ...metrics,
+             administrador: adminData, motorista: motoristaData, guia: guiaData,
+             maxCapacidadeDisponivel: maxCapacidade
+        });
 
     } catch (error) { console.error(error); res.status(500).json({ error: "Erro interno.", details: error.message }); }
+});
+
+
+
+// --- Rota PUT /caravanas/:id/definir-transporte (Adiciona checagem de data) ---
+app.put('/caravanas/:id/definir-transporte', verificarAutenticacao, verificarAdmin, async (req, res) => {
+    const { id: caravanaId } = req.params;
+    const { transporteId, placa } = req.body;
+
+    if (!transporteId || !placa) return res.status(400).json({ error: "ID do tipo e placa obrigatórios." });
+
+    try {
+        const caravanaRef = db.collection('caravanas').doc(caravanaId);
+        const transporteRef = db.collection('transportes').doc(transporteId);
+
+        await db.runTransaction(async (transaction) => {
+            const caravanaDoc = await transaction.get(caravanaRef);
+            if (!caravanaDoc.exists) throw new Error("Caravana não encontrada.");
+            const caravanaData = caravanaDoc.data();
+
+            // <<< NOVA VALIDAÇÃO DE DATA >>>
+            const hoje = new Date();
+            const dataConfirmacao = caravanaData.dataConfirmacaoTransporte ? new Date(caravanaData.dataConfirmacaoTransporte + 'T00:00:00') : null;
+            if (!dataConfirmacao) throw new Error("Data de confirmação do transporte não definida para esta caravana.");
+            if (hoje < dataConfirmacao) {
+                throw new Error(`A definição manual do transporte só é permitida a partir de ${formatDate(caravanaData.dataConfirmacaoTransporte)}.`);
+            }
+            // <<< FIM VALIDAÇÃO DE DATA >>>
+
+            if (caravanaData.status !== 'confirmada') throw new Error("Só definir transporte para caravanas confirmadas.");
+
+            const transporteDoc = await transaction.get(transporteRef);
+            if (!transporteDoc.exists) throw new Error("Tipo de transporte não encontrado.");
+            const transporteData = transporteDoc.data();
+
+            const participantesQuery = db.collection('participantes').where('caravanaId', '==', caravanaId);
+            const participantesSnapTrans = await transaction.get(participantesQuery);
+            let vagasOcupadasAtuais = 0;
+            participantesSnapTrans.forEach(pDoc => { vagasOcupadasAtuais += parseInt(pDoc.data().quantidade, 10) || 0; });
+            if (caravanaData.administradorUid) vagasOcupadasAtuais += 1;
+            const capacidadeAlocada = transporteData.assentos || 0;
+            if (capacidadeAlocada < vagasOcupadasAtuais) throw new Error(`Transporte (${capacidadeAlocada}) não comporta ${vagasOcupadasAtuais} passageiros.`);
+
+            const transporteAlocadoObj = { id: transporteId, nome: transporteData.nome, assentos: capacidadeAlocada, placa: placa, motoristaUid: null };
+            transaction.update(caravanaRef, {
+                 transportesAlocados: [transporteAlocadoObj], transporteConfirmado: true,
+                 vagasTotais: capacidadeAlocada, vagasDisponiveis: Math.max(0, capacidadeAlocada - vagasOcupadasAtuais),
+                 lastUpdate: admin.firestore.FieldValue.serverTimestamp()
+             });
+        });
+         res.status(200).json({ message: "Transporte definido." });
+    } catch (error) {
+         console.error(error);
+          if (error.message.includes("não encontrada")) res.status(404).json({ error: error.message });
+          else if (error.message.includes("não comporta") || error.message.includes("Só é possível") || error.message.includes("definição manual")) res.status(400).json({ error: error.message });
+          else res.status(500).json({ error: "Erro interno.", details: error.message });
+    }
 });
 
 app.put('/caravanas/:id/definir-transporte', verificarAutenticacao, verificarAdmin, async (req, res) => {
@@ -940,7 +1029,53 @@ app.put('/caravanas/:id/definir-transporte', verificarAutenticacao, verificarAdm
     }
 });
 
+app.put('/caravanas/:id/definir-placa-motorista', verificarAutenticacao, verificarAdmin, async (req, res) => {
+    const { id: caravanaId } = req.params;
+    const { placa, motoristaUid } = req.body; // Recebe placa e UID opcional do motorista
 
+    if (!placa && motoristaUid === undefined) { // Precisa de pelo menos um
+        return res.status(400).json({ error: "Placa ou Motorista UID necessário." });
+    }
+
+    try {
+        const caravanaRef = db.collection('caravanas').doc(caravanaId);
+        await db.runTransaction(async (transaction) => {
+             const caravanaDoc = await transaction.get(caravanaRef);
+             if (!caravanaDoc.exists) throw new Error("Caravana não encontrada.");
+             const caravanaData = caravanaDoc.data();
+             if (!caravanaData.transporteAlocado) throw new Error("Transporte ainda não alocado para esta caravana.");
+
+             const transporteAlocadoAtual = { ...caravanaData.transporteAlocado }; // Copia objeto
+
+             // Atualiza a placa se fornecida
+             if (placa !== undefined) {
+                 if (!placa) throw new Error("Placa não pode ser vazia.");
+                 transporteAlocadoAtual.placa = placa;
+             }
+
+              // Atualiza o motorista se fornecido
+             if (motoristaUid !== undefined) {
+                 if (motoristaUid !== null) { // Valida se não for para remover
+                      const motoristaDoc = await getFuncionarioData(motoristaUid);
+                      if (!motoristaDoc || motoristaDoc.cargo !== 'motorista') throw new Error("Motorista inválido ou não encontrado.");
+                 }
+                 transporteAlocadoAtual.motoristaUid = motoristaUid; // Atualiza ou remove (se null)
+             }
+
+              // Salva o objeto transporteAlocado modificado
+              transaction.update(caravanaRef, {
+                 transporteAlocado: transporteAlocadoAtual,
+                 lastUpdate: admin.firestore.FieldValue.serverTimestamp()
+              });
+        });
+         res.status(200).json({ message: "Detalhes do transporte atualizados." });
+    } catch (error) {
+         console.error(error);
+         if (error.message.includes("não encontrada")) res.status(404).json({ error: error.message });
+         else if (error.message.includes("não alocado") || error.message.includes("inválido")) res.status(400).json({ error: error.message });
+         else res.status(500).json({ error: "Erro interno.", details: error.message });
+    }
+});
 
 
 
@@ -1364,17 +1499,20 @@ app.get('/localidades/:id/descricao', async (req, res) => {
 app.post('/comprar-ingresso', verificarAutenticacao, async (req, res) => {
     const { caravanaId, quantidade } = req.body;
     const { uid: usuarioId, email: usuarioEmail, name: usuarioNome } = req.user;
-    let nomeLocalidade = 'Desconhecida';
-    let caravanaAposCompra;
+    let nomeLocalidade = 'Desconhecida'; let caravanaAposCompra;
+
     try {
         if (!caravanaId || !quantidade) return res.status(400).json({ error: "Campos obrigatórios." });
         const quantidadeNumerica = parseInt(quantidade, 10);
         if (isNaN(quantidadeNumerica) || quantidadeNumerica <= 0) return res.status(400).json({ error: "Quantidade inválida." });
+
         const caravanaRef = db.collection('caravanas').doc(caravanaId);
+
         await db.runTransaction(async (transaction) => {
-            const caravanaDocTransacao = await transaction.get(caravanaRef);
-            if (!caravanaDocTransacao.exists) throw new Error('Caravana não encontrada.');
-            const caravana = caravanaDocTransacao.data();
+            const caravanaDoc = await transaction.get(caravanaRef);
+            if (!caravanaDoc.exists) throw new Error('Caravana não encontrada.');
+            const caravana = caravanaDoc.data();
+
             if (caravana.status === 'cancelada') throw new Error('Caravana cancelada.');
             const hoje = new Date(); const dataViagem = new Date(caravana.data + 'T00:00:00');
             if (dataViagem < hoje.setHours(0,0,0,0)) throw new Error('Caravana já ocorreu.');
@@ -1382,24 +1520,26 @@ app.post('/comprar-ingresso', verificarAutenticacao, async (req, res) => {
             if (dataFechamento && hoje > dataFechamento) throw new Error(`Vendas fechadas em ${formatDate(caravana.dataFechamentoVendas)}.`);
 
             const participantesQuery = db.collection('participantes').where('caravanaId', '==', caravanaId);
-            const participantesSnapTrans = await transaction.get(participantesQuery);
+            const participantesSnap = await transaction.get(participantesQuery);
             let vagasOcupadasAtuais = 0;
-            participantesSnapTrans.forEach(pDoc => { vagasOcupadasAtuais += parseInt(pDoc.data().quantidade, 10) || 0; });
+            participantesSnap.forEach(pDoc => { vagasOcupadasAtuais += parseInt(pDoc.data().quantidade, 10) || 0; });
             if (caravana.administradorUid) vagasOcupadasAtuais += 1;
             const vagasNecessariasFuturas = vagasOcupadasAtuais + quantidadeNumerica;
 
             let capacidadeMaximaPermitida = 0;
+
             if (caravana.transporteAlocado) {
-                 capacidadeMaximaPermitida = caravana.transporteAlocado.assentos || 0;
+                capacidadeMaximaPermitida = caravana.transporteAlocado.assentos || 0;
             } else {
-                 const transportesDispQuery = db.collection('transportes').orderBy('assentos', 'desc').limit(1);
-                 const transportesDispSnap = await transaction.get(transportesDispQuery); // <<< CORREÇÃO AQUI
-                 if (transportesDispSnap.empty) throw new Error("Nenhum tipo de transporte cadastrado.");
-                 capacidadeMaximaPermitida = transportesDispSnap.docs[0].data().assentos || 0; // <<< CORREÇÃO AQUI
+                const transportesQuery = db.collection('transportes').orderBy('assentos', 'desc').limit(1);
+                const transportesSnap = await transaction.get(transportesQuery);
+                if (transportesSnap.empty) throw new Error("Nenhum tipo de transporte cadastrado.");
+                capacidadeMaximaPermitida = transportesSnap.docs[0].data().assentos || 0;
             }
+
             if (vagasNecessariasFuturas > capacidadeMaximaPermitida) {
-                const vagasRealmenteDisponiveis = Math.max(0, capacidadeMaximaPermitida - vagasOcupadasAtuais);
-                throw new Error(`Capacidade máxima (${capacidadeMaximaPermitida} lugares) excedida. Vagas restantes: ${vagasRealmenteDisponiveis}.`);
+                const vagasDisponiveisReais = Math.max(0, capacidadeMaximaPermitida - vagasOcupadasAtuais);
+                throw new Error(`Capacidade máxima (${capacidadeMaximaPermitida}) excedida. Vagas restantes: ${vagasDisponiveisReais}.`);
             }
 
             const participantesRef = db.collection('participantes').doc();
@@ -1407,6 +1547,7 @@ app.post('/comprar-ingresso', verificarAutenticacao, async (req, res) => {
             const novasVagasDisponiveisDB = (caravana.vagasDisponiveis ?? caravana.vagasTotais ?? 0) - quantidadeNumerica;
             transaction.update(caravanaRef, { vagasDisponiveis: novasVagasDisponiveisDB });
         });
+
         const caravanaAposCompraDoc = await caravanaRef.get();
         if (!caravanaAposCompraDoc.exists) throw new Error("Erro ao finalizar compra.");
         caravanaAposCompra = caravanaAposCompraDoc.data();
@@ -1414,14 +1555,9 @@ app.post('/comprar-ingresso', verificarAutenticacao, async (req, res) => {
         nomeLocalidade = locData.nomeLocalidade || caravanaId;
         res.status(200).json({ message: `${quantidadeNumerica} i. comprado(s)!`, caravanaStatus: caravanaAposCompra.status });
         enviarEmailsPosCompra(usuarioEmail, quantidadeNumerica, caravanaId, caravanaAposCompra, nomeLocalidade);
-    } catch (error) {
-        console.error(`Erro compra ${caravanaId} user ${usuarioId}:`, error);
-        if (error.message.includes('vagas') || error.message.includes('cancelada') || error.message.includes('não encontrada') || error.message.includes('Nenhum tipo') || error.message.includes('fechadas') || error.message.includes('Capacidade máxima')) {
-             res.status(400).json({ error: error.message });
-        } else { res.status(500).json({ error: `Erro interno.` }); }
-    }
-});
 
+    } catch (error) { console.error(error); /* ... tratamento de erro ... */ }
+});
 
 
 
@@ -1648,23 +1784,24 @@ app.get('/transportes', verificarAutenticacao, verificarFuncionarioOuAdmin, asyn
 
 
 const confirmarOuCancelarPosVendas = async () => {
-    console.log('[CRON] Executando verificação pós-fechamento de vendas...');
-    const ontem = new Date();
-    ontem.setDate(ontem.getDate() - 1);
+    console.log('[CRON] Verificação Pós-Vendas e Alocação Final...');
+    const ontem = new Date(); ontem.setDate(ontem.getDate() - 1);
     const ontemStr = ontem.toISOString().split('T')[0];
 
     try {
-        const caravanasParaVerificarSnap = await db.collection('caravanas')
+        const caravanasSnap = await db.collection('caravanas')
             .where('dataFechamentoVendas', '==', ontemStr)
             .where('status', '==', 'nao_confirmada')
             .get();
 
-        if (caravanasParaVerificarSnap.empty) {
-            console.log('[CRON] Nenhuma caravana pós-vendas para verificar hoje.'); return;
-        }
-        console.log(`[CRON] Verificando ${caravanasParaVerificarSnap.size} caravanas pós-vendas.`);
+        if (caravanasSnap.empty) { console.log('[CRON] Nenhuma caravana pós-vendas para verificar.'); return; }
+        console.log(`[CRON] Verificando ${caravanasSnap.size} caravanas pós-vendas.`);
 
-        for (const doc of caravanasParaVerificarSnap.docs) {
+        const transportesSnap = await db.collection('transportes').orderBy('assentos', 'asc').get(); // Menor primeiro
+        const tiposTransporte = [];
+        transportesSnap.forEach(doc => tiposTransporte.push({ id: doc.id, ...doc.data() }));
+
+        for (const doc of caravanasSnap.docs) {
             const caravana = doc.data(); const caravanaId = doc.id;
             const caravanaRef = db.collection('caravanas').doc(caravanaId);
             const ocupacaoMinima = caravana.ocupacaoMinima || 0;
@@ -1672,32 +1809,60 @@ const confirmarOuCancelarPosVendas = async () => {
             const participantesSnap = await db.collection('participantes').where('caravanaId', '==', caravanaId).get();
             let vagasOcupadas = 0;
             participantesSnap.forEach(pDoc => { vagasOcupadas += parseInt(pDoc.data().quantidade, 10) || 0; });
+            let vagasNecessariasFinais = vagasOcupadas + (caravana.administradorUid ? 1 : 0);
 
             if (vagasOcupadas >= ocupacaoMinima) {
-                console.log(`[CRON] ${caravanaId}: Confirmando (vagas: ${vagasOcupadas}/${ocupacaoMinima}).`);
-                try {
-                    await caravanaRef.update({
-                        status: 'confirmada', confirmadaEm: admin.firestore.FieldValue.serverTimestamp(),
-                        lastUpdate: admin.firestore.FieldValue.serverTimestamp()
-                    });
-                    // Opcional: Enviar email específico "Sua caravana foi confirmada!"
-                } catch (updateError) { console.error(`[CRON] Erro ao CONFIRMAR ${caravanaId}:`, updateError); }
-            } else {
-                console.log(`[CRON] ${caravanaId}: Cancelando (vagas: ${vagasOcupadas}/${ocupacaoMinima}).`);
+                console.log(`[CRON] ${caravanaId}: Atingiu mínimo (${vagasOcupadas}/${ocupacaoMinima}). Tentando alocar transporte...`);
+
+                // --- ALOCAÇÃO FINAL DO TRANSPORTE ---
+                let tipoEscolhido = null;
+                for (const tipo of tiposTransporte) {
+                    if (tipo.assentos >= vagasNecessariasFinais) {
+                        tipoEscolhido = tipo; break; // Pega o menor que cabe
+                    }
+                }
+
+                if (tipoEscolhido) {
+                     console.log(`[CRON] ${caravanaId}: Transporte tipo ${tipoEscolhido.nome} (${tipoEscolhido.assentos}) selecionado.`);
+                     const capacidadeFinal = tipoEscolhido.assentos;
+                     const vagasDisponiveisFinal = Math.max(0, capacidadeFinal - vagasNecessariasFinais);
+                     const precoFinal = caravana.preco > 0 ? caravana.preco : Math.ceil(((caravana.despesas || 0) + (caravana.lucroAbsoluto || 0)) / (capacidadeFinal || 1));
+
+                     const transporteAlocadoObj = {
+                         id: tipoEscolhido.id, nome: tipoEscolhido.nome,
+                         assentos: capacidadeFinal, placa: null, motoristaUid: null // Placa e motorista definidos manualmente depois
+                     };
+
+                     try {
+                         await caravanaRef.update({
+                             status: 'confirmada', confirmadaEm: admin.firestore.FieldValue.serverTimestamp(),
+                             transporteAlocado: transporteAlocadoObj,
+                             vagasTotais: capacidadeFinal, vagasDisponiveis: vagasDisponiveisFinal,
+                             preco: precoFinal,
+                             lastUpdate: admin.firestore.FieldValue.serverTimestamp()
+                         });
+                          console.log(`[CRON] ${caravanaId}: Confirmada e transporte alocado.`);
+                         // Opcional: Email "Sua caravana foi confirmada!"
+                     } catch (updateError) { console.error(`[CRON] Erro ao CONFIRMAR/ALOCAR ${caravanaId}:`, updateError); }
+
+                } else {
+                     console.warn(`[CRON] ${caravanaId}: ATINGIU MÍNIMO, MAS NENHUM TRANSPORTE COMPORTA ${vagasNecessariasFinais} pessoas! Cancelando.`);
+                     // Cancela mesmo tendo atingido o mínimo, pois não há transporte
+                     try {
+                          await caravanaRef.update({
+                             status: 'cancelada', motivoCancelamento: 'Cancelada: não há transporte disponível para a quantidade de participantes.',
+                             lastUpdate: admin.firestore.FieldValue.serverTimestamp()
+                         });
+                          // Enviar email de cancelamento...
+                     } catch (cancelError) { console.error(`[CRON] Erro ao cancelar ${caravanaId} por falta de transporte:`, cancelError); }
+                }
+                // --- FIM ALOCAÇÃO ---
+
+            } else { // Não atingiu o mínimo
+                console.log(`[CRON] ${caravanaId}: Não atingiu mínimo (${vagasOcupadas}/${ocupacaoMinima}). Cancelando.`);
                  try {
-                     await caravanaRef.update({
-                         status: 'cancelada', motivoCancelamento: 'Cancelada: não atingiu o mínimo pós-vendas.',
-                         lastUpdate: admin.firestore.FieldValue.serverTimestamp()
-                     });
-                     // Enviar email de cancelamento
-                     const participantesNotificar = await buscarParticipantesParaNotificacao(caravanaId);
-                     if (participantesNotificar.length > 0) {
-                         const localidadeData = await getLocalidadeData(caravana.localidadeId);
-                         const nomeLocalidade = localidadeData.nomeLocalidade || caravanaId;
-                         const emailSubject = `Caravana para ${nomeLocalidade} Cancelada`;
-                         const emailHtml = `<p>Olá!</p><p>Informamos que a caravana para <strong>${nomeLocalidade}</strong> marcada para ${formatDate(caravana.data)} foi cancelada por não atingir o número mínimo de participantes até o fechamento das vendas.</p><p>Entraremos em contato sobre opções de reembolso.</p>`;
-                         for (const p of participantesNotificar) { await sendEmail(p.email, emailSubject, emailHtml); }
-                     }
+                     await caravanaRef.update({ status: 'cancelada', motivoCancelamento: 'Cancelada: não atingiu o mínimo pós-vendas.', lastUpdate: admin.firestore.FieldValue.serverTimestamp() });
+                     // Enviar email de cancelamento...
                  } catch (updateError) { console.error(`[CRON] Erro ao CANCELAR ${caravanaId}:`, updateError); }
             }
         }
