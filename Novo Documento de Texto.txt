@@ -1,0 +1,15 @@
+O que pode estar faltando:
+Lógica de Confirmação/Cancelamento Automático (Pós-Vendas): O Cron Job confirmarOuCancelarPosVendas (que estava comentado no seu server.js) precisa ser revisado e reativado se você quiser que o sistema automaticamente confirme caravanas que atingiram a ocupacaoMinima ou cancele as que não atingiram após a dataFechamentoVendas. Atualmente, o finalizarTransporteAutomaticamente pode confirmar o status se a ocupação for atingida naquele momento, mas não há um processo explícito pós-vendas.
+
+Interface Admin para Visualizar Atribuição: Após a definição (manual ou automática), seria útil ter uma visualização clara no painel do admin mostrando quais participantes estão em quais veículos (transportesFinalizados). O ModalDetalhesCaravana agora mostra a lista, mas talvez uma interface mais dedicada seja necessária para gestão.
+
+Notificações aos Participantes: Enviar e-mails/notificações aos participantes após a definição do transporte (manual ou automática), informando sobre a confirmação final e, talvez, detalhes do veículo (se o admin preencheu placa, etc.). O Cron Job enviarLembretes precisa ser ajustado para usar os dados de transportesFinalizados.
+
+Tratamento de Erros Mais Detalhado: Melhorar mensagens de erro no frontend e backend para casos específicos (ex: falha na alocação automática, tentativa de compra após data limite, etc.).
+
+Seleção de Admin/Motorista Pós-Definição: Embora a estrutura esteja no ModalDefinirTransporte, o fluxo para o admin voltar e apenas adicionar/mudar os nomes do admin/motorista/placa depois da definição automática precisa ser claro.
+
+Email para Admin em Troca de Alocação Automática:
+Implementaremos isso na rota POST /comprar-ingresso. Compararemos a alocacaoIdealAtual antes e depois do cálculo da nova alocação ótima dentro da transação. Se houver diferença, um e-mail será enviado após a transação ser concluída com sucesso.
+
+Fluxo de Teste Completo: Incluirá a verificação do envio (ou não envio) do e-mail em diferentes cenários de compra.

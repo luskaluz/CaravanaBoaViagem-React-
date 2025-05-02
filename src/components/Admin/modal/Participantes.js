@@ -2,41 +2,62 @@ import React, { useState, useEffect } from 'react';
 import styles from './Participantes.module.css';
 import * as api from '../../../services/api';
 
-function Participantes({ caravanaId }) {
-    const [distribuicao, setDistribuicao] = useState(null); // Armazena a resposta da API
+// Recebe funcionarioUid e cargo como props opcionais
+function Participantes({ caravanaId, funcionarioUid = null, cargo = null }) {
+    const [distribuicao, setDistribuicao] = useState(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
+    const [secaoAberta, setSecaoAberta] = useState({}); // Estado para controlar dropdowns
 
     useEffect(() => {
-        const fetchParticipantesDistribuidos = async () => {
+        const fetchParticipantes = async () => {
             if (!caravanaId) {
-                 setDistribuicao({ definicaoCompleta: false, todosParticipantes: [] }); // Estado inicial claro
+                 setDistribuicao({ definicaoCompleta: false, todosParticipantes: [] });
                  setLoading(false);
                  return;
             }
             setLoading(true);
             setError(null);
-            setDistribuicao(null); // Limpa dados antigos
+            setDistribuicao(null);
             try {
-                // Chama a nova rota do backend
-                const data = await api.getParticipantesDistribuidos(caravanaId); // <<< NOVA CHAMADA API
+                // Passa funcionarioUid e cargo para a API se existirem
+                const params = {};
+                if (funcionarioUid) params.funcionarioUid = funcionarioUid;
+                if (cargo) params.cargo = cargo;
+
+                // Assume que api.getParticipantesDistribuidos foi atualizado para aceitar query params
+                // Se não, a lógica de filtragem precisaria ser feita aqui no frontend após buscar tudo
+                const data = await api.getParticipantesDistribuidos(caravanaId, params); // <<< CHAMADA API ATUALIZADA
                 setDistribuicao(data);
+
+                // Inicializa o estado das seções abertas (todas fechadas por padrão)
+                if (data.definicaoCompleta && data.veiculosComParticipantes) {
+                    const initialOpenState = {};
+                    data.veiculosComParticipantes.forEach((_, index) => {
+                        initialOpenState[`veiculo-${index}`] = false;
+                    });
+                    setSecaoAberta(initialOpenState);
+                }
+
             } catch (err) {
                 setError(err.message || "Erro ao buscar participantes.");
                 console.error("Erro ao buscar participantes distribuídos:", err);
-                setDistribuicao({ definicaoCompleta: false, todosParticipantes: [] }); // Define um estado de erro/vazio
+                setDistribuicao({ definicaoCompleta: false, todosParticipantes: [] });
             } finally {
                 setLoading(false);
             }
         };
 
-        fetchParticipantesDistribuidos();
-    }, [caravanaId]);
+        fetchParticipantes();
+    }, [caravanaId, funcionarioUid, cargo]); // Re-busca se o funcionário mudar (improvável neste contexto, mas correto)
 
-    // Função auxiliar para renderizar tabela de participantes (para reutilização)
+    const toggleSecao = (idSecao) => {
+        setSecaoAberta(prev => ({ ...prev, [idSecao]: !prev[idSecao] }));
+    };
+
     const renderTabelaParticipantes = (listaParticipantes) => {
         if (!listaParticipantes || listaParticipantes.length === 0) {
-            return <p>Nenhum participante encontrado.</p>;
+            return <p className={styles.semParticipantes}>Nenhum participante neste veículo.</p>;
         }
         return (
             <table className={styles.table}>
@@ -45,7 +66,7 @@ function Participantes({ caravanaId }) {
                         <th>Nome</th>
                         <th>Email</th>
                         <th>Telefone</th>
-                        {/* Não mostra mais a quantidade comprada aqui, pois está distribuído */}
+                        <th>Qtd. Comprada</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -54,6 +75,7 @@ function Participantes({ caravanaId }) {
                             <td>{participante.nome || 'N/A'}</td>
                             <td>{participante.email || 'N/A'}</td>
                             <td>{participante.telefone || 'N/A'}</td>
+                            <td>{participante.quantidade || 1}</td>
                        </tr>
                     ))}
                 </tbody>
@@ -71,27 +93,39 @@ function Participantes({ caravanaId }) {
 
              {!loading && !error && distribuicao && !distribuicao.definicaoCompleta && (
                 <>
-                    <p className={styles.aviso}>O transporte final ainda não foi definido. Exibindo lista geral.</p>
+                    <p className={styles.aviso}>O transporte final ainda não foi definido ou não há participantes. Exibindo lista geral.</p>
                     {renderTabelaParticipantes(distribuicao.todosParticipantes)}
                 </>
              )}
 
             {!loading && !error && distribuicao && distribuicao.definicaoCompleta && (
                  <>
-                    {distribuicao.veiculosComParticipantes.length === 0 && <p>Nenhum veículo definido para esta caravana.</p>}
-                    {distribuicao.veiculosComParticipantes.map((itemVeiculo, index) => (
-                        <div key={itemVeiculo.veiculoInfo.tipoId + '-' + index} className={styles.veiculoContainer}>
-                            <h3>
-                                Veículo {index + 1}: {itemVeiculo.veiculoInfo.nomeTipo}
-                                {itemVeiculo.veiculoInfo.placa && ` (Placa: ${itemVeiculo.veiculoInfo.placa})`}
-                            </h3>
-                            <div className={styles.responsaveis}>
-                                <span><strong>Admin:</strong> {itemVeiculo.administrador?.nome || 'Não definido'}</span>
-                                <span><strong>Motorista:</strong> {itemVeiculo.motorista?.nome || 'Não definido'}</span>
+                    {distribuicao.veiculosComParticipantes.length === 0 &&
+                        (funcionarioUid ? <p>Você não está atribuído a nenhum veículo nesta caravana.</p> : <p>Nenhum veículo definido ou nenhum participante atribuído.</p>)
+                    }
+                    {distribuicao.veiculosComParticipantes.map((itemVeiculo, index) => {
+                         const idSecao = `veiculo-${index}`;
+                         const estaAberta = secaoAberta[idSecao];
+                         return (
+                            <div key={idSecao} className={styles.veiculoContainer}>
+                                <button className={styles.cabecalhoDropdown} onClick={() => toggleSecao(idSecao)}>
+                                    <div className={styles.infoCabecalho}>
+                                        <strong>Veículo {index + 1}: {itemVeiculo.veiculoInfo.nomeTipo}</strong>
+                                        {itemVeiculo.veiculoInfo.placa && ` (Placa: ${itemVeiculo.veiculoInfo.placa})`}
+                                        <span> | Admin: {itemVeiculo.administrador?.nome || 'N/D'}</span>
+                                        <span> | Motorista: {itemVeiculo.motorista?.nome || 'N/D'}</span>
+                                        <span> | Participantes: {itemVeiculo.participantesAtribuidos.length}</span>
+                                    </div>
+                                    <span className={styles.setaDropdown}>{estaAberta ? '▲' : '▼'}</span>
+                                </button>
+                                {estaAberta && (
+                                    <div className={styles.conteudoDropdown}>
+                                        {renderTabelaParticipantes(itemVeiculo.participantesAtribuidos)}
+                                    </div>
+                                )}
                             </div>
-                            {renderTabelaParticipantes(itemVeiculo.participantesAtribuidos)}
-                        </div>
-                    ))}
+                         )
+                     })}
                  </>
              )}
         </div>

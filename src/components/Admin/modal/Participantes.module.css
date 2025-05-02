@@ -155,3 +155,68 @@
 .responsaveis strong {
     color: #111;
 }
+.veiculoContainer {
+  margin-bottom: 15px;
+  border: 1px solid #ccc;
+  border-radius: 5px;
+  background-color: #fff;
+  overflow: hidden; /* Para conter o conteúdo */
+}
+
+.cabecalhoDropdown {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 15px;
+  background-color: #f8f9fa;
+  border: none;
+  width: 100%;
+  text-align: left;
+  cursor: pointer;
+  border-bottom: 1px solid #eee; /* Separa cabeçalho do conteúdo */
+  transition: background-color 0.2s ease;
+}
+
+.cabecalhoDropdown:hover {
+  background-color: #e9ecef;
+}
+
+.infoCabecalho {
+  display: flex;
+  flex-wrap: wrap; /* Permite quebrar infos em telas menores */
+  gap: 5px 15px; /* Espaço vertical e horizontal */
+  align-items: center;
+}
+
+.infoCabecalho strong {
+  font-size: 1.1rem;
+  color: #333;
+  margin-right: 10px;
+}
+
+.infoCabecalho span {
+  font-size: 0.85rem;
+  color: #555;
+}
+
+.setaDropdown {
+  font-size: 1.2rem;
+  transition: transform 0.2s ease;
+}
+
+/* Gira a seta quando aberto (se o botão tiver uma classe 'aberto' ou similar) */
+/* .cabecalhoDropdown.aberto .setaDropdown {
+  transform: rotate(180deg);
+} */
+
+.conteudoDropdown {
+  padding: 15px;
+  border-top: 1px solid #eee; /* Linha extra caso o botão não tenha */
+  background-color: #fff;
+}
+
+.semParticipantes {
+  font-style: italic;
+  color: #777;
+  padding: 10px 0;
+}

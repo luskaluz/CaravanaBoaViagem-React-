@@ -47,7 +47,6 @@ function PopupConfira({ caravana: initialCaravana, onClose, onCompraSucesso, loc
 
         setComprando(true); setError(null);
         try {
-            // A validação final ocorre no backend, que usa a mesma lógica de capacidade
             await api.comprarIngresso(caravanaLocal.id, quantidadeIngressos);
             setQuantidadeIngressos(1);
             if (onCompraSucesso) onCompraSucesso(caravanaLocal.id);
@@ -71,19 +70,14 @@ function PopupConfira({ caravana: initialCaravana, onClose, onCompraSucesso, loc
         const transporteDefinido = caravanaLocal.transporteDefinidoManualmente || caravanaLocal.transporteAutoDefinido;
 
         if (transporteDefinido) {
-            // Após definição: Usa capacidadeFinalizada
             capacidadeBase = caravanaLocal.capacidadeFinalizada || 0;
             if (capacidadeBase > 0 && Array.isArray(caravanaLocal.transportesFinalizados)) {
-                const adminsUnicos = new Set(caravanaLocal.transportesFinalizados.map(t => t.administradorUid).filter(Boolean));
-                // Pelo menos 1 admin se houver veículo definido, limitado pela capacidade
-                numAdminsConsiderados = Math.min(capacidadeBase, adminsUnicos.size > 0 ? adminsUnicos.size : (caravanaLocal.transportesFinalizados.length > 0 ? 1 : 0));
+                numAdminsConsiderados = Math.min(capacidadeBase, caravanaLocal.transportesFinalizados.length);
             }
         } else {
-            // Antes da definição: Usa capacidadeMaximaTeorica
             capacidadeBase = caravanaLocal.capacidadeMaximaTeorica || 0;
             if (capacidadeBase > 0) {
-                // Assume 1 admin por veículo potencial, limitado pela capacidade
-                numAdminsConsiderados = Math.min(capacidadeBase, caravanaLocal.maximoTransportes || 1);
+                numAdminsConsiderados = Math.min(capacidadeBase, caravanaLocal.maximoTransportes || 0);
             }
         }
 
@@ -91,7 +85,7 @@ function PopupConfira({ caravana: initialCaravana, onClose, onCompraSucesso, loc
 
         return {
             vagasCliente: vagasDispCliente,
-            capacidadeTotalExibida: capacidadeBase // Capacidade a ser exibida
+            capacidadeTotalExibida: capacidadeBase
         };
     }, [caravanaLocal]);
 
@@ -143,9 +137,7 @@ function PopupConfira({ caravana: initialCaravana, onClose, onCompraSucesso, loc
                         <p className={styles.info}><strong>Status:</strong> {translateStatus(caravanaLocal.status)}</p>
                         <p><strong>Data:</strong> {caravanaLocal.data ? new Date(caravanaLocal.data + 'T00:00:00Z').toLocaleDateString('pt-BR', { timeZone: 'UTC' }) : "N/A"}</p>
                         <p><strong>Horário Saída:</strong> {caravanaLocal.horarioSaida || "A definir"}</p>
-                        {/* Exibe a capacidade total correspondente */}
                         <p><strong>Capacidade Total:</strong> {disponibilidadeCalculada.capacidadeTotalExibida > 0 ? disponibilidadeCalculada.capacidadeTotalExibida : 'A definir'}</p>
-                        {/* Exibe as vagas disponíveis para clientes */}
                         <p><strong>Vagas Disponíveis (Clientes):</strong>{" "}
                             <span className={disponibilidadeCalculada.vagasCliente === 0 ? styles.semVagas : ""}>
                                 {disponibilidadeCalculada.capacidadeTotalExibida === 0 ? "A definir" : (disponibilidadeCalculada.vagasCliente === 0 ? "Esgotado" : disponibilidadeCalculada.vagasCliente)}
@@ -157,7 +149,7 @@ function PopupConfira({ caravana: initialCaravana, onClose, onCompraSucesso, loc
                                 <label htmlFor={`qnt-${caravanaLocal.id}`}>Comprar:</label>
                                 <input
                                     type="number" id={`qnt-${caravanaLocal.id}`}
-                                    min="1" max={disponibilidadeCalculada.vagasCliente} // Limita pela vaga de cliente
+                                    min="1" max={disponibilidadeCalculada.vagasCliente}
                                     value={quantidadeIngressos}
                                     onChange={(e) => {
                                         let qtd = parseInt(e.target.value, 10) || 1;

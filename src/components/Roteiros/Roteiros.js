@@ -54,13 +54,12 @@ function Roteiros() {
         if (transporteDefinido) {
             capacidadeBase = caravana.capacidadeFinalizada || 0;
             if (capacidadeBase > 0 && Array.isArray(caravana.transportesFinalizados)) {
-                const adminsUnicos = new Set(caravana.transportesFinalizados.map(t => t.administradorUid).filter(Boolean));
-                numAdminsConsiderados = Math.min(capacidadeBase, adminsUnicos.size > 0 ? adminsUnicos.size : (caravana.transportesFinalizados.length > 0 ? 1 : 0));
+                numAdminsConsiderados = Math.min(capacidadeBase, caravana.transportesFinalizados.length);
             }
         } else {
             capacidadeBase = caravana.capacidadeMaximaTeorica || 0;
             if (capacidadeBase > 0) {
-                numAdminsConsiderados = Math.min(capacidadeBase, caravana.maximoTransportes || 1);
+                numAdminsConsiderados = Math.min(capacidadeBase, caravana.maximoTransportes || 0);
             }
         }
 
