@@ -207,12 +207,12 @@
 }
 
 .saveButton {
-  background-color: var(--cor-secundaria); /* Usa variável */
+  background-color: #4CAF50; /* Cor primária */
   color: white;
 }
 
 .saveButton:hover:not(:disabled) {
-  background-color: darken(var(--cor-secundaria), 10%); /* Escurece cor secundária */
+  background-color: #45a049; /* Verde mais escuro ao passar o mouse */
 }
 
 .saveButton:disabled {
