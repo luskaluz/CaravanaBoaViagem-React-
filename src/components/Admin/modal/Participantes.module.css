@@ -53,3 +53,105 @@
 .table td {
   color: #555;
 }
+
+/* Participantes.module.css (Adapte do seu estilo de modal/tabela) */
+.container {
+  padding: 15px;
+  max-height: 70vh; /* Ajuste conforme necessário */
+  overflow-y: auto;
+}
+
+.container h2 {
+  text-align: center;
+  margin-top: 0;
+  margin-bottom: 20px;
+  color: var(--cor-primaria); /* Adapte */
+}
+
+.loading, .error {
+  text-align: center;
+  padding: 20px;
+  font-style: italic;
+  color: #555;
+}
+
+.error {
+  color: #d9534f;
+  background-color: #f2dede;
+  border: 1px solid #ebccd1;
+  border-radius: 4px;
+}
+
+.aviso {
+    background-color: #fcf8e3;
+    border: 1px solid #faebcc;
+    color: #8a6d3b;
+    padding: 10px;
+    border-radius: 4px;
+    margin-bottom: 15px;
+    text-align: center;
+    font-size: 0.9rem;
+}
+
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 10px;
+  font-size: 0.9rem;
+}
+
+.table th, .table td {
+  border: 1px solid #ddd;
+  padding: 8px 10px;
+  text-align: left;
+}
+
+.table th {
+  background-color: #f2f2f2;
+  font-weight: bold;
+}
+
+.table tbody tr:nth-child(even) {
+  background-color: #f9f9f9;
+}
+
+.table tbody tr:hover {
+  background-color: #e9e9e9;
+}
+
+/* Estilos para Agrupamento por Veículo */
+.veiculoContainer {
+    margin-bottom: 25px;
+    padding: 15px;
+    border: 1px solid #ccc;
+    border-radius: 5px;
+    background-color: #fff;
+}
+
+.veiculoContainer h3 {
+    margin-top: 0;
+    margin-bottom: 10px;
+    padding-bottom: 5px;
+    border-bottom: 1px solid #eee;
+    font-size: 1.2rem;
+    color: #333;
+}
+
+.responsaveis {
+    font-size: 0.9rem;
+    margin-bottom: 15px;
+    padding-bottom: 10px;
+    border-bottom: 1px dashed #eee;
+    display: flex;
+    gap: 20px; /* Espaço entre admin e motorista */
+    flex-wrap: wrap;
+}
+
+.responsaveis span {
+    color: #555;
+}
+
+.responsaveis strong {
+    color: #111;
+}

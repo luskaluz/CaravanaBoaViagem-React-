@@ -71,6 +71,9 @@ export const deleteCaravana = async (id) => apiRequest('delete', `/caravanas/${i
 export const comprarIngresso = async (caravanaId, quantidade) => apiRequest('post', '/comprar-ingresso', { caravanaId, quantidade });
 export const cancelCaravan = (id, motivo = null) => apiRequest('put', `/cancelar-caravana/${id}`, { motivo });
 export const getParticipantesCaravana = async (caravanaId) => apiRequest('get', `/participantes/${caravanaId}`);
+export const getParticipantesDistribuidos = async (caravanaId) => {
+    return apiRequest('get', `/caravanas/${caravanaId}/participantes-distribuidos`);
+};
 
 // --- Transportes ---
 export const createTransporte = async (transporteData) => apiRequest('post', '/transportes', transporteData);
@@ -80,6 +83,10 @@ export const deleteTransporte = async (id) => apiRequest('delete', `/transportes
 export const updateTransporteDisponibilidade = async (id, novoEstado) => apiRequest('put', `/transportes/${id}/disponibilidade`, { disponivel: novoEstado });
 export const updateAlocacaoManual = async (caravanaId, transportesIds) => apiRequest('put', `/caravanas/${caravanaId}/alocacao-manual`, { transportesSelecionadosIds: transportesIds });
 export const definirTransportePlacaMotorista = async (caravanaId, transporteId, placa, motoristaUid = null) => apiRequest('put', `/caravanas/${caravanaId}/definir-placa-motorista`, { transporteId, placa, motoristaUid });
+export const definirTransporteFinal = async (caravanaId, data) => {
+    return apiRequest('put', `/caravanas/${caravanaId}/definir-transporte-final`, data);
+};
+
 
 // --- Usuários ---
 export const registrarUsuario = async (userData) => apiRequest('post', '/register', userData);

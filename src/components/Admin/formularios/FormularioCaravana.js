@@ -10,13 +10,12 @@ function FormularioCaravana({ caravana, preSelectedLocalidadeId, onSalvar, onCan
     const [lucroAbsoluto, setLucroAbsoluto] = useState('');
     const [ocupacaoMinima, setOcupacaoMinima] = useState('');
     const [precoManual, setPrecoManual] = useState('');
+    const [maximoTransportes, setMaximoTransportes] = useState('');
+    const [dataConfirmacaoTransporte, setDataConfirmacaoTransporte] = useState('');
     const [dataFechamentoVendas, setDataFechamentoVendas] = useState('');
     const [localidades, setLocalidades] = useState([]);
-    const [admins, setAdmins] = useState([]);
-    const [motoristas, setMotoristas] = useState([]);
+    const [funcionarios, setFuncionarios] = useState([]); // Estado único para funcionários
     const [guias, setGuias] = useState([]);
-    const [selectedAdminUid, setSelectedAdminUid] = useState('');
-    const [selectedMotoristaUid, setSelectedMotoristaUid] = useState('');
     const [selectedGuiaUid, setSelectedGuiaUid] = useState('');
     const [isEditMode, setIsEditMode] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
@@ -33,12 +32,14 @@ function FormularioCaravana({ caravana, preSelectedLocalidadeId, onSalvar, onCan
         const fetchResources = async () => {
             setLoadingResources(true); setError(null);
             try {
-                const [locData, funcData] = await Promise.all([api.getLocalidades(), api.getFuncionarios()]);
+                const [locData, funcData] = await Promise.all([
+                    api.getLocalidades(),
+                    api.getFuncionarios()
+                ]);
                 setLocalidades(locData);
-                setAdmins(funcData.filter(f => f.cargo === 'administrador'));
-                setMotoristas(funcData.filter(f => f.cargo === 'motorista'));
-                setGuias(funcData.filter(f => f.cargo === 'guia'));
-            } catch (err) { console.error(err); setError("Falha ao carregar."); }
+                setFuncionarios(funcData); // Guarda todos os funcionários
+                setGuias(funcData.filter(f => f.cargo === 'guia')); // Filtra guias para o select
+            } catch (err) { console.error(err); setError("Falha ao carregar recursos."); }
             finally { setLoadingResources(false); }
         };
         fetchResources();
@@ -54,19 +55,19 @@ function FormularioCaravana({ caravana, preSelectedLocalidadeId, onSalvar, onCan
             setDespesas(String(caravana.despesas || ''));
             setLucroAbsoluto(String(caravana.lucroAbsoluto || ''));
             setOcupacaoMinima(String(caravana.ocupacaoMinima || ''));
-            setSelectedAdminUid(caravana.administradorUid || 'nao_confirmado');
-            setSelectedMotoristaUid(caravana.motoristaUid || 'nao_confirmado');
-            setSelectedGuiaUid(caravana.guiaUid || '');
-            setDataFechamentoVendas(formatDateForInput(caravana.dataFechamentoVendas));
             setPrecoManual(caravana.preco !== undefined ? String(caravana.preco) : '');
+            setMaximoTransportes(String(caravana.maximoTransportes || ''));
+            setSelectedGuiaUid(caravana.guiaUid || ''); // Só seta o guia
+            setDataConfirmacaoTransporte(formatDateForInput(caravana.dataConfirmacaoTransporte));
+            setDataFechamentoVendas(formatDateForInput(caravana.dataFechamentoVendas));
         } else {
             setIsEditMode(false);
             setLocalidadeId(preSelectedLocalidadeId || '');
             setDataViagem(''); setHorarioSaida('');
             setDespesas(''); setLucroAbsoluto(''); setOcupacaoMinima('');
-            setSelectedAdminUid(''); setSelectedMotoristaUid(''); setSelectedGuiaUid('');
-            setDataFechamentoVendas('');
-            setPrecoManual('');
+            setPrecoManual(''); setMaximoTransportes('');
+            setSelectedGuiaUid(''); // Só reseta o guia
+            setDataConfirmacaoTransporte(''); setDataFechamentoVendas('');
         }
     }, [caravana, preSelectedLocalidadeId]);
 
@@ -83,35 +84,45 @@ function FormularioCaravana({ caravana, preSelectedLocalidadeId, onSalvar, onCan
     const handleSubmit = async (event) => {
         event.preventDefault(); setError(null);
 
-        if (!localidadeId || !dataViagem || !despesas || !lucroAbsoluto || !ocupacaoMinima || precoManual === '') {
-             setError("Preencha Localidade, Data Viagem, Despesas, Lucro, Ocup. Mínima e Preço Final."); return;
+        if (!localidadeId || !dataViagem || !despesas || !lucroAbsoluto || !ocupacaoMinima || precoManual === '' || !maximoTransportes || !dataConfirmacaoTransporte) {
+             setError("Preencha Localidade, Datas (Viagem, Conf. Transporte), Cálculos, Preço e Nº Máx. Transportes."); return;
         }
+
         const precoNum = parseFloat(precoManual);
         if (isNaN(precoNum) || precoNum < 0) { setError("Preço Final inválido."); return; }
-        if (selectedAdminUid === "") { setError("Selecione Admin ou 'Não Confirmado'."); return; }
-        if (selectedMotoristaUid === "") { setError("Selecione Motorista ou 'Não Confirmado'."); return; }
+
+        const maxTranspNum = parseInt(maximoTransportes, 10);
+        if (isNaN(maxTranspNum) || maxTranspNum <= 0) { setError("Número Máximo de Transportes inválido."); return; }
+
+        const ocupacaoMinNum = parseInt(ocupacaoMinima, 10);
+        if (isNaN(ocupacaoMinNum) || ocupacaoMinNum <= 0) { setError("Ocupação Mínima inválida."); return; }
 
         const dtViagem = new Date(dataViagem + 'T00:00:00');
+        const dtConfTransp = dataConfirmacaoTransporte ? new Date(dataConfirmacaoTransporte + 'T00:00:00') : null;
         const dtFechVendas = dataFechamentoVendas ? new Date(dataFechamentoVendas + 'T00:00:00') : null;
-        if (dtFechVendas && dtViagem && dtFechVendas >= dtViagem) { setError("Data Fechamento deve ser anterior à Data da Viagem."); return; }
+
+        if (dtConfTransp && dtFechVendas && dtConfTransp > dtFechVendas) { setError("Data Conf. Transporte não pode ser posterior à Data de Fechamento."); return; }
+        if (dtFechVendas && dtViagem && dtFechVendas > dtViagem) { setError("Data Fechamento não pode ser posterior à Data da Viagem."); return; }
+        if (dtConfTransp && dtViagem && dtConfTransp > dtViagem) { setError("Data Conf. Transporte não pode ser posterior à Data da Viagem."); return; }
 
         setIsLoading(true);
         const caravanaData = {
             localidadeId, data: dataViagem, horarioSaida: horarioSaida || null,
             despesas: parseFloat(despesas) || 0, lucroAbsoluto: parseFloat(lucroAbsoluto) || 0,
-            ocupacaoMinima: parseInt(ocupacaoMinima, 10) || 0,
+            ocupacaoMinima: ocupacaoMinNum,
             preco: precoNum,
-            administradorUid: selectedAdminUid === "nao_confirmado" ? null : selectedAdminUid,
-            motoristaUid: selectedMotoristaUid === "nao_confirmado" ? null : selectedMotoristaUid,
-            guiaUid: (selectedGuiaUid === "nao_confirmado" || selectedGuiaUid === "") ? null : selectedGuiaUid,
+            maximoTransportes: maxTranspNum,
+            guiaUid: (selectedGuiaUid === "nao_confirmado" || selectedGuiaUid === "") ? null : selectedGuiaUid, // Só envia o guia
+            dataConfirmacaoTransporte: dataConfirmacaoTransporte,
             dataFechamentoVendas: dataFechamentoVendas || null,
+            // administradorUid e motoristaUid não são enviados daqui
         };
 
         try {
             if (isEditMode) { await api.updateCaravana(caravana.id, caravanaData); }
             else { await api.createCaravana(caravanaData); }
             onSalvar();
-        } catch (err) { console.error(err); setError(err.message); }
+        } catch (err) { console.error(err); setError(err.message || "Ocorreu um erro desconhecido."); }
         finally { setIsLoading(false); }
     };
 
@@ -137,15 +148,34 @@ function FormularioCaravana({ caravana, preSelectedLocalidadeId, onSalvar, onCan
                     <label htmlFor="dataFechamentoVendas" className={styles.label}>Data Limite Venda Ingressos:</label>
                     <input type="date" id="dataFechamentoVendas" value={dataFechamentoVendas} onChange={(e) => setDataFechamentoVendas(e.target.value)} className={styles.input}/>
                  </div>
-                 {/* Removido input dataConfirmacaoTransporte */}
                  <div className={styles.formGroup}>
-                    <label htmlFor="horarioSaida" className={styles.label}>Horário Saída (Opcional):</label>
+                    <label htmlFor="dataConfirmacaoTransporte" className={styles.label}>Data Definição Transporte:</label>
+                    <input type="date" id="dataConfirmacaoTransporte" value={dataConfirmacaoTransporte} onChange={(e) => setDataConfirmacaoTransporte(e.target.value)} required className={styles.input}/>
+                 </div>
+                 <div className={styles.formGroup}>
+                    <label htmlFor="horarioSaida" className={styles.label}>Horário Saída:</label>
                     <input type="time" id="horarioSaida" value={horarioSaida} onChange={(e) => setHorarioSaida(e.target.value)} className={styles.input}/>
                  </div>
-                 <div className={styles.formGroup}>
-                     <label htmlFor="ocupacaoMinima" className={styles.label}>Ocupação Mínima (p/ Confirmação):</label>
-                     <input type="number" id="ocupacaoMinima" value={ocupacaoMinima} onChange={(e) => setOcupacaoMinima(e.target.value)} required min="1" className={styles.input}/>
+
+                 <div className={styles.formRow}>
+                    <div className={styles.formGroup}>
+                        <label htmlFor="ocupacaoMinima" className={styles.label}>Ocupação Mínima:</label>
+                        <input type="number" id="ocupacaoMinima" value={ocupacaoMinima} onChange={(e) => setOcupacaoMinima(e.target.value)} required min="1" className={styles.input}/>
+                    </div>
+                    <div className={styles.formGroup}>
+                        <label htmlFor="maximoTransportes" className={styles.label}>Nº Máx. Transportes:</label>
+                        <input
+                            type="number"
+                            id="maximoTransportes"
+                            value={maximoTransportes}
+                            onChange={(e) => setMaximoTransportes(e.target.value)}
+                            required
+                            min="1"
+                            className={styles.input}
+                        />
+                    </div>
                  </div>
+
                  <div className={styles.formRow}>
                     <div className={styles.formGroup}>
                          <label htmlFor="despesas" className={styles.label}>Despesas Estimadas (R$):</label>
@@ -165,9 +195,15 @@ function FormularioCaravana({ caravana, preSelectedLocalidadeId, onSalvar, onCan
                     <input type="number" id="precoManual" name="precoManual" value={precoManual} onChange={(e) => setPrecoManual(e.target.value)} required min="0" step="0.01" className={styles.input}/>
                  </div>
                  <hr className={styles.separator} />
-                 <div className={styles.formGroup}><label>Administrador:</label><select id="administradorUid" value={selectedAdminUid} onChange={(e)=>setSelectedAdminUid(e.target.value)} required className={styles.input}><option value="">Selecione...</option><option value="nao_confirmado">-- Não Confirmado --</option>{admins.map(a=><option key={a.uid||a.id} value={a.uid||a.id}>{a.nome}</option>)}</select></div>
-                 <div className={styles.formGroup}><label>Motorista:</label><select id="motoristaUid" value={selectedMotoristaUid} onChange={(e)=>setSelectedMotoristaUid(e.target.value)} required className={styles.input}><option value="">Selecione...</option><option value="nao_confirmado">-- Não Confirmado --</option>{motoristas.map(m=><option key={m.uid||m.id} value={m.uid||m.id}>{m.nome}</option>)}</select></div>
-                 <div className={styles.formGroup}><label>Guia (Opcional):</label><select id="guiaUid" value={selectedGuiaUid} onChange={(e)=>setSelectedGuiaUid(e.target.value)} className={styles.input}><option value="">Nenhum</option><option value="nao_confirmado">-- Não Confirmado --</option>{guias.map(g=><option key={g.uid||g.id} value={g.uid||g.id}>{g.nome}</option>)}</select></div>
+                 {/* Removidos selects de Admin e Motorista */}
+                 <div className={styles.formGroup}>
+                    <label>Guia (Opcional):</label>
+                    <select id="guiaUid" value={selectedGuiaUid} onChange={(e)=>setSelectedGuiaUid(e.target.value)} className={styles.input}>
+                        <option value="">Nenhum</option>
+                        <option value="nao_confirmado">-- Não Confirmado --</option>
+                        {guias.map(g=><option key={g.uid||g.id} value={g.uid||g.id}>{g.nome}</option>)}
+                    </select>
+                </div>
                  <div className={styles.buttonGroup}>
                     <button type="submit" className={styles.saveButton} disabled={isLoading}>{isLoading ? 'Salvando...' : (isEditMode ? "Salvar Alterações" : "Criar Caravana")}</button>
                     <button type="button" onClick={onCancelar} className={styles.cancelButton} disabled={isLoading}>Cancelar</button>

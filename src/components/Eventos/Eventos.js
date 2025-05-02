@@ -12,92 +12,122 @@ function Eventos() {
     const [error, setError] = useState(null);
     const [selectedCaravana, setSelectedCaravana] = useState(null);
     const [isPopupOpen, setIsPopupOpen] = useState(false);
-    // Estado para guardar a capacidade máxima buscada (pode ser omitido se sempre vier da API)
-    // const [maxCapacidadeGeral, setMaxCapacidadeGeral] = useState(0);
 
     const openPopup = (caravana) => { setSelectedCaravana(caravana); setIsPopupOpen(true); };
     const closePopup = () => { setSelectedCaravana(null); setIsPopupOpen(false); };
 
+    const calcularDisponibilidade = (caravana) => {
+        if (!caravana) return { vagasCliente: 0, capacidadeTotalExibida: 0 };
+
+        let capacidadeBase = 0;
+        let numAdminsConsiderados = 0;
+        const vagasOcup = caravana.vagasOcupadas || 0;
+        const transporteDefinido = caravana.transporteDefinidoManualmente || caravana.transporteAutoDefinido;
+
+        if (transporteDefinido) {
+            capacidadeBase = caravana.capacidadeFinalizada || 0;
+            if (capacidadeBase > 0 && Array.isArray(caravana.transportesFinalizados)) {
+                const adminsUnicos = new Set(caravana.transportesFinalizados.map(t => t.administradorUid).filter(Boolean));
+                numAdminsConsiderados = Math.min(capacidadeBase, adminsUnicos.size > 0 ? adminsUnicos.size : (caravana.transportesFinalizados.length > 0 ? 1 : 0));
+            }
+        } else {
+            capacidadeBase = caravana.capacidadeMaximaTeorica || 0;
+            if (capacidadeBase > 0) {
+                numAdminsConsiderados = Math.min(capacidadeBase, caravana.maximoTransportes || 1);
+            }
+        }
+
+        const vagasDispCliente = Math.max(0, capacidadeBase - vagasOcup - numAdminsConsiderados);
+
+        return {
+            vagasCliente: vagasDispCliente,
+            capacidadeTotalExibida: capacidadeBase
+        };
+    };
+
     const fetchCaravanas = useCallback(async () => {
         setLoading(true); setError(null);
         try {
-            // Assume que api.getCaravanas() agora retorna 'maxCapacidadeDisponivel' em cada caravana
             let caravanasData = await api.getCaravanas();
-            console.log("Eventos - Dados brutos:", caravanasData);
-
             const hoje = new Date(); hoje.setHours(0, 0, 0, 0);
 
-            // --- FILTRO ATUALIZADO ---
             caravanasData = caravanasData.filter(caravana => {
-                const dataViagem = new Date(caravana.data + 'T00:00:00');
-                const dataFechamento = caravana.dataFechamentoVendas ? new Date(caravana.dataFechamentoVendas + 'T23:59:59') : null;
+                const dataViagem = new Date(caravana.data + 'T00:00:00Z');
+                const dataFechamento = caravana.dataFechamentoVendas ? new Date(caravana.dataFechamentoVendas + 'T23:59:59Z') : null;
 
-                // Calcula vagas ocupadas (Admin + Participantes baseados no VagasTotais/Disponiveis atual)
-                 const vagasOcupadasParticipantes = (caravana.vagasTotais || 0) - (caravana.vagasDisponiveis ?? (caravana.vagasTotais || 0));
-                 const vagasOcupadasTotal = Math.max(0, vagasOcupadasParticipantes) + (caravana.administradorUid ? 1 : 0); // Garante não negativo
+                const disponibilidade = calcularDisponibilidade(caravana);
 
-                // Determina a capacidade máxima relevante para venda
-                const capacidadeMaximaParaVenda = caravana.transporteAlocado // Usa capacidade alocada se já definida
-                    ? (caravana.transporteAlocado.assentos || 0)
-                    : (caravana.maxCapacidadeDisponivel || 0); // Senão usa a capacidade máxima do maior veículo disponível
-
-                // Condições para EXIBIR
                 const isFutura = dataViagem >= hoje;
                 const isVendaAberta = !dataFechamento || hoje < dataFechamento;
-                // Verifica se AINDA HÁ espaço potencial (ocupadas < capacidade máxima)
-                const temVagaPotencial = vagasOcupadasTotal < capacidadeMaximaParaVenda;
+                const temVagaCliente = disponibilidade.capacidadeTotalExibida > 0 && disponibilidade.vagasCliente > 0;
                 const isStatusValido = caravana.status === "confirmada" || caravana.status === "nao_confirmada";
 
-                return isFutura && isVendaAberta && temVagaPotencial && isStatusValido;
+                return isFutura && isVendaAberta && temVagaCliente && isStatusValido;
             });
-            // --- FIM FILTRO ---
 
-            // Lógica de ordenação e slice
             const confirmadas = caravanasData.filter(c => c.status === 'confirmada');
             const naoConfirmadas = caravanasData.filter(c => c.status === 'nao_confirmada');
             confirmadas.sort((a, b) => new Date(a.data) - new Date(b.data));
             naoConfirmadas.sort((a, b) => new Date(a.data) - new Date(b.data));
-            const caravanasExibidas = [...confirmadas.slice(0, 2), ...naoConfirmadas.slice(0, 5)];
 
-            console.log("Eventos - Caravanas filtradas:", caravanasExibidas);
+            const maxConfirmadas = 2;
+            const maxNaoConfirmadas = 5;
+            const caravanasExibidas = [
+                ...confirmadas.slice(0, maxConfirmadas),
+                ...naoConfirmadas.slice(0, maxNaoConfirmadas)
+            ];
+
             setCaravanas(caravanasExibidas);
 
-        } catch (err) { setError(err); console.error(err); toast.error("Erro."); }
+        } catch (err) {
+            setError(err);
+            console.error(err);
+            toast.error("Erro ao buscar caravanas.");
+        }
         finally { setLoading(false); }
     }, []);
 
     useEffect(() => { fetchCaravanas(); }, [fetchCaravanas]);
 
-    const handleCaravanaUpdate = useCallback((updatedCaravanaId) => {
-        fetchCaravanas(); // Recarrega após compra
+    const handleCaravanaUpdate = useCallback(() => {
+        fetchCaravanas();
         toast.success("Ingresso(s) comprado(s)!");
         closePopup();
     }, [fetchCaravanas]);
 
-    if (error && caravanas.length === 0) return <div className={styles.error}>Erro.</div>;
+    if (error && caravanas.length === 0) return <div className={styles.error}>Erro ao carregar caravanas.</div>;
 
     return (
         <>
-            <ToastContainer /* ... */ />
+            <ToastContainer
+                position="top-right"
+                autoClose={3000}
+                hideProgressBar={false}
+                newestOnTop={false}
+                closeOnClick
+                rtl={false}
+                pauseOnFocusLoss
+                draggable
+                pauseOnHover
+                theme="light"
+            />
             <section className={styles.eventos}>
                 <h2>CARAVANAS</h2>
                 {loading && <p className={styles.loading}>Carregando...</p>}
-                {!loading && caravanas.length === 0 && !error && ( <p className={styles.nenhumaCaravana}>Nenhuma caravana disponível.</p> )}
+                {!loading && caravanas.length === 0 && !error && ( <p className={styles.nenhumaCaravana}>Nenhuma caravana disponível no momento.</p> )}
                 {!loading && caravanas.length > 0 && (
                     <div className={styles.gridEventos}>
                         {caravanas.map((caravana) => {
-                             // Calcula disponibilidade real para exibição
-                             const capacidadeMax = caravana.transporteAlocado ? (caravana.transporteAlocado.assentos || 0) : (caravana.maxCapacidadeDisponivel || 0);
-                             const vagasOcup = (caravana.vagasOcupadas || ((caravana.vagasTotais || 0) - (caravana.vagasDisponiveis ?? (caravana.vagasTotais || 0)))) + (caravana.administradorUid ? 1 : 0);
-                             const vagasDisp = Math.max(0, capacidadeMax - vagasOcup);
+                             const disponibilidade = calcularDisponibilidade(caravana);
                             return (
                                 <div key={caravana.id} className={styles.eventoCard}>
                                     <img src={caravana.imagemCapaLocalidade || caravana.imagensLocalidade?.[0] || "./images/imagem_padrao.jpg"} alt={caravana.nomeLocalidade || 'Caravana'} className={styles.eventoCardImagem}/>
                                     <div className={styles.eventoCardConteudo}>
-                                        <h3 className={styles.eventoCardNome}>{caravana.nomeLocalidade || 'Indefinido'}</h3>
-                                        <p><strong>Data: </strong>{caravana.data ? new Date(caravana.data + 'T00:00:00').toLocaleDateString() : 'N/A'}</p>
+                                        <h3 className={styles.eventoCardNome}>{caravana.nomeLocalidade || 'Destino Indefinido'}</h3>
+                                        <p><strong>Data: </strong>{caravana.data ? new Date(caravana.data + 'T00:00:00Z').toLocaleDateString('pt-BR', { timeZone: 'UTC' }) : 'N/A'}</p>
                                         <p><strong>Status:</strong> {translateStatus(caravana.status)}</p>
-                                        <p><strong>Vagas Disp.:</strong> {vagasDisp === 0 ? 'Esgotado' : vagasDisp}</p>
+                                        <p><strong>Capacidade Total:</strong> {disponibilidade.capacidadeTotalExibida > 0 ? disponibilidade.capacidadeTotalExibida : 'A definir'}</p>
+                                        <p><strong>Vagas Disp. (Clientes):</strong> {disponibilidade.capacidadeTotalExibida === 0 ? 'A definir' : (disponibilidade.vagasCliente === 0 ? 'Esgotado' : disponibilidade.vagasCliente)}</p>
                                         <button onClick={() => openPopup(caravana)} className={styles.eventoCardBotao}> Ver Detalhes </button>
                                     </div>
                                 </div>

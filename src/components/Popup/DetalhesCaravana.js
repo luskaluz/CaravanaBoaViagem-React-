@@ -65,7 +65,6 @@ function DetalhesCaravanaAdmin({ caravana, onClose }) {
     return (
         <div className={styles.container}>
             <div className={styles.modalContent}>
-                 <button onClick={onClose} className={styles.closeButton}>×</button>
                 <h2 className={styles.title}>Detalhes da Caravana</h2>
                 <div className={styles.card}>
                      {caravana.imagensLocalidade && caravana.imagensLocalidade.length > 0 && ( <img src={caravana.imagensLocalidade[0]} alt={caravana.nomeLocalidade || 'Localidade'} className={styles.cardImage}/> )}

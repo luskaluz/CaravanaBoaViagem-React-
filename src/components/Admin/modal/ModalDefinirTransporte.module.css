@@ -1,0 +1,278 @@
+/* ModalDefinirTransporte.module.css */
+.modalOverlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000; /* Garante que fique sobre outros elementos */
+}
+
+.modal {
+  background-color: #fff;
+  padding: 25px 35px;
+  border-radius: 8px;
+  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+  position: relative;
+  max-height: 90vh; /* Limita altura máxima */
+  overflow-y: auto; /* Permite scroll se o conteúdo for maior */
+  width: 90%; /* Ajuste conforme necessário */
+  max-width: 700px; /* Largura máxima */
+}
+
+.modalLarge {
+    max-width: 900px; /* Mais largo para este modal específico */
+}
+
+.closeButton {
+  position: absolute;
+  top: 10px;
+  right: 15px;
+  background: none;
+  border: none;
+  font-size: 1.8rem;
+  cursor: pointer;
+  color: #555;
+  padding: 0;
+  line-height: 1;
+}
+
+.closeButton:hover {
+  color: #000;
+}
+
+.modal h2 {
+  margin-top: 0;
+  margin-bottom: 20px;
+  color: var(--cor-primaria); /* Usa variável se definida */
+  text-align: center;
+  font-size: 1.6rem;
+}
+
+.secao {
+  margin-bottom: 25px;
+  padding-bottom: 15px;
+  border-bottom: 1px solid #eee;
+}
+.secao:last-of-type {
+    border-bottom: none;
+}
+
+.secao h3 {
+    margin-top: 0;
+    margin-bottom: 15px;
+    color: #444;
+    font-size: 1.3rem;
+    border-left: 4px solid var(--cor-secundaria); /* Usa variável se definida */
+    padding-left: 10px;
+}
+
+.secao h4 {
+    margin-top: 15px;
+    margin-bottom: 10px;
+    color: #555;
+    font-size: 1.1rem;
+}
+
+
+.error, .warning {
+  color: #d9534f; /* Vermelho para erros */
+  background-color: #f2dede;
+  border: 1px solid #ebccd1;
+  padding: 10px 15px;
+  border-radius: 4px;
+  margin-bottom: 15px;
+  font-size: 0.9rem;
+}
+
+.warning {
+    color: #8a6d3b; /* Laranja/amarelo para avisos */
+    background-color: #fcf8e3;
+    border-color: #faebcc;
+}
+
+.formGroup {
+  margin-bottom: 15px;
+}
+
+.formGroup label {
+  display: block;
+  margin-bottom: 5px;
+  font-weight: bold;
+  color: #333;
+  font-size: 0.95rem;
+}
+
+.selectInput, .textInput {
+  width: 100%;
+  padding: 10px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  font-size: 1rem;
+  box-sizing: border-box; /* Importante para padding não aumentar tamanho */
+}
+
+.selectInput {
+  appearance: none; /* Remove estilo padrão */
+  background-color: #fff;
+  cursor: pointer;
+}
+
+.listaVeiculos {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  margin-bottom: 15px;
+}
+
+.veiculoItem {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background-color: #f9f9f9;
+  border: 1px solid #eee;
+  padding: 10px 15px;
+  margin-bottom: 10px;
+  border-radius: 4px;
+}
+
+.veiculoInfo {
+  flex-grow: 1;
+  margin-right: 15px;
+}
+.veiculoInfo strong {
+    display: block;
+    margin-bottom: 8px;
+    font-size: 1.05rem;
+}
+
+.veiculoInputs {
+    display: flex;
+    gap: 10px; /* Espaço entre os inputs */
+}
+
+.veiculoInputs .textInput,
+.veiculoInputs .selectInput {
+    flex: 1; /* Fazem os inputs dividirem o espaço */
+    min-width: 150px; /* Largura mínima */
+}
+
+
+.removeButton {
+  background-color: #f44336;
+  color: white;
+  border: none;
+  padding: 8px 12px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.85rem;
+  transition: background-color 0.2s ease;
+  flex-shrink: 0; /* Impede que o botão encolha */
+}
+
+.removeButton:hover {
+  background-color: #d32f2f;
+}
+.removeButton:disabled {
+    background-color: #ccc;
+    cursor: not-allowed;
+}
+
+
+.separator {
+    border: 0;
+    border-top: 1px solid #ddd;
+    margin: 20px 0;
+}
+
+.buttonGroup {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px; /* Espaço entre botões */
+  margin-top: 25px;
+}
+
+.saveButton, .cancelButton {
+  padding: 12px 20px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 1rem;
+  font-weight: bold;
+  transition: background-color 0.2s ease, opacity 0.2s ease;
+}
+
+.saveButton {
+  background-color: var(--cor-secundaria); /* Usa variável */
+  color: white;
+}
+
+.saveButton:hover:not(:disabled) {
+  background-color: darken(var(--cor-secundaria), 10%); /* Escurece cor secundária */
+}
+
+.saveButton:disabled {
+    background-color: #bdc3c7; /* Cinza claro para desabilitado */
+    cursor: not-allowed;
+    opacity: 0.7;
+}
+
+
+.cancelButton {
+  background-color: #e0e0e0;
+  color: #333;
+}
+
+.cancelButton:hover:not(:disabled) {
+  background-color: #d1d1d1;
+}
+.cancelButton:disabled {
+    background-color: #ccc;
+    cursor: not-allowed;
+    opacity: 0.7;
+}
+
+/* Adaptação para telas menores */
+@media (max-width: 600px) {
+    .modal {
+        width: 95%;
+        padding: 20px;
+    }
+    .modal h2 {
+        font-size: 1.4rem;
+    }
+    .veiculoItem {
+        flex-direction: column;
+        align-items: stretch;
+    }
+    .veiculoInfo {
+        margin-right: 0;
+        margin-bottom: 10px;
+    }
+    .veiculoInputs {
+        flex-direction: column;
+    }
+    .removeButton {
+        margin-top: 10px;
+        align-self: flex-end;
+    }
+    .buttonGroup {
+        flex-direction: column;
+    }
+    .saveButton, .cancelButton {
+        width: 100%;
+    }
+}
+.infoMessage {
+    color: #31708f; /* Azul informativo */
+    background-color: #d9edf7;
+    border: 1px solid #bce8f1;
+    padding: 10px 15px;
+    border-radius: 4px;
+    margin-bottom: 15px;
+    font-size: 0.9rem;
+  }

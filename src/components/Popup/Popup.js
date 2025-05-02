@@ -40,30 +40,59 @@ function PopupConfira({ caravana: initialCaravana, onClose, onCompraSucesso, loc
 
     const handleComprarIngresso = async () => {
         const user = auth.currentUser;
-        if (!user) { alert("Login necessário."); return; }
-        if (quantidadeIngressos < 1) { alert("Quantidade deve ser >= 1."); return; }
-        if (!caravanaLocal) { alert("Erro: Caravana inválida."); return; }
-        if (caravanaLocal.status === 'cancelada') { alert("Caravana cancelada."); return; }
+        if (!user) { alert("É necessário fazer login para comprar."); return; }
+        if (quantidadeIngressos < 1) { alert("A quantidade de ingressos deve ser de pelo menos 1."); return; }
+        if (!caravanaLocal) { alert("Erro: Caravana não encontrada."); return; }
+        if (caravanaLocal.status === 'cancelada') { alert("Esta caravana foi cancelada."); return; }
 
         setComprando(true); setError(null);
         try {
+            // A validação final ocorre no backend, que usa a mesma lógica de capacidade
             await api.comprarIngresso(caravanaLocal.id, quantidadeIngressos);
             setQuantidadeIngressos(1);
             if (onCompraSucesso) onCompraSucesso(caravanaLocal.id);
             alert("Ingresso(s) comprado(s) com sucesso!");
             onClose();
-        } catch (error) { console.error("Erro Compra Popup:", error); setError(error.message); alert("Erro: " + error.message); }
-        finally { setComprando(false); }
+        } catch (error) {
+            console.error("Erro ao comprar ingresso (Popup):", error);
+            setError(error.message || "Erro desconhecido ao tentar comprar.");
+            alert("Erro ao comprar: " + (error.message || "Erro desconhecido."));
+        } finally {
+            setComprando(false);
+        }
     };
 
     const disponibilidadeCalculada = useMemo(() => {
-        if (!caravanaLocal) return { vagas: 0, capacidade: 0 };
-        const capacidadeMax = caravanaLocal.transporteConfirmado
-            ? (caravanaLocal.transportesAlocados?.[0]?.assentos || 0)
-            : (caravanaLocal.maxCapacidadeDisponivel || 0); // Usa o campo que veio da API/pai
-        const vagasOcup = (caravanaLocal.vagasOcupadas || ((caravanaLocal.vagasTotais || 0) - (caravanaLocal.vagasDisponiveis ?? (caravanaLocal.vagasTotais || 0)))) + (caravanaLocal.administradorUid ? 1 : 0);
-        const vagasDisp = Math.max(0, capacidadeMax - vagasOcup);
-        return { vagas: vagasDisp, capacidade: capacidadeMax };
+        if (!caravanaLocal) return { vagasCliente: 0, capacidadeTotalExibida: 0 };
+
+        let capacidadeBase = 0;
+        let numAdminsConsiderados = 0;
+        const vagasOcup = caravanaLocal.vagasOcupadas || 0;
+        const transporteDefinido = caravanaLocal.transporteDefinidoManualmente || caravanaLocal.transporteAutoDefinido;
+
+        if (transporteDefinido) {
+            // Após definição: Usa capacidadeFinalizada
+            capacidadeBase = caravanaLocal.capacidadeFinalizada || 0;
+            if (capacidadeBase > 0 && Array.isArray(caravanaLocal.transportesFinalizados)) {
+                const adminsUnicos = new Set(caravanaLocal.transportesFinalizados.map(t => t.administradorUid).filter(Boolean));
+                // Pelo menos 1 admin se houver veículo definido, limitado pela capacidade
+                numAdminsConsiderados = Math.min(capacidadeBase, adminsUnicos.size > 0 ? adminsUnicos.size : (caravanaLocal.transportesFinalizados.length > 0 ? 1 : 0));
+            }
+        } else {
+            // Antes da definição: Usa capacidadeMaximaTeorica
+            capacidadeBase = caravanaLocal.capacidadeMaximaTeorica || 0;
+            if (capacidadeBase > 0) {
+                // Assume 1 admin por veículo potencial, limitado pela capacidade
+                numAdminsConsiderados = Math.min(capacidadeBase, caravanaLocal.maximoTransportes || 1);
+            }
+        }
+
+        const vagasDispCliente = Math.max(0, capacidadeBase - vagasOcup - numAdminsConsiderados);
+
+        return {
+            vagasCliente: vagasDispCliente,
+            capacidadeTotalExibida: capacidadeBase // Capacidade a ser exibida
+        };
     }, [caravanaLocal]);
 
     if (isLocalidade && localidadeLocal) {
@@ -83,7 +112,7 @@ function PopupConfira({ caravana: initialCaravana, onClose, onCompraSucesso, loc
                     </div>
                     <div className={styles.popupInfo}>
                         <h2 className={styles.popupNome}>{localidadeLocal.nome}</h2>
-                        <p className={styles.popupDescricao}>{localidadeLocal.descricao || "Sem descrição."}</p>
+                        <p className={styles.popupDescricao}>{localidadeLocal.descricao || "Sem descrição disponível."}</p>
                         <div className={styles.popupBotoes}><button onClick={onClose}>Fechar</button></div>
                     </div>
                 </div>
@@ -93,7 +122,7 @@ function PopupConfira({ caravana: initialCaravana, onClose, onCompraSucesso, loc
 
     if (!isLocalidade && caravanaLocal) {
         const imagemPrincipalCaravana = imagens[indiceImagem] || "./images/imagem_padrao.jpg";
-        const podeComprar = disponibilidadeCalculada.vagas > 0 && caravanaLocal.status !== 'cancelada';
+        const podeComprar = disponibilidadeCalculada.vagasCliente > 0 && caravanaLocal.status !== 'cancelada';
 
         return (
             <div className={styles.popup}>
@@ -109,29 +138,31 @@ function PopupConfira({ caravana: initialCaravana, onClose, onCompraSucesso, loc
                         </div>
                     </div>
                     <div className={styles.popupInfo}>
-                        <h2 className={styles.popupNome}>{caravanaLocal.nomeLocalidade || 'Indefinido'}</h2>
-                        <p className={styles.popupDescricao}>{caravanaLocal.descricaoLocalidade || 'Sem descrição.'}</p>
+                        <h2 className={styles.popupNome}>{caravanaLocal.nomeLocalidade || 'Destino Indefinido'}</h2>
+                        <p className={styles.popupDescricao}>{caravanaLocal.descricaoLocalidade || 'Sem descrição do local.'}</p>
                         <p className={styles.info}><strong>Status:</strong> {translateStatus(caravanaLocal.status)}</p>
-                        <p><strong>Data:</strong> {caravanaLocal.data ? new Date(caravanaLocal.data + 'T00:00:00').toLocaleDateString() : "N/A"}</p>
-                        <p><strong>Horário Saída:</strong> {caravanaLocal.horarioSaida || "N/A"}</p>
-                        <p><strong>Capacidade {caravanaLocal.transporteConfirmado ? '(Alocada):' : '(Máx. Prevista):'}</strong> {disponibilidadeCalculada.capacidade || 'N/A'}</p>
-                        <p><strong>Vagas Disponíveis:</strong>{" "}
-                            <span className={disponibilidadeCalculada.vagas === 0 ? styles.semVagas : ""}>
-                                {disponibilidadeCalculada.vagas === 0 ? "Esgotado" : disponibilidadeCalculada.vagas}
+                        <p><strong>Data:</strong> {caravanaLocal.data ? new Date(caravanaLocal.data + 'T00:00:00Z').toLocaleDateString('pt-BR', { timeZone: 'UTC' }) : "N/A"}</p>
+                        <p><strong>Horário Saída:</strong> {caravanaLocal.horarioSaida || "A definir"}</p>
+                        {/* Exibe a capacidade total correspondente */}
+                        <p><strong>Capacidade Total:</strong> {disponibilidadeCalculada.capacidadeTotalExibida > 0 ? disponibilidadeCalculada.capacidadeTotalExibida : 'A definir'}</p>
+                        {/* Exibe as vagas disponíveis para clientes */}
+                        <p><strong>Vagas Disponíveis (Clientes):</strong>{" "}
+                            <span className={disponibilidadeCalculada.vagasCliente === 0 ? styles.semVagas : ""}>
+                                {disponibilidadeCalculada.capacidadeTotalExibida === 0 ? "A definir" : (disponibilidadeCalculada.vagasCliente === 0 ? "Esgotado" : disponibilidadeCalculada.vagasCliente)}
                             </span>
                         </p>
                         {error && <p className={styles.errorPopup}>{error}</p>}
-                        {podeComprar && (
+                        {podeComprar && disponibilidadeCalculada.capacidadeTotalExibida > 0 && (
                              <div className={styles.comprarIngressos}>
                                 <label htmlFor={`qnt-${caravanaLocal.id}`}>Comprar:</label>
                                 <input
                                     type="number" id={`qnt-${caravanaLocal.id}`}
-                                    min="1" max={disponibilidadeCalculada.vagas}
+                                    min="1" max={disponibilidadeCalculada.vagasCliente} // Limita pela vaga de cliente
                                     value={quantidadeIngressos}
                                     onChange={(e) => {
                                         let qtd = parseInt(e.target.value, 10) || 1;
                                         if (qtd < 1) qtd = 1;
-                                        if (qtd > disponibilidadeCalculada.vagas) qtd = disponibilidadeCalculada.vagas;
+                                        if (qtd > disponibilidadeCalculada.vagasCliente) qtd = disponibilidadeCalculada.vagasCliente;
                                         setQuantidadeIngressos(qtd);
                                     }}
                                     disabled={comprando}
@@ -140,8 +171,8 @@ function PopupConfira({ caravana: initialCaravana, onClose, onCompraSucesso, loc
                             </div>
                         )}
                         <div className={styles.popupBotoes}>
-                            {podeComprar && (
-                                <button onClick={handleComprarIngresso} className={styles.botaoComprar} disabled={comprando}>
+                            {podeComprar && disponibilidadeCalculada.capacidadeTotalExibida > 0 && (
+                                <button onClick={handleComprarIngresso} className={styles.botaoComprar} disabled={comprando || disponibilidadeCalculada.vagasCliente === 0}>
                                     {comprando ? "Processando..." : "Comprar"}
                                 </button>
                             )}

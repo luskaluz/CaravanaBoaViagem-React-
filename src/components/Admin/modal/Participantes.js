@@ -1,72 +1,98 @@
 import React, { useState, useEffect } from 'react';
-import styles from './Participantes.module.css'; // Usará o mesmo estilo do modal de funcionário (ou crie um novo)
-import * as api from '../../../services/api'; // Usa a API para buscar
+import styles from './Participantes.module.css';
+import * as api from '../../../services/api';
 
-function Participantes({ caravanaId }) { // Recebe apenas o ID
-    const [participantes, setParticipantes] = useState([]);
-    const [loading, setLoading] = useState(true); // Adicionado estado de loading
+function Participantes({ caravanaId }) {
+    const [distribuicao, setDistribuicao] = useState(null); // Armazena a resposta da API
+    const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
 
     useEffect(() => {
-        const fetchParticipantes = async () => {
+        const fetchParticipantesDistribuidos = async () => {
             if (!caravanaId) {
-                 setParticipantes([]);
+                 setDistribuicao({ definicaoCompleta: false, todosParticipantes: [] }); // Estado inicial claro
                  setLoading(false);
                  return;
             }
             setLoading(true);
             setError(null);
+            setDistribuicao(null); // Limpa dados antigos
             try {
-                // Usa a mesma chamada de API que o modal do funcionário
-                const data = await api.getParticipantesCaravana(caravanaId);
-                setParticipantes(data || []); // Garante que seja um array
+                // Chama a nova rota do backend
+                const data = await api.getParticipantesDistribuidos(caravanaId); // <<< NOVA CHAMADA API
+                setDistribuicao(data);
             } catch (err) {
                 setError(err.message || "Erro ao buscar participantes.");
-                console.error("Erro ao buscar participantes (Admin):", err);
-                setParticipantes([]);
+                console.error("Erro ao buscar participantes distribuídos:", err);
+                setDistribuicao({ definicaoCompleta: false, todosParticipantes: [] }); // Define um estado de erro/vazio
             } finally {
                 setLoading(false);
             }
         };
 
-        fetchParticipantes();
-    }, [caravanaId]); // Depende do caravanaId
+        fetchParticipantesDistribuidos();
+    }, [caravanaId]);
+
+    // Função auxiliar para renderizar tabela de participantes (para reutilização)
+    const renderTabelaParticipantes = (listaParticipantes) => {
+        if (!listaParticipantes || listaParticipantes.length === 0) {
+            return <p>Nenhum participante encontrado.</p>;
+        }
+        return (
+            <table className={styles.table}>
+                <thead>
+                    <tr>
+                        <th>Nome</th>
+                        <th>Email</th>
+                        <th>Telefone</th>
+                        {/* Não mostra mais a quantidade comprada aqui, pois está distribuído */}
+                    </tr>
+                </thead>
+                <tbody>
+                    {listaParticipantes.map((participante) =>(
+                       <tr key={participante.id || participante.uid || participante.email}>
+                            <td>{participante.nome || 'N/A'}</td>
+                            <td>{participante.email || 'N/A'}</td>
+                            <td>{participante.telefone || 'N/A'}</td>
+                       </tr>
+                    ))}
+                </tbody>
+            </table>
+        );
+    };
+
 
     return (
-        // Estrutura similar ao ParticipantesModal, mas talvez sem o overlay/modalContent
-        // se for usado dentro de outra estrutura de modal no admin
-        <div className={styles.container}> {/* Use uma classe container apropriada */}
-             {/* O título pode vir do componente pai ou ser definido aqui */}
+        <div className={styles.container}>
              <h2>Participantes da Caravana</h2>
 
              {loading && <p className={styles.loading}>Carregando participantes...</p>}
              {error && <p className={styles.error}>Erro: {error}</p>}
 
-             {!loading && !error && participantes.length === 0 ? (
-                 <p>Nenhum participante inscrito nesta caravana.</p>
-             ) : !loading && !error && (
-                 // --- Usa a mesma estrutura de tabela ---
-                 <table className={styles.table}>
-                     <thead>
-                         <tr>
-                             <th>Nome</th>
-                             <th>Email</th>
-                             <th>Telefone</th> {/* Adicionado Telefone */}
-                             <th>Ingressos</th>
-                         </tr>
-                     </thead>
-                     <tbody>
-                         {participantes.map((participante) =>(
-                            // Usa participante.id ou uid como chave, se disponível
-                            <tr key={participante.id || participante.uid || participante.email}>
-                                 <td>{participante.nome || 'N/A'}</td>
-                                 <td>{participante.email || 'N/A'}</td>
-                                 <td>{participante.telefone || 'N/A'}</td> {/* Mostra Telefone */}
-                                 <td>{participante.quantidade || 'N/A'}</td>
-                            </tr>
-                         ))}
-                     </tbody>
-                 </table>
+             {!loading && !error && distribuicao && !distribuicao.definicaoCompleta && (
+                <>
+                    <p className={styles.aviso}>O transporte final ainda não foi definido. Exibindo lista geral.</p>
+                    {renderTabelaParticipantes(distribuicao.todosParticipantes)}
+                </>
+             )}
+
+            {!loading && !error && distribuicao && distribuicao.definicaoCompleta && (
+                 <>
+                    {distribuicao.veiculosComParticipantes.length === 0 && <p>Nenhum veículo definido para esta caravana.</p>}
+                    {distribuicao.veiculosComParticipantes.map((itemVeiculo, index) => (
+                        <div key={itemVeiculo.veiculoInfo.tipoId + '-' + index} className={styles.veiculoContainer}>
+                            <h3>
+                                Veículo {index + 1}: {itemVeiculo.veiculoInfo.nomeTipo}
+                                {itemVeiculo.veiculoInfo.placa && ` (Placa: ${itemVeiculo.veiculoInfo.placa})`}
+                            </h3>
+                            <div className={styles.responsaveis}>
+                                <span><strong>Admin:</strong> {itemVeiculo.administrador?.nome || 'Não definido'}</span>
+                                <span><strong>Motorista:</strong> {itemVeiculo.motorista?.nome || 'Não definido'}</span>
+                            </div>
+                            {renderTabelaParticipantes(itemVeiculo.participantesAtribuidos)}
+                        </div>
+                    ))}
+                 </>
              )}
         </div>
     );

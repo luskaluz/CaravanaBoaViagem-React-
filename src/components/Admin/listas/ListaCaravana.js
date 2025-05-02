@@ -1,11 +1,12 @@
+// ListaCaravanasAdmin.js (Completo, sem comentários)
 import React, { useState, useEffect } from 'react';
 import * as api from '../../../services/api';
 import styles from './ListaCaravana.module.css';
 import ModalDetalhesCaravana from '../modal/ModalDetalhesCaravana';
 import Participantes from '../modal/Participantes';
-import { useNavigate } from 'react-router-dom';
 import FormularioCaravana from '../formularios/FormularioCaravana';
 import CaravanaCard from '../../CaravanaCard/CaravanaCard';
+import ModalDefinirTransporte from '../modal/ModalDefinirTransporte';
 
 function ListaCaravanasAdmin({ caravanas: propCaravanas, onCaravanaClick }) {
     const [caravanas, setCaravanas] = useState(propCaravanas || []);
@@ -16,38 +17,36 @@ function ListaCaravanasAdmin({ caravanas: propCaravanas, onCaravanaClick }) {
     const [showSubmenu, setShowSubmenu] = useState(false);
     const [modalDetalhes, setModalDetalhes] = useState(null);
     const [modalParticipantes, setModalParticipantes] = useState(null);
-    const navigate = useNavigate();
     const [showModalEditar, setShowModalEditar] = useState(false);
     const [caravanaParaEditar, setCaravanaParaEditar] = useState(null);
-
+    const [showModalDefinirTransporte, setShowModalDefinirTransporte] = useState(false);
+    const [caravanaParaDefinirTransporte, setCaravanaParaDefinirTransporte] = useState(null);
 
     const sortByData = (a, b) => {
         const now = new Date();
         now.setHours(0, 0, 0, 0);
-        const dateA = new Date(a.data);
-        const dateB = new Date(b.data);
-        dateA.setHours(0, 0, 0, 0)
-        dateB.setHours(0, 0, 0, 0)
+        const dateA = new Date(a.data + 'T00:00:00Z');
+        const dateB = new Date(b.data + 'T00:00:00Z');
         const isPastA = dateA < now;
         const isPastB = dateB < now;
         const statusOrder = { 'confirmada': 1, 'nao_confirmada': 2, 'concluida': 3, 'cancelada': 4 };
-        const statusA = statusOrder[a.status] || 4;
-        const statusB = statusOrder[b.status] || 4;
+        const statusA = statusOrder[a.status] || 5;
+        const statusB = statusOrder[b.status] || 5;
         if (statusA !== statusB) { return statusA - statusB; }
-        if (!isPastA && !isPastB) { return dateA - dateB }
-        if (isPastA && isPastB) { return dateB - dateA }
+        if (!isPastA && !isPastB) { return dateA - dateB; }
+        if (isPastA && isPastB) { return dateB - dateA; }
         return isPastA ? 1 : -1;
     };
 
     const sortByOcupacao = (a, b) => {
-        const ocupacaoA = Number(a.ocupacao ? a.ocupacao() : 0);
-        const ocupacaoB = Number(b.ocupacao ? b.ocupacao() : 0);
+        const ocupacaoA = a.capacidadeCalculada > 0 ? ((a.vagasOcupadas || 0) / a.capacidadeCalculada) * 100 : 0;
+        const ocupacaoB = b.capacidadeCalculada > 0 ? ((b.vagasOcupadas || 0) / b.capacidadeCalculada) * 100 : 0;
         return ocupacaoB - ocupacaoA;
     };
 
     const sortByLucroAtual = (a, b) => {
-        const lucroA = Number(a.lucroAtual ? a.lucroAtual() : 0);
-        const lucroB = Number(b.lucroAtual ? b.lucroAtual() : 0);
+        const lucroA = ((a.vagasOcupadas || 0) * (a.preco || 0)) - (a.despesas || 0);
+        const lucroB = ((b.vagasOcupadas || 0) * (b.preco || 0)) - (b.despesas || 0);
         return lucroB - lucroA;
     };
 
@@ -55,27 +54,9 @@ function ListaCaravanasAdmin({ caravanas: propCaravanas, onCaravanaClick }) {
         setIsLoading(true);
         setError(null);
         try {
-            let data;
-            if (!propCaravanas) {
-                data = await api.getCaravanas();
-            } else {
-                data = [...propCaravanas];
-            }
-
+            let data = propCaravanas ? [...propCaravanas] : await api.getCaravanas();
             let filteredData = status ? data.filter(c => c.status === status) : [...data];
-
-            let processedData = filteredData.map(caravana => {
-                const vagasOcupadas = caravana.vagasTotais - (caravana.vagasDisponiveis ?? caravana.vagasTotais);
-                const ocupacao = caravana.vagasTotais > 0 ? (vagasOcupadas / caravana.vagasTotais) * 100 : 0;
-                const lucroAtual = (vagasOcupadas * (caravana.preco || 0)) - (caravana.despesas || 0);
-                return {
-                    ...caravana,
-                    vagasOcupadas: vagasOcupadas,
-                    ocupacao: () => ocupacao,
-                    lucroAtual: () => lucroAtual,
-                    // Os objetos completos (administrador, motorista, guia) já estão aqui
-                };
-            });
+            let processedData = [...filteredData];
 
             if (sortBy === 'data') {
                 processedData.sort(sortByData);
@@ -95,7 +76,6 @@ function ListaCaravanasAdmin({ caravanas: propCaravanas, onCaravanaClick }) {
         }
     };
 
-
     useEffect(() => {
         loadCaravanas();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -111,7 +91,7 @@ function ListaCaravanasAdmin({ caravanas: propCaravanas, onCaravanaClick }) {
     const toggleSubmenu = () => {
         setShowSubmenu(!showSubmenu);
     };
-    const handleCancelar = async (id) => {
+    const handleCancelarCaravana = async (id) => {
         if (!window.confirm("Tem certeza que deseja cancelar esta caravana?")) return;
         try {
             await api.cancelCaravan(id);
@@ -125,7 +105,7 @@ function ListaCaravanasAdmin({ caravanas: propCaravanas, onCaravanaClick }) {
     };
 
     const handleDeletar = async (id) => {
-        if (!window.confirm("Tem certeza que deseja EXCLUIR esta caravana?")) return;
+        if (!window.confirm("Tem certeza que deseja excluir esta caravana PERMANENTEMENTE?")) return;
         try {
             await api.deleteCaravana(id);
             loadCaravanas();
@@ -169,19 +149,23 @@ function ListaCaravanasAdmin({ caravanas: propCaravanas, onCaravanaClick }) {
         setModalParticipantes(null);
     };
 
-    const translateStatus = (status) => {
-        switch (status) {
-            case 'confirmada': return 'Confirmada';
-            case 'nao_confirmada': return 'Não Confirmada';
-            case 'cancelada': return 'Cancelada';
-            case 'concluida': return 'Concluída';
-            default: return 'Desconhecido';
-        }
+    const openModalDefinirTransporte = (caravana) => {
+        setCaravanaParaDefinirTransporte(caravana);
+        setShowModalDefinirTransporte(true);
     };
 
+    const closeModalDefinirTransporte = () => {
+        setCaravanaParaDefinirTransporte(null);
+        setShowModalDefinirTransporte(false);
+    };
+
+    const handleTransporteDefinido = () => {
+        closeModalDefinirTransporte();
+        loadCaravanas();
+        alert('Transporte e responsáveis definidos com sucesso!');
+    };
 
     if (error) return <div className={styles.error}>Erro: {error}</div>;
-
 
     return (
         <div className={styles.container}>
@@ -192,56 +176,60 @@ function ListaCaravanasAdmin({ caravanas: propCaravanas, onCaravanaClick }) {
                     Filtros e Ordenação {showSubmenu ? "▲" : "▼"}
                 </button>
                 {showSubmenu && (
-                    <div className={styles.submenu}>
-                        <div className={styles.submenuSection}>
-                            <h3>Filtrar por Status:</h3>
-                            <button className={status === null ? styles.activeButton : styles.button} onClick={() => handleStatusChange(null)}>Todas</button>
-                            <button className={status === 'confirmada' ? styles.activeButton : styles.button} onClick={() => handleStatusChange('confirmada')}>Confirmadas</button>
-                            <button className={status === 'nao_confirmada' ? styles.activeButton : styles.button} onClick={() => handleStatusChange('nao_confirmada')}>Não Confirmadas</button>
-                            <button className={status === 'cancelada' ? styles.activeButton : styles.button} onClick={() => handleStatusChange('cancelada')}>Canceladas</button>
-                        </div>
-                        <div className={styles.submenuSection}>
-                            <h3>Ordenar por:</h3>
-                            <button className={sortBy === 'data' ? styles.activeButton : styles.button} onClick={() => handleSortChange('data')}>Data</button>
-                            <button className={sortBy === 'ocupacao' ? styles.activeButton : styles.button} onClick={() => handleSortChange('ocupacao')}>Ocupação (%)</button>
-                            <button className={sortBy === 'lucroAtual' ? styles.activeButton : styles.button} onClick={() => handleSortChange('lucroAtual')}>Lucro Atual</button>
-                        </div>
-                    </div>
-                )}
+                     <div className={styles.submenu}>
+                         <div className={styles.submenuSection}>
+                             <h3>Filtrar por Status:</h3>
+                             <button className={status === null ? styles.activeButton : styles.button} onClick={() => handleStatusChange(null)}>Todas</button>
+                             <button className={status === 'confirmada' ? styles.activeButton : styles.button} onClick={() => handleStatusChange('confirmada')}>Confirmadas</button>
+                             <button className={status === 'nao_confirmada' ? styles.activeButton : styles.button} onClick={() => handleStatusChange('nao_confirmada')}>Não Confirmadas</button>
+                             <button className={status === 'cancelada' ? styles.activeButton : styles.button} onClick={() => handleStatusChange('cancelada')}>Canceladas</button>
+                             <button className={status === 'concluida' ? styles.activeButton : styles.button} onClick={() => handleStatusChange('concluida')}>Concluídas</button>
+                         </div>
+                         <div className={styles.submenuSection}>
+                             <h3>Ordenar por:</h3>
+                             <button className={sortBy === 'data' ? styles.activeButton : styles.button} onClick={() => handleSortChange('data')}>Data</button>
+                             <button className={sortBy === 'ocupacao' ? styles.activeButton : styles.button} onClick={() => handleSortChange('ocupacao')}>Ocupação (%)</button>
+                             <button className={sortBy === 'lucroAtual' ? styles.activeButton : styles.button} onClick={() => handleSortChange('lucroAtual')}>Lucro Atual</button>
+                         </div>
+                     </div>
+                 )}
             </div>
 
             {isLoading && <div className={styles.loading}>Carregando...</div>}
-            {!isLoading && !error && caravanas.length === 0 && <p>Nenhuma caravana encontrada.</p>}
+            {!isLoading && !error && caravanas.length === 0 && <p>Nenhuma caravana encontrada com os filtros atuais.</p>}
 
             {!isLoading && !error && caravanas.length > 0 && (
                  <div className={styles.cardContainer}>
                     {caravanas.map((caravana) => (
-                        <CaravanaCard key={caravana.id} caravana={caravana}>
-                             {/* --- Alteração SOMENTE AQUI para exibir NOMES --- */}
-                            <div className={styles.adminInfo}>
-                                <p><span className={styles.label}>Admin:</span> {caravana.administrador?.nome || 'N/A'}</p>
-                                <p><span className={styles.label}>Motorista:</span> {caravana.motorista?.nome || 'N/A'}</p>
-                                {caravana.guia && <p><span className={styles.label}>Guia:</span> {caravana.guia?.nome || 'N/A'}</p>}
+                        // Passando isAdmin para CaravanaCard poder exibir infos de admin
+                        <CaravanaCard key={caravana.id} caravana={caravana} isAdmin={true}>
+                             <div className={styles.adminInfo}>
+                                {caravana.guiaUid && <p><span className={styles.label}>Guia:</span> {caravana.guia?.nome || 'Carregando...'}</p>}
                              </div>
-                             {/* --- Fim da Alteração --- */}
-                            <div className={styles.buttonGroup}>
-                                <button className={styles.editButton} onClick={(event) => { event.stopPropagation(); handleEdit(caravana); }}>Editar</button>
-                                <button className={styles.detailsButton} onClick={(e)=>{ e.stopPropagation(); openModalDetalhes(caravana); }}>Detalhes</button>
+
+                            {/* --- BOTÕES REORGANIZADOS --- */}
+                            {/* Linha 1 */}
+                            <div className={styles.buttonRow}>
+                                <button className={styles.editButton} onClick={(event) => { event.stopPropagation(); handleEdit(caravana); }}>Editar Dados</button>
+                                <button className={styles.detailsButton} onClick={(e)=>{ e.stopPropagation(); openModalDetalhes(caravana); }}>Mais Detalhes</button>
                                 <button className={styles.participantsButton} onClick={(e)=>{ e.stopPropagation(); openModalParticipantes(caravana.id); }}>Participantes ({caravana.vagasOcupadas || 0})</button>
                             </div>
-                            <div className={styles.divBotaoExcluir}>
-                                {caravana.status !== 'cancelada' && ( <button className={styles.cancelButton} onClick={(e)=>{ e.stopPropagation(); handleCancelar(caravana.id); }}>Cancelar</button> )}
+
+                            {/* Linha 2 */}
+                            <div className={styles.buttonRow}>
+                                {caravana.status !== 'cancelada' && caravana.status !== 'concluida' &&( <button className={styles.cancelButton} onClick={(e)=>{ e.stopPropagation(); handleCancelarCaravana(caravana.id); }}>Cancelar</button> )}
                                 <button className={styles.deleteButton} onClick={(e)=>{ e.stopPropagation(); handleDeletar(caravana.id); }}>Excluir</button>
+                                <button className={`${styles.button} ${styles.transportButton}`} onClick={(e)=>{ e.stopPropagation(); openModalDefinirTransporte(caravana); }}>Definir Transporte</button>
                             </div>
+                            {/* --- FIM BOTÕES REORGANIZADOS --- */}
                         </CaravanaCard>
                     ))}
                 </div>
              )}
 
-
             {showModalEditar && (
                 <div className={styles.modalOverlay} onClick={closeModalEditar}>
-                    <div className={styles.modal} onClick={(e) => e.stopPropagation()}>
+                    <div className={`${styles.modal} ${styles.modalForm}`} onClick={(e) => e.stopPropagation()}>
                         <button className={styles.closeButton} onClick={closeModalEditar}>×</button>
                         <FormularioCaravana
                             caravana={caravanaParaEditar}
@@ -256,14 +244,21 @@ function ListaCaravanasAdmin({ caravanas: propCaravanas, onCaravanaClick }) {
                 <ModalDetalhesCaravana caravana={modalDetalhes} onClose={closeModalDetalhes} />
             )}
 
-
             {modalParticipantes && (
                 <div className={styles.modalOverlay} onClick={closeModalParticipantes}>
-                    <div className={styles.modalLarge || styles.modal} onClick={(e) => e.stopPropagation()}>
+                    <div className={`${styles.modal} ${styles.modalLarge}`} onClick={(e) => e.stopPropagation()}>
                         <button className={styles.closeButton} onClick={closeModalParticipantes}>×</button>
                         <Participantes caravanaId={modalParticipantes} />
                     </div>
                 </div>
+            )}
+
+            {showModalDefinirTransporte && caravanaParaDefinirTransporte && (
+                 <ModalDefinirTransporte
+                     caravana={caravanaParaDefinirTransporte}
+                     onClose={closeModalDefinirTransporte}
+                     onSave={handleTransporteDefinido}
+                 />
             )}
         </div>
     );

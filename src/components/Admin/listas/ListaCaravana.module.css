@@ -430,3 +430,314 @@
     font-size: 24px;
     cursor: pointer;
 }
+/* ListaCaravana.module.css */
+
+/* ... (Seus estilos existentes para .container, .titulo, .menuContainer, etc.) ... */
+
+.cardContainer {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); /* Ou sua configuração de grid/flex */
+    gap: 20px;
+}
+
+/* Estilos para o Card (dentro de CaravanaCard.module.css, mas referenciados aqui) */
+.adminInfo {
+  font-size: 0.85rem;
+  color: #555;
+  margin-top: 10px;
+  border-top: 1px solid #eee;
+  padding-top: 10px;
+}
+
+.adminInfo p {
+  margin: 3px 0;
+}
+
+.adminInfo .label {
+  font-weight: bold;
+}
+
+
+/* --- ESTILOS PARA AS LINHAS DE BOTÕES --- */
+.buttonRow {
+  display: flex;
+  justify-content: space-between; /* Espaça os botões uniformemente */
+  align-items: center; /* Alinha verticalmente */
+  gap: 8px; /* Espaçamento entre os botões */
+  margin-top: 12px; /* Espaçamento entre as linhas de botões e o conteúdo acima/abaixo */
+  flex-wrap: wrap; /* Permite que os botões quebrem linha em telas pequenas */
+}
+
+/* Estilo base para todos os botões nas linhas */
+.buttonRow > button {
+  flex-grow: 1; /* Faz os botões tentarem ocupar o espaço igualmente */
+  flex-basis: 0; /* Permite encolher */
+  padding: 8px 10px; /* Padding interno */
+  font-size: 0.85rem; /* Tamanho da fonte */
+  border-radius: 4px;
+  border: 1px solid transparent;
+  cursor: pointer;
+  text-align: center;
+  transition: background-color 0.2s, border-color 0.2s, color 0.2s, opacity 0.2s;
+  min-width: 90px; /* Largura mínima para evitar que fiquem muito pequenos */
+  font-weight: 500;
+}
+
+/* Cores específicas para cada botão */
+.editButton { background-color: #3498db; color: white; border-color: #3498db;}
+.detailsButton { background-color: #2ecc71; color: white; border-color: #2ecc71;}
+.participantsButton { background-color: #9b59b6; color: white; border-color: #9b59b6;}
+.cancelButton { background-color: #e74c3c; color: white; border-color: #e74c3c;}
+.deleteButton { background-color: #c0392b; color: white; border-color: #c0392b;}
+
+/* Cor para o novo botão Definir Transporte */
+.transportButton {
+  background-color: #f39c12; /* Laranja */
+  color: white;
+  border-color: #f39c12;
+}
+
+/* Efeitos Hover (exceto para desabilitados) */
+.editButton:hover:not(:disabled) { background-color: #2980b9; border-color: #2980b9;}
+.detailsButton:hover:not(:disabled) { background-color: #27ae60; border-color: #27ae60;}
+.participantsButton:hover:not(:disabled) { background-color: #8e44ad; border-color: #8e44ad;}
+.cancelButton:hover:not(:disabled) { background-color: #c0392b; border-color: #c0392b;}
+.deleteButton:hover:not(:disabled) { background-color: #a5281b; border-color: #a5281b;}
+.transportButton:hover:not(:disabled) { background-color: #e67e22; border-color: #e67e22;}
+
+/* Estilo para botões desabilitados */
+.buttonRow > button:disabled {
+  background-color: #bdc3c7;
+  border-color: #bdc3c7;
+  color: #7f8c8d;
+  cursor: not-allowed;
+  opacity: 0.7;
+}
+
+
+/* --- MODAL OVERLAY E ESTILOS (Copie/Adapte do seu CSS de modal existente) --- */
+.modalOverlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.modal {
+  background-color: #fff;
+  padding: 20px;
+  border-radius: 8px;
+  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+  position: relative;
+  max-height: 90vh;
+  overflow-y: auto;
+  width: 90%;
+}
+
+.modalForm {
+    max-width: 700px; /* Largura para formulários */
+}
+
+.modalLarge {
+    max-width: 950px; /* Largura maior para detalhes/participantes/transporte */
+}
+
+.closeButton {
+  position: absolute;
+  top: 10px;
+  right: 15px;
+  background: none;
+  border: none;
+  font-size: 1.8rem;
+  cursor: pointer;
+  color: #555;
+}
+
+/* --- Loading e Error --- */
+.loading {
+    text-align: center;
+    padding: 30px;
+    font-style: italic;
+    color: #555;
+}
+
+.error {
+    color: #d9534f;
+    background-color: #f2dede;
+    border: 1px solid #ebccd1;
+    padding: 15px;
+    border-radius: 4px;
+    margin: 20px 0;
+    text-align: center;
+}
+
+
+/* --- Remova estilos antigos se não forem mais usados --- */
+.buttonGroup {
+    display: none; /* Esconde o grupo antigo se ainda existir */
+}
+.divBotaoExcluir {
+    display: none; /* Esconde o grupo antigo se ainda existir */
+}
+
+/* ListaCaravana.module.css */
+
+/* ... (Seus estilos existentes para .container, .titulo, .menuContainer, etc.) ... */
+
+.cardContainer {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); /* Ou sua configuração de grid/flex */
+    gap: 20px;
+}
+
+/* Estilos para o Card (dentro de CaravanaCard.module.css, mas referenciados aqui) */
+.adminInfo {
+  font-size: 0.85rem;
+  color: #555;
+  margin-top: 10px;
+  border-top: 1px solid #eee;
+  padding-top: 10px;
+}
+
+.adminInfo p {
+  margin: 3px 0;
+}
+
+.adminInfo .label {
+  font-weight: bold;
+}
+
+
+/* --- ESTILOS PARA AS LINHAS DE BOTÕES --- */
+.buttonRow {
+  display: flex;
+  justify-content: space-between; /* Espaça os botões uniformemente */
+  align-items: center; /* Alinha verticalmente */
+  gap: 8px; /* Espaçamento entre os botões */
+  margin-top: 12px; /* Espaçamento entre as linhas de botões e o conteúdo acima/abaixo */
+  flex-wrap: wrap; /* Permite que os botões quebrem linha em telas pequenas */
+}
+
+/* Estilo base para todos os botões nas linhas */
+.buttonRow > button {
+  flex-grow: 1; /* Faz os botões tentarem ocupar o espaço igualmente */
+  flex-basis: 0; /* Permite encolher */
+  padding: 8px 10px; /* Padding interno */
+  font-size: 0.85rem; /* Tamanho da fonte */
+  border-radius: 4px;
+  border: 1px solid transparent;
+  cursor: pointer;
+  text-align: center;
+  transition: background-color 0.2s, border-color 0.2s, color 0.2s, opacity 0.2s;
+  min-width: 90px; /* Largura mínima para evitar que fiquem muito pequenos */
+  font-weight: 500;
+}
+
+/* Cores específicas para cada botão */
+.editButton { background-color: #3498db; color: white; border-color: #3498db;}
+.detailsButton { background-color: #2ecc71; color: white; border-color: #2ecc71;}
+.participantsButton { background-color: #59b6b6; color: white; border-color: #59a3b6;}
+.cancelButton { background-color: #e74c3c; color: white; border-color: #e74c3c;}
+.deleteButton { background-color: #c0392b; color: white; border-color: #c0392b;}
+
+/* Cor para o novo botão Definir Transporte */
+.transportButton {
+  background-color: #f39c12; /* Laranja */
+  color: white;
+  border-color: #f39c12;
+}
+
+/* Efeitos Hover (exceto para desabilitados) */
+.editButton:hover:not(:disabled) { background-color: #2980b9; border-color: #2980b9;}
+.detailsButton:hover:not(:disabled) { background-color: #27ae60; border-color: #27ae60;}
+.participantsButton:hover:not(:disabled) { background-color: #4485ad; border-color: #4488ad;}
+.cancelButton:hover:not(:disabled) { background-color: #c0392b; border-color: #c0392b;}
+.deleteButton:hover:not(:disabled) { background-color: #a5281b; border-color: #a5281b;}
+.transportButton:hover:not(:disabled) { background-color: #e67e22; border-color: #e67e22;}
+
+/* Estilo para botões desabilitados */
+.buttonRow > button:disabled {
+  background-color: #bdc3c7;
+  border-color: #bdc3c7;
+  color: #7f8c8d;
+  cursor: not-allowed;
+  opacity: 0.7;
+}
+
+
+/* --- MODAL OVERLAY E ESTILOS (Copie/Adapte do seu CSS de modal existente) --- */
+.modalOverlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.modal {
+  background-color: #fff;
+  padding: 20px;
+  border-radius: 8px;
+  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+  position: relative;
+  max-height: 90vh;
+  overflow-y: auto;
+  width: 90%;
+}
+
+.modalForm {
+    max-width: 700px; /* Largura para formulários */
+}
+
+.modalLarge {
+    max-width: 950px; /* Largura maior para detalhes/participantes/transporte */
+}
+
+.closeButton {
+  position: absolute;
+  top: 10px;
+  right: 15px;
+  background: none;
+  border: none;
+  font-size: 1.8rem;
+  cursor: pointer;
+  color: #555;
+}
+
+/* --- Loading e Error --- */
+.loading {
+    text-align: center;
+    padding: 30px;
+    font-style: italic;
+    color: #555;
+}
+
+.error {
+    color: #d9534f;
+    background-color: #f2dede;
+    border: 1px solid #ebccd1;
+    padding: 15px;
+    border-radius: 4px;
+    margin: 20px 0;
+    text-align: center;
+}
+
+
+/* --- Remova estilos antigos se não forem mais usados --- */
+.buttonGroup {
+    display: none; /* Esconde o grupo antigo se ainda existir */
+}
+.divBotaoExcluir {
+    display: none; /* Esconde o grupo antigo se ainda existir */
+}
