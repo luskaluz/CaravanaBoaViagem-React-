@@ -102,9 +102,9 @@ function ListaFuncionariosAdmin() {
                                     <p><span className={styles.label}>Telefone:</span> {func.telefone || 'N/A'}</p>
                                     <p><span className={styles.label}>Cargo:</span> {func.cargo || 'Não definido'}</p>
                                     {/* Removemos vínculo/comissão */}
-                                    {func.salario != null && (
+                                    {/* {func.salario != null && (
                                         <p><span className={styles.label}>Salário:</span> R$ {typeof func.salario === 'number' ? func.salario.toFixed(2) : func.salario}</p>
-                                    )}
+                                    )} */}
                                 </div>
                            </div>
                            <div className={styles.buttonGroup}>

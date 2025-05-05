@@ -232,7 +232,7 @@ function ModalDefinirTransporte({ caravana, onClose, onSave }) {
                                     <div className={styles.veiculoInputs}>
                                         {/* Inputs NÃO estão mais desabilitados por isLocked */}
                                         <input
-                                            type="text" placeholder="Placa (Opcional)"
+                                            type="text" placeholder="Placa"
                                             value={veiculo.placa || ''}
                                             onChange={(e) => handleVeiculoChange(veiculo._instanceId, 'placa', e.target.value)}
                                             className={styles.textInput} disabled={isLoading}
@@ -242,7 +242,7 @@ function ModalDefinirTransporte({ caravana, onClose, onSave }) {
                                             onChange={(e) => handleVeiculoChange(veiculo._instanceId, 'motoristaUid', e.target.value)}
                                             className={styles.selectInput} disabled={isLoading}
                                         >
-                                            <option value="">-- Motorista (Opcional) --</option>
+                                            <option value="">-- Motorista --</option>
                                             {motoristasDisponiveis.map(mot => ( <option key={mot.uid || mot.id} value={mot.uid || mot.id}>{mot.nome}</option> ))}
                                         </select>
                                         <select

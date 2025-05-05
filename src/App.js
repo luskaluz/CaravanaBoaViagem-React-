@@ -10,78 +10,89 @@ import Footer from './components/Footer/Footer';
 import styles from './App.module.css';
 import DashboardUsuario from './components/Usuario/DashboardUsuario';
 import DashboardAdmin from './components/Admin/DashboardAdmin';
-import DetalhesCaravanaAdmin from './components/Admin/DetalhesCaravanaAdmin'; // Mantido se usado
-import FuncionarioDashboard from './components/Funcionario/FuncionarioDashboard'; // <<< IMPORTAR O DASHBOARD DO FUNCIONÁRIO
+import FuncionarioDashboard from './components/Funcionario/FuncionarioDashboard';
 import { auth } from './services/firebase';
 import { onAuthStateChanged } from 'firebase/auth';
-import FormularioCaravana from './components/Admin/formularios/FormularioCaravana'; // Mantido se usado para edição admin
+import LoadingSpinner from './components/LoadingSpinner/LoadingSpinner'; // <<< Importar
+
+const ADMIN_EMAIL = process.env.REACT_APP_ADMIN_EMAIL;
 
 function App() {
     const [user, setUser] = useState(null);
-    const [loading, setLoading] = useState(true);
-    const [authError, setAuthError] = useState(null); // Corrigido state inicial
+    const [isCheckingAuth, setIsCheckingAuth] = useState(true);
+    const [authError, setAuthError] = useState(null);
 
     useEffect(() => {
         const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
-            console.log("Auth State Changed:", currentUser?.email); // Log para depuração
+            console.log("App.js Auth State Changed:", currentUser?.email);
             setUser(currentUser);
-            setLoading(false);
-            // Removido setAuthError daqui, deve vir de um catch, se necessário
-        }, (error) => { // Adiciona tratamento de erro do listener
-            console.error("Erro no onAuthStateChanged:", error);
+            setIsCheckingAuth(false);
+        }, (error) => {
+            console.error("Erro no listener onAuthStateChanged:", error);
             setAuthError(error);
-            setLoading(false);
+            setIsCheckingAuth(false);
         });
-
         return () => unsubscribe();
-    }, []); // Array de dependências vazio, executa só uma vez
+    }, []);
 
-
-    // Se houve erro na autenticação inicial
-    if (authError) {
-        return <div>Erro de autenticação: {authError.message}</div>;
+    // --- USA O SPINNER ENQUANTO VERIFICA AUTH ---
+    if (isCheckingAuth) {
+         return (
+             <div className={styles.appContainer}>
+                <Header /> {/* Mantém Header/Footer se desejar */}
+                <main className={styles.mainContent}>
+                     <LoadingSpinner mensagem="Carregando." />
+                </main>
+                <Footer />
+            </div>
+         );
     }
+    // --- FIM SPINNER ---
+
+    if (authError) {
+        return <div className={styles.appContainer}><main className={styles.mainContent}>Erro ao verificar autenticação: {authError.message}</main></div>;
+    }
+
+    function ProtectedRoute({ children, roleRequired }) {
+        if (!user) {
+            return <Navigate to="/login" replace />;
+        }
+        const isUserAdmin = ADMIN_EMAIL && user.email === ADMIN_EMAIL;
+
+        if (roleRequired === 'admin') {
+            return isUserAdmin ? children : <Navigate to="/dashboard" replace />;
+        } else if (roleRequired === 'user') {
+             return !isUserAdmin ? children : <Navigate to="/admin-dashboard" replace />;
+         } else if (roleRequired === 'funcionario') {
+             return !isUserAdmin ? children : <Navigate to="/admin-dashboard" replace />;
+        }
+        return <Navigate to="/login" replace />;
+    }
+
+    const getDefaultRedirectPath = () => {
+        if (!user) return "/login";
+        if (!ADMIN_EMAIL) { console.error("REACT_APP_ADMIN_EMAIL não definido!"); return "/login"; }
+        return user.email === ADMIN_EMAIL ? "/admin-dashboard" : "/dashboard";
+    };
 
     return (
         <Router>
             <div className={styles.appContainer}>
                 <Header />
-                <main className={styles.mainContent}> {/* Aplicando classe CSS */}
+                <main className={styles.mainContent}>
                     <Routes>
-
-                        {/* Rotas Públicas */}
                         <Route path="/" element={<Home />} />
                         <Route path="/sobre" element={<Sobre />} />
                         <Route path="/roteiros" element={<Roteiros />} />
 
-                        {/* Rotas de Autenticação (redireciona se já logado) */}
-                        <Route path="/cadastro" element={!user ? <Cadastro /> : <Navigate to={user.email === "adm@adm.com" ? "/admin-dashboard" : "/dashboard"} />} />
-                        <Route path="/login" element={!user ? <Login /> : <Navigate to={user.email === "adm@adm.com" ? "/admin-dashboard" : "/dashboard"} />} />
+                        <Route path="/cadastro" element={user ? <Navigate to={getDefaultRedirectPath()} replace /> : <Cadastro />} />
+                        <Route path="/login" element={user ? <Navigate to={getDefaultRedirectPath()} replace /> : <Login />} />
 
-                        {/* --- Rotas Protegidas --- */}
+                        <Route path="/dashboard" element={ <ProtectedRoute roleRequired="user"> <DashboardUsuario /> </ProtectedRoute> } />
+                        <Route path="/admin-dashboard" element={ <ProtectedRoute roleRequired="admin"> <DashboardAdmin /> </ProtectedRoute> } />
+                        <Route path="/funcionario-dashboard" element={ <ProtectedRoute roleRequired="funcionario"> <FuncionarioDashboard /> </ProtectedRoute> } />
 
-                        {/* Dashboard do Usuário Normal */}
-                        <Route path="/dashboard" element={user && user.email !== "adm@adm.com" ? <DashboardUsuario /> : <Navigate to="/login" />} />
-
-                        {/* Dashboard do Administrador */}
-                        <Route path="/admin-dashboard" element={user && user.email === "adm@adm.com" ? <DashboardAdmin /> : <Navigate to="/login" />} />
-                        {/* Sub-rotas Admin (Exemplo) */}
-                        <Route path="/admin/detalhes-caravana/:id" element={user && user.email === "adm@adm.com" ? <DetalhesCaravanaAdmin /> : <Navigate to="/login" />} />
-                        <Route path="/admin/editar-caravana/:id" element={user && user.email === "adm@adm.com" ? <FormularioCaravana /> : <Navigate to="/login" />} />
-
-                        {/* --- NOVA ROTA PARA FUNCIONÁRIO --- */}
-                        <Route
-                            path="/funcionario-dashboard"
-                            element={
-                                user && user.email !== "adm@adm.com"
-                                ? <FuncionarioDashboard />
-                                : <Navigate to="/login" />
-                            }
-                        />
-
-                        {/* Rota Catch-all (Redireciona para home se logado, senão para login) */}
-                        <Route path="*" element={<Navigate to={user ? (user.email === "adm@adm.com" ? "/admin-dashboard" : "/dashboard") : "/login"} />} />
-
+                        <Route path="*" element={<Navigate to={getDefaultRedirectPath()} replace />} />
                     </Routes>
                 </main>
                 <Footer />

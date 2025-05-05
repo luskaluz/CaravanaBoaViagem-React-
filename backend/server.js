@@ -290,26 +290,63 @@ function alocacoesDiferentes(alocacaoA, alocacaoB) {
 // Calcula métricas financeiras (ROI, Lucro Máximo) para uma caravana
 function calculateCaravanaMetrics(caravana) {
     const preco = parseFloat(caravana.preco) || 0;
-    const vagasTotais = parseInt(caravana.vagasTotais) || 0;
     const despesas = parseFloat(caravana.despesas) || 0;
 
-    const receitaMaxima = preco * vagasTotais;
-    const lucroMaximo = receitaMaxima - despesas;
-    const roi = despesas > 0 ? (lucroMaximo / despesas) * 100 : (lucroMaximo > 0 ? Infinity : 0);
+    // --- Determina a Capacidade Total e Vagas Ocupadas Corretas ---
+    const transporteDefinido = caravana.transporteDefinidoManualmente || caravana.transporteAutoDefinido;
+    const capacidadeTotalReal = transporteDefinido
+                              ? (caravana.capacidadeFinalizada || 0)
+                              : (caravana.capacidadeMaximaTeorica || 0);
 
-    const vagasOcupadas = vagasTotais - (parseInt(caravana.vagasDisponiveis) || 0);
-    const receitaAtual = vagasOcupadas * preco;
+    const vagasOcupadasClientes = caravana.vagasOcupadas || 0; // Vagas ocupadas por clientes
+
+    // --- Cálculo de Métricas ---
+    let receitaMaxima = 0;
+    let lucroMaximo = 0;
+    let roi = 0;
+    let numAdminsConsiderados = 0; // Para calcular vagas reais de clientes na capacidade máxima
+
+    if (capacidadeTotalReal > 0) {
+        // Calcula quantos admins ocupariam espaço na capacidade máxima
+        if (transporteDefinido && Array.isArray(caravana.transportesFinalizados)) {
+            numAdminsConsiderados = Math.min(capacidadeTotalReal, caravana.transportesFinalizados.length);
+        } else {
+            numAdminsConsiderados = Math.min(capacidadeTotalReal, caravana.maximoTransportes || 0);
+        }
+
+        // Vagas máximas que poderiam ser vendidas para clientes
+        const vagasMaxClientes = Math.max(0, capacidadeTotalReal - numAdminsConsiderados);
+
+        receitaMaxima = preco * vagasMaxClientes; // Receita se todas as vagas de CLIENTES fossem vendidas
+        lucroMaximo = receitaMaxima - despesas;
+        roi = despesas > 0 && lucroMaximo > -Infinity ? (lucroMaximo / despesas) * 100 : (lucroMaximo > 0 ? Infinity : 0);
+    } else {
+        // Se capacidade não definida, métricas de máximo são 0 ou indefinidas
+         lucroMaximo = -despesas; // Prejuízo das despesas
+         roi = despesas > 0 ? -100 : 0; // ROI de -100% ou 0
+    }
+
+
+    const receitaAtual = vagasOcupadasClientes * preco; // Receita baseada nos clientes atuais
     const lucroAtual = receitaAtual - despesas;
-    const roiAtual = despesas > 0 ? (lucroAtual / despesas) * 100 : (lucroAtual > 0 ? Infinity : 0);
+    const roiAtual = despesas > 0 && lucroAtual > -Infinity ? (lucroAtual / despesas) * 100 : (lucroAtual > 0 ? Infinity : 0);
 
     return {
-        roi: roi, 
-        lucroMaximo: lucroMaximo,
+        // Métricas baseadas na capacidade MÁXIMA de clientes
+        roi: roi,
+        lucroMaximo: lucroMaximo, // Lucro se vender todas as vagas de clientes
+        capacidadeTotalClientes: Math.max(0, capacidadeTotalReal - numAdminsConsiderados), // Capacidade real para clientes
+
+        // Métricas baseadas na ocupação ATUAL de clientes
         roiAtual: roiAtual,
         lucroAtual: lucroAtual,
-        vagasOcupadas: vagasOcupadas,
+        vagasOcupadasClientes: vagasOcupadasClientes, // Renomeado para clareza
+
+        // Mantém a capacidade total real (incluindo admins) para referência
+        capacidadeTotalBruta: capacidadeTotalReal
     };
 }
+
 
 
 async function buscarParticipantesParaNotificacao(caravanaId) {
@@ -481,6 +518,7 @@ const verificarFuncionarioOuAdmin = async (req, res, next) => {
     try {
         const email = req.user.email;
         const uid = req.user.uid; // UID do Firebase Auth do usuário logado
+
 
         // 1. Verifica se é Admin Geral
         if (email === process.env.ADMIN_EMAIL) {
@@ -707,44 +745,28 @@ async function getCaravanasUsuarioPorStatus(userId, status = undefined) {
 
 app.post('/funcionarios', verificarAutenticacao, verificarAdmin, async (req, res) => {
     try {
-        const { nome, email, telefone, senha, cargo, salario, fotoUrl } = req.body;
+        // Removido 'salario' da desestruturação e validação
+        const { nome, email, telefone, senha, cargo, fotoUrl } = req.body;
 
-        if (!nome || !email || !telefone || !senha || !cargo || salario === undefined || salario === null || salario === '') {
-            return res.status(400).json({ error: "Campos nome, email, telefone, senha, cargo e salário são obrigatórios." });
+        // Validação sem Salário
+        if (!nome || !email || !telefone || !senha || !cargo) {
+            return res.status(400).json({ error: "Campos nome, email, telefone, senha e cargo são obrigatórios." });
         }
-        if (!['motorista', 'administrador', 'guia'].includes(cargo)) {
-             return res.status(400).json({ error: "Cargo inválido." });
-        }
-        if (senha.length < 6) {
-            return res.status(400).json({ error: "Senha deve ter no mínimo 6 caracteres." });
-        }
-        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-            return res.status(400).json({ error: "Formato de email inválido." });
-        }
+        if (!['motorista', 'administrador', 'guia'].includes(cargo)) return res.status(400).json({ error: "Cargo inválido." });
+        if (senha.length < 6) return res.status(400).json({ error: "Senha deve ter no mínimo 6 caracteres." });
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return res.status(400).json({ error: "Formato de email inválido." });
         const phoneRegex = /^(?:\(?\d{2}\)?\s?)?(?:9?\d{4}[-.\s]?\d{4})$/;
-        if (!phoneRegex.test(telefone)) {
-            return res.status(400).json({ error: "Formato de telefone inválido." });
-        }
-
-        const salarioNum = parseFloat(salario);
-        if (isNaN(salarioNum) || salarioNum < 0) {
-            return res.status(400).json({ error: "Salário inválido." });
-        }
+        if (!phoneRegex.test(telefone)) return res.status(400).json({ error: "Formato de telefone inválido." });
+        // Remoção da validação de Salário
 
         const userRecord = await admin.auth().createUser({
-            email: email,
-            password: senha,
-            displayName: nome,
-            // photoURL: fotoUrl || null // Poderia adicionar aqui se quisesse na Auth também
+            email: email, password: senha, displayName: nome,
         });
 
+        // Objeto Firestore sem Salário
         const novoFuncionarioFirestore = {
-            nome,
-            email,
-            telefone,
-            cargo,
-            salario: salarioNum,
-            fotoUrl: fotoUrl || null,
+            nome, email, telefone, cargo, fotoUrl: fotoUrl || null,
+            // salario: salarioNum, // Removido
             uid: userRecord.uid,
             createdAt: admin.firestore.FieldValue.serverTimestamp()
         };
@@ -759,29 +781,36 @@ app.post('/funcionarios', verificarAutenticacao, verificarAdmin, async (req, res
         if (error.code === 'auth/email-already-exists') {
             return res.status(400).json({ error: 'Este email já está em uso.' });
         }
-        const errorMessage = error.message ? error.message.replace(/"[^"]*"/g, '"***"') : 'Erro interno ao criar funcionário.';
-        res.status(500).json({ error: errorMessage, code: error.code });
+        res.status(500).json({ error: 'Erro interno ao criar funcionário.', details: error.message });
     }
 });
 
-
+// Rota PUT /funcionarios/:id (Sem Salário)
 app.put('/funcionarios/:id', verificarAutenticacao, verificarAdmin, async (req, res) => {
     try {
         const { id } = req.params;
-        const { nome, email, telefone, cargo, salario, fotoUrl } = req.body;
+        // Removido 'salario' da desestruturação
+        const { nome, email, telefone, cargo, fotoUrl } = req.body;
 
         const funcionarioRef = db.collection('funcionarios').doc(id);
         const funcDoc = await funcionarioRef.get();
 
-        if (!funcDoc.exists) {
-            return res.status(404).json({ error: 'Funcionário não encontrado.' });
-        }
+        if (!funcDoc.exists) return res.status(404).json({ error: 'Funcionário não encontrado.' });
         const dadosAtuais = funcDoc.data();
-
         const funcionarioAtualizado = {};
 
         if (nome !== undefined) funcionarioAtualizado.nome = nome;
-        if (email !== undefined) funcionarioAtualizado.email = email;
+        if (email !== undefined) {
+             // Validar email se mudar? Geralmente não se muda email de login facilmente.
+             // Se permitir, precisa garantir unicidade e atualizar no Auth.
+             // Por segurança, vamos impedir a mudança de email aqui por enquanto.
+             // Se precisar mudar, é melhor ter um processo específico.
+             if (email !== dadosAtuais.email) {
+                 console.warn(`Tentativa de alterar email do funcionário ${id} para ${email}. Mudança de email não implementada/permitida nesta rota.`);
+                 // return res.status(400).json({ error: "Não é permitido alterar o email por esta rota." });
+             }
+             // funcionarioAtualizado.email = email; // Comentado - não permite mudar email
+        }
         if (telefone !== undefined) {
             const phoneRegex = /^(?:\(?\d{2}\)?\s?)?(?:9?\d{4}[-.\s]?\d{4})$/;
             if (!phoneRegex.test(telefone)) return res.status(400).json({ error: "Formato de telefone inválido." });
@@ -791,49 +820,56 @@ app.put('/funcionarios/:id', verificarAutenticacao, verificarAdmin, async (req, 
             if (!['motorista', 'administrador', 'guia'].includes(cargo)) return res.status(400).json({ error: "Cargo inválido." });
             funcionarioAtualizado.cargo = cargo;
         }
-        if (salario !== undefined) {
-             if (salario === null || salario === '') {
-                  return res.status(400).json({ error: "Salário não pode ser vazio." });
+        // Remoção da lógica de Salário
+        if (fotoUrl !== undefined) funcionarioAtualizado.fotoUrl = fotoUrl; // Permite null para remover
+
+        // Verifica se houve alguma alteração real
+        let hasChanges = false;
+        for(const key in funcionarioAtualizado) {
+             if(funcionarioAtualizado[key] !== dadosAtuais[key]) {
+                 hasChanges = true;
+                 break;
              }
-             const salarioNum = parseFloat(salario);
-             if (isNaN(salarioNum) || salarioNum < 0) {
-                 return res.status(400).json({ error: "Salário inválido." });
-             }
-             funcionarioAtualizado.salario = salarioNum;
         }
-        if (fotoUrl !== undefined) {
-            funcionarioAtualizado.fotoUrl = fotoUrl;
+
+        if (!hasChanges) {
+             // Nenhuma mudança detectada, mas podemos apenas atualizar o timestamp ou retornar 304/200
+            await funcionarioRef.update({ lastUpdate: admin.firestore.FieldValue.serverTimestamp() });
+            const currentDoc = await funcionarioRef.get(); // Pega os dados atuais para retornar
+             return res.status(200).json({ message: 'Nenhuma alteração detectada, timestamp atualizado.', data: currentDoc.data() });
+             // return res.status(304).send(); // Alternativa: Not Modified
         }
+
 
         funcionarioAtualizado.lastUpdate = admin.firestore.FieldValue.serverTimestamp();
-
-        if (Object.keys(funcionarioAtualizado).length <= 1) {
-            return res.status(400).json({ error: "Nenhum dado para atualizar foi fornecido." });
-        }
-
         await funcionarioRef.update(funcionarioAtualizado);
 
+        // Atualiza Auth (apenas displayName se o nome mudou)
         try {
              const authUpdates = {};
-             const finalEmail = funcionarioAtualizado.email !== undefined ? funcionarioAtualizado.email : dadosAtuais.email;
-             const finalNome = funcionarioAtualizado.nome !== undefined ? funcionarioAtualizado.nome : dadosAtuais.nome;
-             // const finalFotoUrl = funcionarioAtualizado.fotoUrl !== undefined ? funcionarioAtualizado.fotoUrl : dadosAtuais.fotoUrl; // Descomente se quiser atualizar Auth photoURL
-
-             if (finalEmail !== dadosAtuais.email) authUpdates.email = finalEmail;
-             if (finalNome !== dadosAtuais.nome) authUpdates.displayName = finalNome;
-             // if (finalFotoUrl !== dadosAtuais.fotoUrl) authUpdates.photoURL = finalFotoUrl; // Descomente se quiser atualizar Auth photoURL
+             if (funcionarioAtualizado.nome && funcionarioAtualizado.nome !== dadosAtuais.nome) {
+                  authUpdates.displayName = funcionarioAtualizado.nome;
+             }
+             // Se permitir mudança de email, descomentar:
+             // if (funcionarioAtualizado.email && funcionarioAtualizado.email !== dadosAtuais.email) {
+             //     authUpdates.email = funcionarioAtualizado.email;
+             // }
+             // Se quiser atualizar foto no Auth também:
+             // if (funcionarioAtualizado.fotoUrl !== undefined && funcionarioAtualizado.fotoUrl !== dadosAtuais.fotoUrl) {
+             //     authUpdates.photoURL = funcionarioAtualizado.fotoUrl;
+             // }
 
              if (Object.keys(authUpdates).length > 0) {
                  await admin.auth().updateUser(id, authUpdates);
              }
         } catch (authError) {
-             console.error("Erro ao atualizar dados no Firebase Auth (continuando após salvar no Firestore):", authError);
-             // Retorna sucesso parcial, informando o erro do Auth
-              const updatedDocPartial = await funcionarioRef.get(); // Pega dados do Firestore
+             console.error("Erro ao atualizar dados no Firebase Auth:", authError);
+             // Retorna sucesso parcial
+             const updatedDocPartial = await funcionarioRef.get();
              return res.status(200).json({
-                 message: 'Funcionário atualizado no banco de dados, mas houve um erro ao atualizar dados na autenticação.',
+                 message: 'Funcionário atualizado no BD, mas erro ao atualizar Auth.',
                  details: authError.message,
-                 data: updatedDocPartial.data() // Retorna dados do Firestore
+                 data: updatedDocPartial.data()
                 });
         }
 
@@ -845,6 +881,7 @@ app.put('/funcionarios/:id', verificarAutenticacao, verificarAdmin, async (req, 
         res.status(500).json({ error: 'Erro interno ao atualizar funcionário.', details: error.message });
     }
 });
+
 
 // Rota para listar todos os funcionários (requer admin ou outra permissão)
 app.get('/funcionarios', verificarAutenticacao, verificarAdmin, async (req, res) => { 
@@ -959,8 +996,8 @@ app.post('/caravanas', verificarAutenticacao, verificarAdmin, async (req, res) =
     try {
         const {
             localidadeId, data, horarioSaida, despesas, lucroAbsoluto, ocupacaoMinima, preco,
-            maximoTransportes, guiaUid,
-            dataConfirmacaoTransporte, dataFechamentoVendas
+            maximoTransportes, guiaUid, dataConfirmacaoTransporte, dataFechamentoVendas,
+            pontoEncontro, dataHoraRetorno
         } = req.body;
 
         if (!localidadeId || !data || !despesas || !lucroAbsoluto || !ocupacaoMinima || preco === undefined || preco === null || preco === '' || !maximoTransportes || !dataConfirmacaoTransporte) {
@@ -982,10 +1019,23 @@ app.post('/caravanas', verificarAutenticacao, verificarAdmin, async (req, res) =
              return res.status(400).json({ error: "Nenhum tipo de transporte com assentos válidos encontrado para calcular capacidade." });
         }
         const capacidadeMaximaTeorica = maxAssentosPorVeiculo * maxTranspNum;
-        const adminsTeoricos = maxTranspNum; // 1 admin por transporte potencial
+        const adminsTeoricos = maxTranspNum;
 
         if (capacidadeMaximaTeorica < (ocupacaoMinNum + adminsTeoricos)) {
             return res.status(400).json({ error: `Capacidade Máxima Teórica (${capacidadeMaximaTeorica}) insuficiente para Ocupação Mínima (${ocupacaoMinNum}) + ${adminsTeoricos} admin(s).` });
+        }
+
+        let dataHoraRetornoISO = null;
+        if (dataHoraRetorno) {
+            try {
+                 const dtRetorno = new Date(dataHoraRetorno);
+                 if (isNaN(dtRetorno.getTime())) throw new Error();
+                 const dtViagemCheck = new Date(data + 'T00:00:00Z');
+                 if (dtRetorno.getTime() <= dtViagemCheck.getTime()) throw new Error("Retorno antes da viagem");
+                 dataHoraRetornoISO = dtRetorno.toISOString();
+            } catch (e) {
+                return res.status(400).json({ error: "Data/Hora de Retorno inválida ou anterior à viagem." });
+            }
         }
 
         if (!/^\d{4}-\d{2}-\d{2}$/.test(data)) return res.status(400).json({ error: "Formato Data Viagem inválido (YYYY-MM-DD)." });
@@ -1022,6 +1072,8 @@ app.post('/caravanas', verificarAutenticacao, verificarAdmin, async (req, res) =
             administradorUid: null, motoristaUid: null,
             dataConfirmacaoTransporte: dataConfirmacaoTransporte,
             dataFechamentoVendas: dataFechamentoVendas || null,
+            pontoEncontro: pontoEncontro || null,
+            dataHoraRetorno: dataHoraRetornoISO,
             transporteDefinidoManualmente: false,
             transporteAutoDefinido: false,
             capacidadeFinalizada: null,
@@ -1032,17 +1084,22 @@ app.post('/caravanas', verificarAutenticacao, verificarAdmin, async (req, res) =
         res.status(201).json({ id: docRef.id, ...novaCaravana });
     } catch (error) {
         console.error("Erro ao criar caravana:", error);
-        res.status(500).json({ error: "Erro interno ao criar caravana.", details: error.message });
+        // Retorna erro de validação específico ou erro genérico
+        if (error.message.includes('inválido') || error.message.includes('insuficiente') || error.message.includes('posterior') || error.message.includes('não encontrada')) {
+            res.status(400).json({ error: error.message });
+        } else {
+            res.status(500).json({ error: "Erro interno ao criar caravana.", details: error.message });
+        }
     }
 });
 
-// --- Rota PUT /caravanas/:id ---
+// --- Rota PUT /caravanas/:id --- (Completo, Sem Comentários)
 app.put('/caravanas/:id', verificarAutenticacao, verificarAdmin, async (req, res) => {
     const { id } = req.params;
     const {
         localidadeId, data, horarioSaida, despesas, lucroAbsoluto, ocupacaoMinima, preco,
-        maximoTransportes, guiaUid,
-        dataConfirmacaoTransporte, dataFechamentoVendas
+        maximoTransportes, guiaUid, dataConfirmacaoTransporte, dataFechamentoVendas,
+        pontoEncontro, dataHoraRetorno
     } = req.body;
 
     try {
@@ -1051,7 +1108,6 @@ app.put('/caravanas/:id', verificarAutenticacao, verificarAdmin, async (req, res
         if (!caravanaDoc.exists) return res.status(404).json({ error: 'Caravana não encontrada.' });
         const caravanaAtual = caravanaDoc.data();
 
-        // Validações
         if (!localidadeId || !data || !despesas || !lucroAbsoluto || !ocupacaoMinima || preco === undefined || preco === null || preco === '' || !maximoTransportes || !dataConfirmacaoTransporte) {
              return res.status(400).json({ error: "Preencha todos os campos obrigatórios." });
         }
@@ -1060,44 +1116,64 @@ app.put('/caravanas/:id', verificarAutenticacao, verificarAdmin, async (req, res
         const ocupacaoMinNum = parseInt(ocupacaoMinima, 10);
         const despesasNum = parseFloat(despesas) || 0;
         const lucroNum = parseFloat(lucroAbsoluto) || 0;
-
         if (isNaN(precoNum) || precoNum < 0) return res.status(400).json({ error: "Preço inválido." });
-        if (isNaN(maxTranspNum) || maxTranspNum <= 0) return res.status(400).json({ error: "Número Máximo de Transportes inválido." });
+        if (isNaN(maxTranspNum) || maxTranspNum <= 0) return res.status(400).json({ error: "Nº Máx. Transportes inválido." });
         if (isNaN(ocupacaoMinNum) || ocupacaoMinNum <= 0) return res.status(400).json({ error: "Ocupação Mínima inválida." });
 
+        let dataHoraRetornoISO = null;
+        if (dataHoraRetorno) {
+             try {
+                 const dtRetorno = new Date(dataHoraRetorno);
+                 if (isNaN(dtRetorno.getTime())) throw new Error();
+                 const dtViagemCheck = new Date(data + 'T00:00:00Z');
+                 if (dtRetorno.getTime() <= dtViagemCheck.getTime()) throw new Error("Retorno antes da viagem");
+                 dataHoraRetornoISO = dtRetorno.toISOString();
+             } catch (e) {
+                 return res.status(400).json({ error: "Data/Hora de Retorno inválida ou anterior à viagem." });
+             }
+        }
+
         const maxAssentosPorVeiculo = await getMaxAssentosTransporte();
-        if (maxAssentosPorVeiculo <= 0) return res.status(400).json({ error: "Nenhum tipo de transporte com assentos válidos." });
+        if (maxAssentosPorVeiculo <= 0) return res.status(400).json({ error: "Nenhum tipo de transporte válido." });
         const novaCapacidadeMaximaTeorica = maxAssentosPorVeiculo * maxTranspNum;
         const novosAdminsTeoricos = maxTranspNum;
-
         const vagasOcupadasAtuais = caravanaAtual.vagasOcupadas || 0;
 
         if (novaCapacidadeMaximaTeorica < (ocupacaoMinNum + novosAdminsTeoricos)) {
-            return res.status(400).json({ error: `Nova Capacidade Máxima Teórica (${novaCapacidadeMaximaTeorica}) insuficiente para Ocupação Mínima (${ocupacaoMinNum}) + ${novosAdminsTeoricos} admin(s).` });
+            return res.status(400).json({ error: `Nova Capacidade Teórica (${novaCapacidadeMaximaTeorica}) insuficiente p/ Ocup. Mín. (${ocupacaoMinNum}) + ${novosAdminsTeoricos} admin(s).` });
         }
 
-        const capacidadeAtualParaVenda = caravanaAtual.transporteDefinidoManualmente
-                                      ? (caravanaAtual.capacidadeFinalizada || 0)
-                                      : (caravanaAtual.transporteAutoDefinido
-                                          ? (caravanaAtual.capacidadeFinalizada || 0)
-                                          : (caravanaAtual.capacidadeMaximaTeorica || 0));
-
+        const capacidadeAtualParaVenda = caravanaAtual.transporteDefinidoManualmente ? (caravanaAtual.capacidadeFinalizada || 0) : (caravanaAtual.transporteAutoDefinido ? (caravanaAtual.capacidadeFinalizada || 0) : (caravanaAtual.capacidadeMaximaTeorica || 0));
         let numAdminsAtuais = 0;
          if ((caravanaAtual.transporteDefinidoManualmente || caravanaAtual.transporteAutoDefinido) && Array.isArray(caravanaAtual.transportesFinalizados)) {
              numAdminsAtuais = Math.min(capacidadeAtualParaVenda, caravanaAtual.transportesFinalizados.length);
          } else if(capacidadeAtualParaVenda > 0) {
              numAdminsAtuais = Math.min(capacidadeAtualParaVenda, caravanaAtual.maximoTransportes || 0);
          }
-
-
         if (novaCapacidadeMaximaTeorica < (vagasOcupadasAtuais + numAdminsAtuais)) {
-             return res.status(400).json({ error: `Não é possível definir Nº Máx. Transportes para ${maxTranspNum} (Capacidade Teórica ${novaCapacidadeMaximaTeorica}), pois já existem ${vagasOcupadasAtuais} clientes + ${numAdminsAtuais} admin(s) ocupando vagas (baseado na capacidade atual de venda).` });
+             return res.status(400).json({ error: `Não é possível definir Nº Máx. Transp. p/ ${maxTranspNum} (Cap Teórica ${novaCapacidadeMaximaTeorica}), pois ${vagasOcupadasAtuais} clientes + ${numAdminsAtuais} admin(s) já ocupam vagas.` });
         }
 
-        // ... (validações de data e localidade - omitido) ...
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(data)) return res.status(400).json({ error: "Formato Data Viagem inválido (YYYY-MM-DD)." });
+        if (dataConfirmacaoTransporte && !/^\d{4}-\d{2}-\d{2}$/.test(dataConfirmacaoTransporte)) return res.status(400).json({ error: "Formato Data Conf. Transporte inválido (YYYY-MM-DD)." });
+        if (dataFechamentoVendas && !/^\d{4}-\d{2}-\d{2}$/.test(dataFechamentoVendas)) return res.status(400).json({ error: "Formato Data Fech. Vendas inválido (YYYY-MM-DD)." });
+
+        const dtViagem = new Date(data + 'T00:00:00Z');
+        const dtConfTransp = dataConfirmacaoTransporte ? new Date(dataConfirmacaoTransporte + 'T00:00:00Z') : null;
+        const dtFechVendas = dataFechamentoVendas ? new Date(dataFechamentoVendas + 'T00:00:00Z') : null;
+
+        if (dtConfTransp && dtFechVendas && dtConfTransp > dtFechVendas) return res.status(400).json({ error: "Data Conf. Transporte não pode ser posterior à Data de Fechamento." });
+        if (dtFechVendas && dtViagem && dtFechVendas > dtViagem) return res.status(400).json({ error: "Data Fechamento não pode ser posterior à Data da Viagem." });
+        if (dtConfTransp && dtViagem && dtConfTransp > dtViagem) return res.status(400).json({ error: "Data Conf. Transporte não pode ser posterior à Data da Viagem." });
+
+        if (localidadeId && localidadeId !== caravanaAtual.localidadeId) {
+             const locCheck = await db.collection('localidades').doc(localidadeId).get();
+             if (!locCheck.exists) return res.status(404).json({ error: 'Nova localidade não encontrada.' });
+        }
 
         const tiposSnapshot = await db.collection('transportes').get();
         const tiposDisponiveis = tiposSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        // Usa numAdminsAtuais (baseado na capacidade de venda ATUAL) para calcular a nova alocação ideal
         const novaAlocacaoIdeal = await alocarTransporteOtimizado(vagasOcupadasAtuais + numAdminsAtuais, maxTranspNum, tiposDisponiveis);
 
         const dadosAtualizados = {
@@ -1111,6 +1187,8 @@ app.put('/caravanas/:id', verificarAutenticacao, verificarAdmin, async (req, res
             guiaUid: (guiaUid === "nao_confirmado" || guiaUid === "") ? null : guiaUid,
             dataConfirmacaoTransporte: dataConfirmacaoTransporte,
             dataFechamentoVendas: dataFechamentoVendas || null,
+            pontoEncontro: pontoEncontro || null,
+            dataHoraRetorno: dataHoraRetornoISO,
             lastUpdate: admin.firestore.FieldValue.serverTimestamp()
         };
         ['administradorUid', 'motoristaUid', 'transporteDefinidoManualmente', 'transporteAutoDefinido', 'capacidadeFinalizada', 'transportesFinalizados'].forEach(key => {
@@ -1123,9 +1201,15 @@ app.put('/caravanas/:id', verificarAutenticacao, verificarAdmin, async (req, res
 
     } catch (error) {
         console.error("Erro ao atualizar caravana:", error);
-        res.status(500).json({ error: "Erro interno ao atualizar caravana.", details: error.message });
+        if (error.message.includes('inválido') || error.message.includes('insuficiente') || error.message.includes('posterior') || error.message.includes('não encontrada')) {
+             res.status(400).json({ error: error.message });
+        } else {
+            res.status(500).json({ error: "Erro interno ao atualizar caravana.", details: error.message });
+        }
     }
 });
+
+
 
 
 

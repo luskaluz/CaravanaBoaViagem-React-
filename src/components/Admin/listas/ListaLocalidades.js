@@ -91,11 +91,8 @@ function ListaLocalidades({ openModalCriarLocalidade }) {
 
     return (
         <div className={styles.container}>
-             {/* Cabeçalho como em outras listas */}
              <div className={styles.header || ''}>
                 <h2>Lista de Localidades</h2>
-                 {/* Botão Criar pode vir do Dashboard Admin ou ficar aqui */}
-                 {/* <button onClick={openModalCriarLocalidade} className={styles.addButton}> Criar Localidade </button> */}
              </div>
 
              {isLoading && <p className={styles.loading}>Carregando localidades...</p>}

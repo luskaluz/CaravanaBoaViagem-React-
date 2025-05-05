@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react'; // <<< useMemo ADICIONADO AQUI
+import React, { useState, useEffect, useMemo } from 'react';
 import * as api from '../../services/api';
 import styles from './DetalhesCaravanaAdmin.module.css';
 import translateStatus from '../translate/translate';
@@ -32,14 +32,28 @@ function DetalhesCaravanaAdmin({ caravana }) {
         return func ? func.nome : `UID: ${uid} (Não encontrado)`;
     };
 
-    const detalhesPessoal = useMemo(() => {
-        const resultado = {
-            admins: new Map(),
-            motoristas: new Map(),
-            guiaNome: getNomeFuncionario(caravana.guiaUid)
-        };
+    const formatarData = (dataString) => {
+        if (!dataString) return 'N/A';
+        return new Date(dataString + 'T00:00:00Z').toLocaleDateString('pt-BR', { timeZone: 'UTC' });
+    };
 
-        if (caravana.transportesFinalizados && Array.isArray(caravana.transportesFinalizados)) {
+    const formatarDataHora = (dateTimeString) => {
+        if (!dateTimeString) return 'A definir';
+        try {
+            const dt = new Date(dateTimeString);
+            if (!isNaN(dt.getTime())) {
+                return dt.toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+            }
+        } catch (e) { console.warn("Erro ao formatar data/hora:", dateTimeString); }
+        return 'Inválido';
+    };
+
+
+    const detalhesPessoal = useMemo(() => {
+        const resultado = { admins: new Map(), motoristas: new Map(), guiaNome: getNomeFuncionario(caravana.guiaUid) };
+        const transporteDefinido = caravana.transporteDefinidoManualmente || caravana.transporteAutoDefinido;
+
+        if (transporteDefinido && Array.isArray(caravana.transportesFinalizados)) {
             caravana.transportesFinalizados.forEach(transporte => {
                 if (transporte.administradorUid && !resultado.admins.has(transporte.administradorUid)) {
                      resultado.admins.set(transporte.administradorUid, { uid: transporte.administradorUid, nome: getNomeFuncionario(transporte.administradorUid)});
@@ -48,33 +62,31 @@ function DetalhesCaravanaAdmin({ caravana }) {
                     resultado.motoristas.set(transporte.motoristaUid, { uid: transporte.motoristaUid, nome: getNomeFuncionario(transporte.motoristaUid)});
                 }
             });
-        } else if (caravana.administradorUid) {
-              if (!resultado.admins.has(caravana.administradorUid)) {
-                 resultado.admins.set(caravana.administradorUid, { uid: caravana.administradorUid, nome: getNomeFuncionario(caravana.administradorUid)});
-              }
         }
-         if (caravana.motoristaUid && !caravana.transportesFinalizados) {
-             if (!resultado.motoristas.has(caravana.motoristaUid)) {
-                 resultado.motoristas.set(caravana.motoristaUid, { uid: caravana.motoristaUid, nome: getNomeFuncionario(caravana.motoristaUid)});
+        // Não há mais fallback para admin/motorista geral aqui
+        return resultado;
+    }, [caravana, funcionarios, loadingFuncionarios, getNomeFuncionario]);
+
+    const capacidadeExibida = caravana.transporteDefinidoManualmente || caravana.transporteAutoDefinido
+                             ? (caravana.capacidadeFinalizada || 0)
+                             : (caravana.capacidadeMaximaTeorica || 0);
+
+    const numAdminsConsiderados = useMemo(() => {
+         let numAdmins = 0;
+         const transporteDefinido = caravana.transporteDefinidoManualmente || caravana.transporteAutoDefinido;
+         if (transporteDefinido) {
+             if (capacidadeExibida > 0 && Array.isArray(caravana.transportesFinalizados)) {
+                 numAdmins = Math.min(capacidadeExibida, caravana.transportesFinalizados.length);
+             }
+         } else {
+             if (capacidadeExibida > 0) {
+                 numAdmins = Math.min(capacidadeExibida, caravana.maximoTransportes || 0);
              }
          }
+         return numAdmins;
+    }, [caravana, capacidadeExibida]);
 
-        return resultado;
-    }, [caravana, funcionarios, loadingFuncionarios, getNomeFuncionario]); // getNomeFuncionario adicionado como dependencia
-
-    const formatarData = (dataString) => {
-        if (!dataString) return 'N/A';
-        // Usar Z para indicar UTC se a data do backend for salva sem timezone explícito
-        // mas representa uma data específica (como data de viagem)
-        return new Date(dataString + 'T00:00:00Z').toLocaleDateString('pt-BR', { timeZone: 'UTC' });
-    };
-
-    const capacidadeExibida = caravana.transporteDefinidoManualmente
-                             ? caravana.capacidadeFinalizada
-                             : caravana.capacidadeCalculada;
-
-    // Calcula vagas disponíveis para clientes baseado na capacidade atual E nos admins únicos definidos
-    const vagasClientesDisponiveis = Math.max(0, (capacidadeExibida || 0) - (caravana.vagasOcupadas || 0) - detalhesPessoal.admins.size);
+    const vagasClientesDisponiveis = Math.max(0, capacidadeExibida - (caravana.vagasOcupadas || 0) - numAdminsConsiderados);
 
     return (
         <div className={styles.detalhesContainer}>
@@ -83,18 +95,22 @@ function DetalhesCaravanaAdmin({ caravana }) {
             <div className={styles.gridDetalhes}>
                 <div className={styles.detalheItem}><span className={styles.label}>Status:</span> {translateStatus(caravana.status)}</div>
                 <div className={styles.detalheItem}><span className={styles.label}>Data Viagem:</span> {formatarData(caravana.data)}</div>
+                <div className={`${styles.detalheItem} ${styles.fullWidth}`}>
+                    <span className={styles.label}>Ponto de Encontro:</span> {caravana.pontoEncontro || 'A definir'}
+                </div>
                 <div className={styles.detalheItem}><span className={styles.label}>Horário Saída:</span> {caravana.horarioSaida || 'A definir'}</div>
+                <div className={styles.detalheItem}><span className={styles.label}>Retorno Estimado:</span> {formatarDataHora(caravana.dataHoraRetorno)}</div>
                 <div className={styles.detalheItem}><span className={styles.label}>Data Conf. Transporte:</span> {formatarData(caravana.dataConfirmacaoTransporte)}</div>
                 <div className={styles.detalheItem}><span className={styles.label}>Data Limite Vendas:</span> {formatarData(caravana.dataFechamentoVendas)}</div>
                 <div className={styles.detalheItem}><span className={styles.label}>Ocupação Mínima:</span> {caravana.ocupacaoMinima}</div>
                 <div className={styles.detalheItem}><span className={styles.label}>Vagas Ocupadas (Clientes):</span> {caravana.vagasOcupadas || 0}</div>
                 <div className={styles.detalheItem}>
-                    <span className={styles.label}>Capacidade {caravana.transporteDefinidoManualmente ? 'Final:' : 'Calculada:'}</span>
-                    {capacidadeExibida || 'Não calculada'}
+                    <span className={styles.label}>Capacidade Total:</span>
+                    {capacidadeExibida > 0 ? capacidadeExibida : 'Não definida'}
                 </div>
                  <div className={styles.detalheItem}>
                     <span className={styles.label}>Vagas Disp. (Clientes):</span>
-                    {capacidadeExibida ? vagasClientesDisponiveis : 'N/A'}
+                    {capacidadeExibida > 0 ? vagasClientesDisponiveis : 'N/A'}
                 </div>
                 <div className={styles.detalheItem}><span className={styles.label}>Preço:</span> R$ {(caravana.preco || 0).toFixed(2)}</div>
                 <div className={styles.detalheItem}><span className={styles.label}>Despesas:</span> R$ {(caravana.despesas || 0).toFixed(2)}</div>
@@ -104,33 +120,27 @@ function DetalhesCaravanaAdmin({ caravana }) {
                     <h3>Equipe Responsável</h3>
                     {errorFuncionarios && <p className={styles.error}>{errorFuncionarios}</p>}
                     <p><span className={styles.label}>Guia:</span> {detalhesPessoal.guiaNome}</p>
-
                     <div>
                         <span className={styles.label}>Administrador(es):</span>
-                        {loadingFuncionarios ? (
-                            <p>Carregando...</p>
-                        ) : detalhesPessoal.admins.size > 0 ? (
+                        {loadingFuncionarios ? <p>Carregando...</p> : detalhesPessoal.admins.size > 0 ? (
                             <ul>{Array.from(detalhesPessoal.admins.values()).map(a => <li key={a.uid}>{a.nome}</li>)}</ul>
-                        ) : ( <p>Nenhum administrador definido nos veículos.</p> )}
+                        ) : ( <p>Nenhum admin definido nos veículos.</p> )}
                     </div>
-
                      <div>
                         <span className={styles.label}>Motorista(s):</span>
-                        {loadingFuncionarios ? (
-                            <p>Carregando...</p>
-                        ) : detalhesPessoal.motoristas.size > 0 ? (
+                        {loadingFuncionarios ? <p>Carregando...</p> : detalhesPessoal.motoristas.size > 0 ? (
                             <ul>{Array.from(detalhesPessoal.motoristas.values()).map(m => <li key={m.uid}>{m.nome}</li>)}</ul>
                         ) : ( <p>Nenhum motorista definido nos veículos.</p> )}
                     </div>
                 </div>
 
-                 {caravana.transportesFinalizados && caravana.transportesFinalizados.length > 0 && (
+                 {(caravana.transporteDefinidoManualmente || caravana.transporteAutoDefinido) && caravana.transportesFinalizados && caravana.transportesFinalizados.length > 0 && (
                      <div className={styles.secaoVeiculos}>
                          <h3>Veículos Definidos</h3>
-                         {loadingFuncionarios && <p>Carregando detalhes dos responsáveis...</p>}
+                         {loadingFuncionarios && <p>Carregando detalhes...</p>}
                          <ul>
                              {caravana.transportesFinalizados.map((v, index) => (
-                                 <li key={index}>
+                                 <li key={`${v.tipoId}-${index}`}>
                                      <strong>{v.nomeTipo || `Tipo (${v.tipoId})`}</strong> ({v.assentos} assentos)
                                      {v.placa && ` - Placa: ${v.placa}`}
                                      {v.motoristaUid && ` - Motorista: ${getNomeFuncionario(v.motoristaUid)}`}

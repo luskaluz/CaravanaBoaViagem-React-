@@ -18,8 +18,6 @@ function ListaTiposTransporteAdmin() {
     const [showEditModal, setShowEditModal] = useState(false);
     // O objeto para editar ainda é passado para o formulário
     const [transporteParaEditar, setTransporteParaEditar] = useState(null);
-    // Removido estado updatingAvailability
-
     const carregarTransportes = async () => { // Função para carregar os tipos
         setIsLoading(true); setError(null);
         try {
@@ -32,23 +30,16 @@ function ListaTiposTransporteAdmin() {
 
     useEffect(() => { carregarTransportes(); }, []);
 
-    const handleDelete = async (id, nomeTipo) => { // Recebe nome para confirmação
-        // Adiciona uma confirmação extra, pois excluir um tipo pode ter mais impacto
-        if (window.confirm(`Tem certeza que deseja excluir o TIPO de veículo "${nomeTipo}"?\n\nATENÇÃO: Se este tipo estiver alocado em caravanas futuras, a exclusão pode falhar ou causar problemas.`)) {
+    const handleDelete = async (id, nomeTipo) => { 
+        if (window.confirm(`Tem certeza que deseja excluir o tipo de veículo "${nomeTipo}"?\n\n Se este tipo estiver alocado em caravanas futuras, a exclusão pode falhar ou causar problemas.`)) {
             try {
-                 // A lógica de verificar disponibilidade foi movida para o backend (verificar uso)
-                 // await api.deleteTransporte(id); // Chamada para excluir o TIPO
-                 // carregarTransportes();
-                 // alert(`Tipo "${nomeTipo}" excluído!`);
 
-                 // Tratamento de erro da API
                  await api.deleteTransporte(id);
                  alert(`Tipo "${nomeTipo}" excluído com sucesso!`);
                  carregarTransportes(); // Recarrega a lista
             }
             catch (err) {
                  setError(err.message);
-                 // Exibe o erro vindo do backend (ex: "Não pode excluir, tipo em uso")
                  alert(`Erro ao excluir: ${err.message}`);
             }
         }

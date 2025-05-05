@@ -50,7 +50,6 @@ function PopupConfira({ caravana: initialCaravana, onClose, onCompraSucesso, loc
             await api.comprarIngresso(caravanaLocal.id, quantidadeIngressos);
             setQuantidadeIngressos(1);
             if (onCompraSucesso) onCompraSucesso(caravanaLocal.id);
-            alert("Ingresso(s) comprado(s) com sucesso!");
             onClose();
         } catch (error) {
             console.error("Erro ao comprar ingresso (Popup):", error);
@@ -61,9 +60,23 @@ function PopupConfira({ caravana: initialCaravana, onClose, onCompraSucesso, loc
         }
     };
 
+    const formatarDataHora = (dateTimeString) => {
+        if (!dateTimeString) return 'A definir';
+        try {
+            const dt = new Date(dateTimeString);
+            if (!isNaN(dt.getTime())) {
+                return dt.toLocaleString('pt-BR', {
+                    day: '2-digit', month: '2-digit', year: 'numeric',
+                    hour: '2-digit', minute: '2-digit',
+                    timeZone: 'America/Sao_Paulo' // Força o timezone
+                });
+            }
+        } catch (e) { console.warn("Erro ao formatar data/hora:", dateTimeString); }
+        return 'Inválido';
+    };
+
     const disponibilidadeCalculada = useMemo(() => {
         if (!caravanaLocal) return { vagasCliente: 0, capacidadeTotalExibida: 0 };
-
         let capacidadeBase = 0;
         let numAdminsConsiderados = 0;
         const vagasOcup = caravanaLocal.vagasOcupadas || 0;
@@ -80,13 +93,8 @@ function PopupConfira({ caravana: initialCaravana, onClose, onCompraSucesso, loc
                 numAdminsConsiderados = Math.min(capacidadeBase, caravanaLocal.maximoTransportes || 0);
             }
         }
-
         const vagasDispCliente = Math.max(0, capacidadeBase - vagasOcup - numAdminsConsiderados);
-
-        return {
-            vagasCliente: vagasDispCliente,
-            capacidadeTotalExibida: capacidadeBase
-        };
+        return { vagasCliente: vagasDispCliente, capacidadeTotalExibida: capacidadeBase };
     }, [caravanaLocal]);
 
     if (isLocalidade && localidadeLocal) {
@@ -135,8 +143,10 @@ function PopupConfira({ caravana: initialCaravana, onClose, onCompraSucesso, loc
                         <h2 className={styles.popupNome}>{caravanaLocal.nomeLocalidade || 'Destino Indefinido'}</h2>
                         <p className={styles.popupDescricao}>{caravanaLocal.descricaoLocalidade || 'Sem descrição do local.'}</p>
                         <p className={styles.info}><strong>Status:</strong> {translateStatus(caravanaLocal.status)}</p>
-                        <p><strong>Data:</strong> {caravanaLocal.data ? new Date(caravanaLocal.data + 'T00:00:00Z').toLocaleDateString('pt-BR', { timeZone: 'UTC' }) : "N/A"}</p>
+                        <p><strong>Data Viagem:</strong> {caravanaLocal.data ? new Date(caravanaLocal.data + 'T00:00:00Z').toLocaleDateString('pt-BR', { timeZone: 'UTC' }) : "N/A"}</p>
+                        <p><strong>Ponto de Encontro:</strong> {caravanaLocal.pontoEncontro || "A definir"}</p>
                         <p><strong>Horário Saída:</strong> {caravanaLocal.horarioSaida || "A definir"}</p>
+                        <p><strong>Retorno Estimado:</strong> {formatarDataHora(caravanaLocal.dataHoraRetorno)}</p>
                         <p><strong>Capacidade Total:</strong> {disponibilidadeCalculada.capacidadeTotalExibida > 0 ? disponibilidadeCalculada.capacidadeTotalExibida : 'A definir'}</p>
                         <p><strong>Vagas Disponíveis (Clientes):</strong>{" "}
                             <span className={disponibilidadeCalculada.vagasCliente === 0 ? styles.semVagas : ""}>

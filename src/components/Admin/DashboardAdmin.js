@@ -1,196 +1,137 @@
 import React, { useState, useEffect } from 'react';
 import { auth } from '../../services/firebase';
+import { onAuthStateChanged } from 'firebase/auth';
 import { useNavigate } from 'react-router-dom';
 import styles from './DashboardAdmin.module.css';
 
 import ListaCaravanasAdmin from './listas/ListaCaravana';
 import ListaLocalidades from './listas/ListaLocalidades';
 import ListaFuncionariosAdmin from './listas/ListaFuncionariosAdmin';
-import ListaTransportesAdmin from './listas/ListaTransporte'; // 
+import ListaTransportesAdmin from './listas/ListaTransporte';
 import FormularioCaravana from './formularios/FormularioCaravana';
 import FormularioLocalidade from './formularios/FormularioLocalidade';
 import FormularioFuncionario from './formularios/FormularioFuncionario';
-// import FormularioTransporte from './formularios/FormularioTransporte'; // Importe se precisar usar aqui
+
+const ADMIN_EMAIL = process.env.REACT_APP_ADMIN_EMAIL;
 
 function DashboardAdmin() {
-    const [user, setUser] = useState(null);
+    const [isLoadingAuth, setIsLoadingAuth] = useState(true);
+    const [isAuthorized, setIsAuthorized] = useState(false);
     const [activeTab, setActiveTab] = useState('caravanas');
     const [error, setError] = useState(null);
-
     const [modoEdicao, setModoEdicao] = useState({
-        caravanas: false,
-        localidades: false,
-        funcionarios: false,
-        transportes: false, // <<< ADICIONADO Chave
+        caravanas: false, localidades: false, funcionarios: false, transportes: false,
     });
     const [itemParaEditar, setItemParaEditar] = useState({
-        caravanas: null,
-        localidades: null,
-        funcionarios: null,
-        transportes: null, // <<< ADICIONADO Chave
+        caravanas: null, localidades: null, funcionarios: null, transportes: null,
     });
-
     const navigate = useNavigate();
 
     useEffect(() => {
-        const unsubscribe = auth.onAuthStateChanged((currentUser) => {
-            setUser(currentUser);
+        console.log("DashboardAdmin montado. Verificando autorização...");
+        if (!ADMIN_EMAIL) {
+            console.error("REACT_APP_ADMIN_EMAIL não definido no DashboardAdmin!");
+            setError("Erro crítico de configuração do administrador.");
+            setIsLoadingAuth(false);
+            setIsAuthorized(false);
+            navigate('/login');
+            return;
+        }
+
+        const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
             if (currentUser) {
-                if (currentUser.email !== 'adm@adm.com') {
-                    console.warn("Usuário não autorizado acessando painel admin:", currentUser.email);
+                console.log("DashboardAdmin Auth State: Usuário encontrado", currentUser.email);
+                if (currentUser.email === ADMIN_EMAIL) {
+                    console.log("DashboardAdmin: Autorizado.");
+                    setIsAuthorized(true);
+                } else {
+                    console.warn("DashboardAdmin: Usuário NÃO autorizado:", currentUser.email);
+                    setIsAuthorized(false);
                     navigate('/login');
                 }
             } else {
+                console.log("DashboardAdmin Auth State: Nenhum usuário logado.");
+                setIsAuthorized(false);
                 navigate('/login');
             }
+            setIsLoadingAuth(false);
+        }, (error) => {
+            console.error("Erro no listener de autenticação do DashboardAdmin:", error);
+            setError("Erro ao verificar autenticação.");
+            setIsLoadingAuth(false);
+            setIsAuthorized(false);
+            navigate('/login');
         });
-        return () => unsubscribe();
+
+        return () => {
+            console.log("DashboardAdmin desmontando. Limpando listener.");
+            unsubscribe();
+        };
     }, [navigate]);
 
     const handleLogout = async () => {
         try {
             await auth.signOut();
-            navigate('/');
         } catch (error) {
             console.error('Erro ao fazer logout:', error);
             setError(`Erro ao fazer logout: ${error.message}`);
         }
     };
 
-    const handleCriar = (tipo) => {
-        setModoEdicao((prevModo) => ({ ...prevModo, [tipo]: true }));
-        setItemParaEditar((prevItem) => ({ ...prevItem, [tipo]: null }));
-        console.log(`Iniciando criação de ${tipo}`);
-    };
+    const handleCriar = (tipo) => { setModoEdicao(prev => ({ ...prev, [tipo]: true })); setItemParaEditar(prev => ({ ...prev, [tipo]: null })); };
+    const handleEditar = (tipo, item) => { if (!item) return; setModoEdicao(prev => ({ ...prev, [tipo]: true })); setItemParaEditar(prev => ({ ...prev, [tipo]: item })); };
+    const handleCancelar = (tipo) => { setModoEdicao(prev => ({ ...prev, [tipo]: false })); setItemParaEditar(prev => ({ ...prev, [tipo]: null })); };
+    const handleSalvar = (tipo) => { setModoEdicao(prev => ({ ...prev, [tipo]: false })); setItemParaEditar(prev => ({ ...prev, [tipo]: null })); };
 
-    const handleEditar = (tipo, item) => {
-        if (!item) {
-            console.error(`Tentativa de editar item nulo do tipo ${tipo}`);
-            return;
-        }
-        setModoEdicao((prevModo) => ({ ...prevModo, [tipo]: true }));
-        setItemParaEditar((prevItem) => ({ ...prevItem, [tipo]: item }));
-        console.log(`Iniciando edição de ${tipo}:`, item);
-    };
-
-    const handleCancelar = (tipo) => {
-        setModoEdicao((prevModo) => ({ ...prevModo, [tipo]: false }));
-        setItemParaEditar((prevItem) => ({ ...prevItem, [tipo]: null }));
-        console.log(`Cancelada edição/criação de ${tipo}`);
-    };
-
-    const handleSalvar = (tipo) => {
-        setModoEdicao((prevModo) => ({ ...prevModo, [tipo]: false }));
-        setItemParaEditar((prevItem) => ({ ...prevItem, [tipo]: null }));
-        console.log(`${tipo} salvo(a) com sucesso.`);
-    };
-
-    if (error) {
-        return <div className={styles.error}>Erro: {error}</div>;
-    }
+    if (error) return <div className={styles.container}><main className={styles.mainContent}><div className={styles.error}>Erro: {error}</div></main></div>;
+    if (isLoadingAuth) return <div className={styles.container}><main className={styles.mainContent}><div className={styles.loading}>Verificando acesso...</div></main></div>;
+    if (!isAuthorized) return null;
 
     return (
         <div className={styles.container}>
             <div className={styles.sidebar}>
                 <h2>Painel Administrativo</h2>
-                <button
-                    className={`${styles.menuButton} ${activeTab === 'caravanas' ? styles.active : ''}`}
-                    onClick={() => setActiveTab('caravanas')}
-                >
-                    Caravanas
-                </button>
-                <button
-                    className={`${styles.menuButton} ${activeTab === 'funcionarios' ? styles.active : ''}`}
-                    onClick={() => setActiveTab('funcionarios')}
-                >
-                    Funcionários
-                </button>
-                <button
-                    className={`${styles.menuButton} ${activeTab === 'localidades' ? styles.active : ''}`}
-                    onClick={() => setActiveTab('localidades')}
-                >
-                    Localidades
-                </button>
-                {/* <<< ADICIONADO Botão Transportes >>> */}
-                <button
-                    className={`${styles.menuButton} ${activeTab === 'transportes' ? styles.active : ''}`}
-                    onClick={() => setActiveTab('transportes')}
-                >
-                    Transportes
-                </button>
-                <button onClick={handleLogout} className={styles.logoutButton}>
-                    Logout
-                </button>
+                <button className={`${styles.menuButton} ${activeTab === 'caravanas' ? styles.active : ''}`} onClick={() => setActiveTab('caravanas')}> Caravanas </button>
+                <button className={`${styles.menuButton} ${activeTab === 'funcionarios' ? styles.active : ''}`} onClick={() => setActiveTab('funcionarios')}> Funcionários </button>
+                <button className={`${styles.menuButton} ${activeTab === 'localidades' ? styles.active : ''}`} onClick={() => setActiveTab('localidades')}> Localidades </button>
+                <button className={`${styles.menuButton} ${activeTab === 'transportes' ? styles.active : ''}`} onClick={() => setActiveTab('transportes')}> Transportes </button>
+                <button onClick={handleLogout} className={styles.logoutButton}> Logout </button>
             </div>
 
             <div className={styles.mainContent}>
-                {/* Bloco Caravanas (IDÊNTICO AO ORIGINAL) */}
                 {activeTab === 'caravanas' && (
                     <>
                         {modoEdicao.caravanas ? (
-                            <FormularioCaravana
-                                caravana={itemParaEditar.caravanas}
-                                onSalvar={() => handleSalvar('caravanas')}
-                                onCancelar={() => handleCancelar('caravanas')}
-                            />
+                            <FormularioCaravana caravana={itemParaEditar.caravanas} onSalvar={() => handleSalvar('caravanas')} onCancelar={() => handleCancelar('caravanas')} />
                         ) : (
-                            <>
-                                {/* Botão Criar pode estar aqui ou na Lista */}
-                                <ListaCaravanasAdmin
-                                    onEditar={(item) => handleEditar('caravanas', item)}
-                                />
-                            </>
+                            <ListaCaravanasAdmin onEditar={(item) => handleEditar('caravanas', item)} />
                         )}
                     </>
                 )}
 
-                {/* Bloco Funcionários (IDÊNTICO AO ORIGINAL) */}
                 {activeTab === 'funcionarios' && (
-                    <>
+                     <>
                         {modoEdicao.funcionarios ? (
-                            <FormularioFuncionario
-                                funcionario={itemParaEditar.funcionarios}
-                                onSalvar={() => handleSalvar('funcionarios')}
-                                onCancelar={() => handleCancelar('funcionarios')}
-                            />
+                            <FormularioFuncionario funcionario={itemParaEditar.funcionarios} onSalvar={() => handleSalvar('funcionarios')} onCancelar={() => handleCancelar('funcionarios')} />
                         ) : (
-                            <>
-                                {/* Botão Criar pode estar aqui ou na Lista */}
-                                <ListaFuncionariosAdmin
-                                    onEditar={(item) => handleEditar('funcionarios', item)}
-                                />
-                            </>
+                            <ListaFuncionariosAdmin onEditar={(item) => handleEditar('funcionarios', item)} />
                         )}
                     </>
                 )}
 
-                {/* Bloco Localidades (IDÊNTICO AO ORIGINAL) */}
                 {activeTab === 'localidades' && (
                     <>
                         {modoEdicao.localidades ? (
-                            <FormularioLocalidade
-                                localidade={itemParaEditar.localidades}
-                                onSalvar={() => handleSalvar('localidades')}
-                                onCancelar={() => handleCancelar('localidades')}
-                            />
+                            <FormularioLocalidade localidade={itemParaEditar.localidades} onSalvar={() => handleSalvar('localidades')} onCancelar={() => handleCancelar('localidades')} />
                         ) : (
-                            <>
-                                {/* Botão Criar pode estar aqui ou na Lista */}
-                                <ListaLocalidades
-                                    onEditar={(item) => handleEditar('localidades', item)}
-                                />
-                            </>
+                            <ListaLocalidades onEditar={(item) => handleEditar('localidades', item)} />
                         )}
                     </>
                 )}
 
-                 {/* <<< ADICIONADO Bloco Transportes >>> */}
                  {activeTab === 'transportes' && (
                      <>
-                        {/* Renderiza apenas a lista, pois ela gerencia seus próprios modais */}
                         <ListaTransportesAdmin />
-                        {/* Se precisasse editar direto aqui, seria: */}
-                        {/* modoEdicao.transportes ? <FormularioTransporte transporte={itemParaEditar.transportes} ... /> : <ListaTransportesAdmin ... /> */}
                      </>
                  )}
             </div>
