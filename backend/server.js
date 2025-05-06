@@ -894,12 +894,22 @@ app.put('/funcionarios/:id', verificarAutenticacao, verificarAdmin, async (req, 
 
 
 // Rota para listar todos os funcionários (requer admin ou outra permissão)
-app.get('/funcionarios', verificarAutenticacao, async (req, res) => { 
+app.get('/funcionarios', verificarAutenticacao, async (req, res) => {
     try {
-        const snapshot = await db.collection('funcionarios').get();
+        const snapshot = await db.collection('funcionarios').orderBy('nome').get();
         const funcionarios = [];
         snapshot.forEach(doc => {
-            funcionarios.push({ id: doc.id, ...doc.data() });
+            // Adapte os campos retornados conforme a necessidade de privacidade
+            // Se esta lista é para TODOS os usuários logados, talvez só nome e ID/UID.
+            // Se precisar de mais campos paraEnt o admin, ele pode ter outra rota ou
+            // o frontend pode filtrar o que exibe baseado no papel do usuário logendido! Você quer que a rota `GET /funcionarios` no backend seja acessível por **qualquer usuário autenticado**, e que os componentes `DetalhesCaravanaFuncionario.js` e `DetalhesCaravanaUsuario.ado.
+            const data = doc.data();
+            funcionarios.push({
+                id: doc.id, // ou data.uid se o ID do doc não for o UID do auth
+                uid: data.uid, // Garante que o UID do auth esteja presente
+                nome: data.nome,
+                cargo: data.cargo
+            });
         });
         res.status(200).json(funcionarios);
     } catch (error) {
@@ -907,6 +917,8 @@ app.get('/funcionarios', verificarAutenticacao, async (req, res) => {
         res.status(500).json({ error: "Erro interno ao listar funcionários." });
     }
 });
+
+
 
 app.get('/funcionarios/:uid', verificarAutenticacao, async (req, res) => {
     const requestedUid = req.params.uid; // UID vindo da URL
@@ -965,35 +977,112 @@ app.delete('/funcionarios/:id', verificarAutenticacao, verificarAdmin, async (re
 // server.js - Adicionar/Substituir esta rota
 
 app.get('/funcionarios/:uid/caravanas', verificarAutenticacao, async (req, res) => {
-    const { uid } = req.params; const loggedInUserUid = req.user.uid;
-    if (uid !== loggedInUserUid && req.user.email !== process.env.ADMIN_EMAIL) { return res.status(403).json({ error: "Acesso não autorizado." }); }
-    try {
-        const maxCapacidadeDisponivel = await getMaxCapacidadeTransporteDisponivel();
-        const adminQuery = db.collection('caravanas').where('administradorUid', '==', uid);
-        const motoristaQuery = db.collection('caravanas').where('motoristaUid', '==', uid);
-        const guiaQuery = db.collection('caravanas').where('guiaUid', '==', uid);
-        const [adminSnap, motoristaSnap, guiaSnap] = await Promise.all([ adminQuery.get(), motoristaQuery.get(), guiaQuery.get() ]);
-        const caravanasMap = new Map();
-        adminSnap.forEach(doc => caravanasMap.set(doc.id, doc.data()));
-        motoristaSnap.forEach(doc => caravanasMap.set(doc.id, doc.data()));
-        guiaSnap.forEach(doc => caravanasMap.set(doc.id, doc.data()));
-        if (caravanasMap.size === 0) return res.status(200).json([]);
+    const { uid: funcionarioUid } = req.params;
+    const loggedInUserUid = req.user.uid;
 
-        const caravanasPromises = Array.from(caravanasMap.entries()).map(async ([id, caravanaData]) => {
-            const [localidadeData, adminFunc, motoristaFunc, guiaFunc] = await Promise.all([
-                 getLocalidadeData(caravanaData.localidadeId), getFuncionarioData(caravanaData.administradorUid),
-                 getFuncionarioData(caravanaData.motoristaUid), getFuncionarioData(caravanaData.guiaUid) ]);
-            const metrics = calculateCaravanaMetrics({ id, ...caravanaData });
-            return {
-                id: id, ...caravanaData, ...localidadeData, ...metrics,
-                administrador: adminFunc, motorista: motoristaFunc, guia: guiaFunc,
-                maxCapacidadeDisponivel: maxCapacidadeDisponivel
-            };
+    // Verificação de permissão: apenas o próprio funcionário ou um admin geral podem ver
+    if (funcionarioUid !== loggedInUserUid && req.user.email !== process.env.ADMIN_EMAIL) {
+        return res.status(403).json({ error: "Acesso não autorizado para ver caravanas deste funcionário." });
+    }
+
+    console.log(`[FuncCaravanas] Buscando caravanas para funcionário UID: ${funcionarioUid}`);
+
+    try {
+        // Busca todas as caravanas que não estão canceladas ou concluídas
+        // Você pode adicionar mais filtros aqui se necessário (ex: data futura)
+        const todasCaravanasSnap = await db.collection('caravanas')
+            .where('status', 'in', ['confirmada', 'nao_confirmada'])
+            .get();
+
+        if (todasCaravanasSnap.empty) {
+            console.log("[FuncCaravanas] Nenhuma caravana ativa encontrada no sistema.");
+            return res.status(200).json([]);
+        }
+
+        const caravanasDoFuncionario = [];
+
+        // Itera sobre TODAS as caravanas ativas e filtra
+        for (const doc of todasCaravanasSnap.docs) {
+            const caravana = doc.data();
+            const caravanaId = doc.id;
+            let funcionarioEnvolvido = false;
+
+            // 1. Verifica Guia
+            if (caravana.guiaUid === funcionarioUid) {
+                funcionarioEnvolvido = true;
+            }
+
+            // 2. Verifica Admin/Motorista em transportesFinalizados
+            if (!funcionarioEnvolvido && Array.isArray(caravana.transportesFinalizados)) {
+                for (const veiculo of caravana.transportesFinalizados) {
+                    if (veiculo.administradorUid === funcionarioUid || veiculo.motoristaUid === funcionarioUid) {
+                        funcionarioEnvolvido = true;
+                        break; // Encontrou, não precisa checar mais veículos nesta caravana
+                    }
+                }
+            }
+
+            // 3. Fallback: Verifica Admin/Motorista no nível superior (se você ainda usa/migra dados antigos)
+            if (!funcionarioEnvolvido && (caravana.administradorUid === funcionarioUid || caravana.motoristaUid === funcionarioUid)) {
+                 funcionarioEnvolvido = true;
+            }
+
+
+            if (funcionarioEnvolvido) {
+                // Se envolvido, busca dados adicionais para esta caravana
+                console.log(`[FuncCaravanas] Funcionário ${funcionarioUid} envolvido na caravana ${caravanaId}. Buscando detalhes...`);
+                const [localidadeData, adminGeralData, motoristaGeralData, guiaData] = await Promise.all([
+                    getLocalidadeData(caravana.localidadeId),
+                    getFuncionarioData(caravana.administradorUid), // Admin geral (pode ser diferente do admin do veículo)
+                    getFuncionarioData(caravana.motoristaUid),   // Motorista geral (pode ser diferente)
+                    getFuncionarioData(caravana.guiaUid)
+                ]);
+
+                // Para métricas, precisamos da capacidade correta
+                const capacidadeParaMetricas = caravana.transporteDefinidoManualmente || caravana.transporteAutoDefinido
+                                          ? (caravana.capacidadeFinalizada || 0)
+                                          : (caravana.capacidadeMaximaTeorica || 0);
+
+                // Simplificando métricas ou removendo se não usadas nesta view
+                const metricasSimples = {
+                     vagasOcupadas: caravana.vagasOcupadas || 0,
+                     capacidadeUsadaParaVenda: capacidadeParaMetricas
+                };
+
+
+                caravanasDoFuncionario.push({
+                    id: caravanaId,
+                    ...caravana,
+                    ...localidadeData,
+                    // Adiciona os dados dos funcionários gerais da caravana
+                    administrador: adminGeralData,
+                    motorista: motoristaGeralData,
+                    guia: guiaData,
+                    // Adiciona métricas simples se necessário
+                    ...metricasSimples
+                });
+            }
+        }
+
+        if (caravanasDoFuncionario.length === 0) {
+            console.log(`[FuncCaravanas] Nenhuma caravana encontrada para ${funcionarioUid} após filtro.`);
+        } else {
+            console.log(`[FuncCaravanas] ${caravanasDoFuncionario.length} caravana(s) encontrada(s) para ${funcionarioUid}.`);
+        }
+
+        // Ordena antes de enviar
+        caravanasDoFuncionario.sort((a, b) => {
+            const dataA = new Date(a.data + 'T00:00:00Z');
+            const dataB = new Date(b.data + 'T00:00:00Z');
+            return dataA - dataB; // Ex: Mais recentes primeiro se inverter a e b
         });
-        let caravanas = await Promise.all(caravanasPromises);
-        caravanas.sort((a, b) => new Date(b.data) - new Date(a.data));
-        res.status(200).json(caravanas);
-    } catch (error) { console.error(error); res.status(500).json({ error: 'Erro interno.' }); }
+
+        res.status(200).json(caravanasDoFuncionario);
+
+    } catch (error) {
+        console.error(`[FuncCaravanas] Erro ao buscar caravanas para funcionário ${funcionarioUid}:`, error);
+        res.status(500).json({ error: 'Erro interno ao buscar caravanas do funcionário.' });
+    }
 });
 
 

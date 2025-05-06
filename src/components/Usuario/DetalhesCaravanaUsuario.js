@@ -1,32 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import styles from './DetalhesCaravanaUsuario.module.css';
-import * as api from '../../services/api';
+import * as api from '../../services/api'; // Ainda usado para descrição da localidade
 import translateStatus from '../translate/translate';
 
-function DetalhesCaravanaUsuario({ caravana, onClose }) {
+function DetalhesCaravanaUsuario({ caravana }) {
     const [descricaoLocalidade, setDescricaoLocalidade] = useState('');
     const [isLoadingDesc, setIsLoadingDesc] = useState(false);
-    const [funcionarios, setFuncionarios] = useState([]);
-    const [loadingFuncionarios, setLoadingFuncionarios] = useState(true);
-    const [errorFuncionarios, setErrorFuncionarios] = useState(null);
-
-    useEffect(() => {
-        const fetchFuncionarios = async () => {
-             if(!caravana) return;
-            setLoadingFuncionarios(true);
-            setErrorFuncionarios(null);
-            try {
-                const funcData = await api.getFuncionarios();
-                setFuncionarios(funcData);
-            } catch (err) {
-                console.error("Erro ao buscar funcionários:", err);
-                setErrorFuncionarios("Falha ao carregar dados da equipe.");
-            }
-            finally { setLoadingFuncionarios(false); }
-        };
-        if (caravana) fetchFuncionarios();
-    }, [caravana]);
-
+    // REMOVIDO: const [funcionarios, setFuncionarios] = useState([]);
+    // REMOVIDO: const [loadingFuncionarios, setLoadingFuncionarios] = useState(true);
+    // REMOVIDO: const [errorFuncionarios, setErrorFuncionarios] = useState(null);
 
     useEffect(() => {
         const fetchDescricao = async () => {
@@ -42,13 +24,6 @@ function DetalhesCaravanaUsuario({ caravana, onClose }) {
         if (caravana) fetchDescricao();
     }, [caravana]);
 
-     const getNomeFuncionario = (uid) => {
-        if (!uid) return 'A ser confirmado';
-        if (loadingFuncionarios) return 'Carregando...';
-        const func = funcionarios.find(f => (f.uid || f.id) === uid);
-        return func ? func.nome : 'A ser confirmado';
-    };
-
     const formatarDataHora = (dateTimeString) => {
         if (!dateTimeString) return 'A definir';
         try {
@@ -58,13 +33,6 @@ function DetalhesCaravanaUsuario({ caravana, onClose }) {
             }
         } catch (e) { console.warn("Erro ao formatar data/hora:", dateTimeString); }
         return 'Inválido';
-    };
-
-    const EmployeeInfoBasic = ({ uid, role }) => {
-         const nome = getNomeFuncionario(uid);
-        return (
-             <p className={styles.infoItem}><strong>{role}:</strong> {nome}</p>
-        );
     };
 
     if (!caravana) return <div className={styles.container}>Selecione uma caravana para ver os detalhes.</div>;
@@ -103,23 +71,22 @@ function DetalhesCaravanaUsuario({ caravana, onClose }) {
             </div>
 
             <div className={styles.infoSection}>
-                <h3>Equipe Prevista (Confirmada Próximo à Data)</h3>
-                {errorFuncionarios && <p className={styles.errorSmall}>{errorFuncionarios}</p>}
-                 {!transporteDefinido ? (
-                     <>
-                         <EmployeeInfoBasic uid={caravana.administradorUid} role="Administrador" />
-                         <EmployeeInfoBasic uid={caravana.motoristaUid} role="Motorista" />
-                     </>
-                 ) : (
+                <h3>Equipe Prevista</h3>
+                {/* Mostra o nome do guia se o objeto 'guia' estiver na caravana, senão "A ser confirmado" */}
+                <p className={styles.infoItem}><strong>Guia:</strong> {caravana.guia?.nome || 'A ser confirmado'}</p>
+
+                {/* Se o transporte estiver definido, mostra uma mensagem genérica sobre admin/motorista */}
+                {transporteDefinido && caravana.transportesFinalizados && caravana.transportesFinalizados.length > 0 ? (
                     <>
-                        {/* Para o usuário, pode ser melhor mostrar apenas os nomes dos admins/motoristas dos veículos,
-                            sem repetir a estrutura da lista de veículos daqui, pois pode ser confuso.
-                            Apenas lista os nomes únicos. */}
-                        <p className={styles.infoItem}><strong>Administrador(es):</strong> {loadingFuncionarios ? 'Carregando...' : (Array.from(new Set(caravana.transportesFinalizados?.map(t => t.administradorUid).filter(Boolean))).map(uid => getNomeFuncionario(uid)).join(' / ') || 'A ser confirmado')}</p>
-                        <p className={styles.infoItem}><strong>Motorista(s):</strong> {loadingFuncionarios ? 'Carregando...' : (Array.from(new Set(caravana.transportesFinalizados?.map(t => t.motoristaUid).filter(Boolean))).map(uid => getNomeFuncionario(uid)).join(' / ') || 'A ser confirmado')}</p>
+                        <p className={styles.infoItem}><strong>Administrador(es) da Viagem:</strong> Confirmado(s)</p>
+                        <p className={styles.infoItem}><strong>Motorista(s):</strong> Confirmado(s)</p>
                     </>
-                 )}
-                <EmployeeInfoBasic uid={caravana.guiaUid} role="Guia" />
+                ) : (
+                    <>
+                        <p className={styles.infoItem}><strong>Administrador:</strong> A ser confirmado</p>
+                        <p className={styles.infoItem}><strong>Motorista:</strong> A ser confirmado</p>
+                    </>
+                )}
             </div>
 
              {transporteDefinido && caravana.transportesFinalizados && caravana.transportesFinalizados.length > 0 && (

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react'; // <<< useCallback ADICIONADO AQUI
 import styles from '../Usuario/DetalhesCaravanaUsuario.module.css';
 import * as api from '../../services/api';
 import translateStatus from '../translate/translate';
@@ -20,13 +20,12 @@ function DetalhesCaravanaFuncionario({ caravana }) {
                 setFuncionarios(funcData);
             } catch (err) {
                 console.error("Erro ao buscar funcionários em DetalhesCaravanaFuncionario:", err);
-                setErrorFuncionarios("Falha ao carregar dados da equipe.");
+                setErrorFuncionarios("Falha ao carregar nomes da equipe.");
             }
             finally { setLoadingFuncionarios(false); }
         };
         if (caravana) fetchFuncionarios();
     }, [caravana]);
-
 
     useEffect(() => {
         const fetchDescricao = async () => {
@@ -37,30 +36,75 @@ function DetalhesCaravanaFuncionario({ caravana }) {
                     setDescricao(descricaoData.descricao || '');
                 } catch (err) { console.error(err); setDescricao('Erro ao carregar descrição.'); }
                 finally { setIsLoadingDesc(false); }
-            } else { setDescricao('N/A'); }
+            } else {
+                setDescricao('N/A');
+            }
         };
         if (caravana) fetchDescricao();
     }, [caravana]);
 
-    const getNomeFuncionario = (uid) => {
+    const getNomeFuncionario = useCallback((uid) => {
         if (!uid) return 'Não Definido';
         if (loadingFuncionarios) return 'Carregando...';
-        const func = funcionarios.find(f => (f.uid || f.id) === uid);
-        return func ? func.nome : `Funcionário Não Encontrado`;
-    };
+        if (errorFuncionarios) return 'Erro Equipe';
+        const func = funcionarios.find(f => (f.uid === uid || f.id === uid));
+        return func ? func.nome : `Funcionário (ID: ${uid.substring(0, 6)}...) Não Encontrado`;
+    }, [funcionarios, loadingFuncionarios, errorFuncionarios]);
+
 
      const formatarDataHora = (dateTimeString) => {
         if (!dateTimeString) return 'A definir';
         try {
             const dt = new Date(dateTimeString);
             if (!isNaN(dt.getTime())) {
-                return dt.toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', timeZone: 'America/Sao_Paulo' });
+                return dt.toLocaleString('pt-BR', {
+                    day: '2-digit', month: '2-digit', year: 'numeric',
+                    hour: '2-digit', minute: '2-digit',
+                    timeZone: 'America/Sao_Paulo'
+                });
             }
         } catch (e) { console.warn("Erro ao formatar data/hora:", dateTimeString); }
         return 'Inválido';
     };
 
-    if (!caravana) return <div className={styles.container}>Caravana não encontrada.</div>;
+    const detalhesEquipeVeiculos = useMemo(() => {
+        const resultado = {
+            guiaNome: caravana ? getNomeFuncionario(caravana.guiaUid) : 'N/A',
+            adminsVeiculos: new Map(),
+            motoristasVeiculos: new Map(),
+            veiculosInfo: []
+        };
+
+        if (!caravana) return resultado;
+
+        const transporteDefinido = caravana.transporteDefinidoManualmente || caravana.transporteAutoDefinido;
+
+        if (transporteDefinido && Array.isArray(caravana.transportesFinalizados)) {
+            caravana.transportesFinalizados.forEach((v, index) => {
+                const adminNome = getNomeFuncionario(v.administradorUid);
+                const motoristaNome = getNomeFuncionario(v.motoristaUid);
+
+                if (v.administradorUid && !resultado.adminsVeiculos.has(v.administradorUid)) {
+                    resultado.adminsVeiculos.set(v.administradorUid, adminNome);
+                }
+                if (v.motoristaUid && !resultado.motoristasVeiculos.has(v.motoristaUid)) {
+                    resultado.motoristasVeiculos.set(v.motoristaUid, motoristaNome);
+                }
+                resultado.veiculosInfo.push({
+                    id: v.id || `${v.tipoId}-${index}`,
+                    nomeTipo: v.nomeTipo,
+                    assentos: v.assentos,
+                    placa: v.placa,
+                    adminNome: adminNome,
+                    motoristaNome: motoristaNome
+                });
+            });
+        }
+        return resultado;
+    }, [caravana, getNomeFuncionario]);
+
+
+    if (!caravana) return <div className={styles.container}>Caravana não selecionada.</div>;
 
     const transporteDefinido = caravana.transporteDefinidoManualmente || caravana.transporteAutoDefinido;
     const capacidadeExibida = transporteDefinido
@@ -101,31 +145,36 @@ function DetalhesCaravanaFuncionario({ caravana }) {
             </div>
 
              <div className={styles.infoSection}>
-                 <h3>Equipe Geral</h3>
-                 <p className={styles.infoItem}><strong>Guia:</strong> {getNomeFuncionario(caravana.guiaUid)}</p>
+                 <h3>Equipe Responsável</h3>
                  {errorFuncionarios && <p className={styles.errorSmall}>{errorFuncionarios}</p>}
-                 {/* Admin e Motorista principal (geral da caravana antes da definição por veículo) */}
-                 {/* Só mostra se o transporte NÃO estiver finalizado */}
-                 {!transporteDefinido && (
-                     <>
-                         <p className={styles.infoItem}><strong>Administrador Principal (Pré-Definição):</strong> {getNomeFuncionario(caravana.administradorUid)}</p>
-                         <p className={styles.infoItem}><strong>Motorista Principal (Pré-Definição):</strong> {getNomeFuncionario(caravana.motoristaUid)}</p>
-                     </>
-                 )}
+                 <p className={styles.infoItem}><strong>Guia:</strong> {detalhesEquipeVeiculos.guiaNome}</p>
+
+                 <p className={styles.infoItem}><strong>Administrador(es) da Viagem:</strong>
+                    {loadingFuncionarios ? ' Carregando...' :
+                     detalhesEquipeVeiculos.adminsVeiculos.size > 0 ?
+                     Array.from(detalhesEquipeVeiculos.adminsVeiculos.values()).join(', ') :
+                     'Não Definido'}
+                 </p>
+                 <p className={styles.infoItem}><strong>Motorista(s) da Viagem:</strong>
+                    {loadingFuncionarios ? ' Carregando...' :
+                     detalhesEquipeVeiculos.motoristasVeiculos.size > 0 ?
+                     Array.from(detalhesEquipeVeiculos.motoristasVeiculos.values()).join(', ') :
+                     'Não Definido'}
+                 </p>
              </div>
 
-             {transporteDefinido && Array.isArray(caravana.transportesFinalizados) && caravana.transportesFinalizados.length > 0 && (
+             {detalhesEquipeVeiculos.veiculosInfo.length > 0 && (
                  <div className={styles.infoSection}>
-                     <h3>Veículos e Responsáveis Definidos</h3>
+                     <h3>Veículos Definidos</h3>
                      {loadingFuncionarios && <p>Carregando nomes...</p>}
                      {errorFuncionarios && <p className={styles.errorSmall}>{errorFuncionarios}</p>}
                      <ul className={styles.vehicleList}>
-                         {caravana.transportesFinalizados.map((v, index) => (
-                             <li key={`${v.tipoId}-${index}-${v.placa || index}`} className={styles.vehicleListItem}>
-                                 <strong>Veículo {index+1}: {v.nomeTipo}</strong> ({v.assentos} assentos)
+                         {detalhesEquipeVeiculos.veiculosInfo.map((v) => (
+                             <li key={v.id} className={styles.vehicleListItem}>
+                                 <strong>{v.nomeTipo}</strong> ({v.assentos} assentos)
                                  {v.placa && ` - Placa: ${v.placa}`} <br/>
-                                 <span className={styles.responsible}><strong>Admin do Veículo:</strong> {getNomeFuncionario(v.administradorUid)}</span> <br/>
-                                 <span className={styles.responsible}><strong>Motorista do Veículo:</strong> {getNomeFuncionario(v.motoristaUid)}</span>
+                                 <span className={styles.responsible}>Admin do Veículo: {v.adminNome}</span> <br/>
+                                 <span className={styles.responsible}>Motorista do Veículo: {v.motoristaNome}</span>
                              </li>
                          ))}
                      </ul>
@@ -135,8 +184,12 @@ function DetalhesCaravanaFuncionario({ caravana }) {
              <div className={styles.infoSection}>
                 <h3>Participantes e Capacidade</h3>
                 <p className={styles.infoItem}><strong>Inscritos (Clientes):</strong> {caravana.vagasOcupadas || 0}</p>
-                <p className={styles.infoItem}><strong>Capacidade Total Exibida:</strong> {capacidadeExibida > 0 ? capacidadeExibida : 'Não definida'}</p>
-                <p className={styles.infoItem}><strong>Vagas Disponíveis (Clientes):</strong> {capacidadeExibida > 0 ? vagasDisponiveisParaClientes : 'N/A'}</p>
+                <p className={styles.infoItem}>
+                    <strong>Capacidade Total Exibida:</strong> {capacidadeExibida > 0 ? capacidadeExibida : 'Não definida'}
+                </p>
+                <p className={styles.infoItem}>
+                    <strong>Vagas Disponíveis (Clientes):</strong> {capacidadeExibida > 0 ? vagasDisponiveisParaClientes : 'N/A'}
+                </p>
              </div>
         </div>
     );
