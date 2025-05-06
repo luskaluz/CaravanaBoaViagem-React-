@@ -741,3 +741,14 @@
 .divBotaoExcluir {
     display: none; /* Esconde o grupo antigo se ainda existir */
 }
+
+.confirmManualButton {
+    background-color: #17a2b8; /* Azul Ciano / Info */
+    color: white;
+    border-color: #17a2b8;
+  }
+  
+  .confirmManualButton:hover:not(:disabled) {
+    background-color: #138496;
+    border-color: #117a8b;
+  }

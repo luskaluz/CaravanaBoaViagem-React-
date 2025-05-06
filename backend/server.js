@@ -418,51 +418,94 @@ async function sendEmail(to, subject, html) {
     }
 }
 
-// Envia emails de forma assíncrona após a compra de ingresso ser confirmada no DB
-async function enviarEmailsPosCompra(usuarioEmail, quantidade, caravanaId, caravanaData, nomeLocalidade) {
-    try {
-        const emailCompraSubject = `Confirmação de Compra - Caravana para ${nomeLocalidade}`;
-        const emailCompraHtml = `
-            <p>Olá!</p>
-            <p>Sua compra de ${quantidade} ingresso(s) para a caravana com destino a ${nomeLocalidade} na data ${formatDate(caravanaData.data)} foi realizada com sucesso!</p>
-            <p>Detalhes:</p>
-            <ul>
-                <li>Localidade: ${nomeLocalidade}</li>
-                <li>Data: ${formatDate(caravanaData.data)}</li>
-                <li>Horário de Saída: ${caravanaData.horarioSaida || 'A definir'}</li>
-                ${caravanaData.status === 'confirmada' ? '<li><b>Status:</b> Caravana Confirmada!</li>' : ''}
-            </ul>
-            <p>Agradecemos a preferência!</p>
-        `;
-        await sendEmail(usuarioEmail, emailCompraSubject, emailCompraHtml);
+// // Envia emails de forma assíncrona após a compra de ingresso ser confirmada no DB
+// async function enviarEmailsPosCompra(usuarioEmail, quantidade, caravanaId, caravanaData, nomeLocalidade) {
+//     try {
+//         const emailCompraSubject = `Confirmação de Compra - Caravana para ${nomeLocalidade}`;
+//         const emailCompraHtml = `
+//             <p>Olá!</p>
+//             <p>Sua compra de ${quantidade} ingresso(s) para a caravana com destino a ${nomeLocalidade} na data ${formatDate(caravanaData.data)} foi realizada com sucesso!</p>
+//             <p>Detalhes:</p>
+//             <ul>
+//                 <li>Localidade: ${nomeLocalidade}</li>
+//                 <li>Data: ${formatDate(caravanaData.data)}</li>
+//                 <li>Horário de Saída: ${caravanaData.horarioSaida || 'A definir'}</li>
+//                 ${caravanaData.status === 'confirmada' ? '<li><b>Status:</b> Caravana Confirmada!</li>' : ''}
+//             </ul>
+//             <p>Agradecemos a preferência!</p>
+//         `;
+//         await sendEmail(usuarioEmail, emailCompraSubject, emailCompraHtml);
 
-        if (caravanaData.status === 'confirmada') {
-            const participantesNotificar = await buscarParticipantesParaNotificacao(caravanaId);
-            if (participantesNotificar.length > 0) {
-                const emailConfirmacaoSubject = `Caravana para ${nomeLocalidade} Confirmada!`;
-                const emailConfirmacaoHtml = `
-                    <p>Olá!</p>
-                    <p>A caravana para ${nomeLocalidade} na data ${formatDate(caravanaData.data)} foi confirmada!</p>
-                    <p>Detalhes:</p>
-                    <ul>
-                        <li>Localidade: ${nomeLocalidade}</li>
-                        <li>Data: ${formatDate(caravanaData.data)}</li>
-                        <li>Horário de Saída: ${caravanaData.horarioSaida || 'A definir'}</li>
-                    </ul>
-                `;
-                for (const participante of participantesNotificar) {
-                    if (participante.email !== usuarioEmail) {
-                        await sendEmail(participante.email, emailConfirmacaoSubject, emailConfirmacaoHtml);
-                    }
-                }
-            }
-        }
-    } catch (emailError) {
-        console.error(`Falha ao enviar e-mail(s) após compra para caravana ${caravanaId}:`, emailError);
-    }
-}
+//         if (caravanaData.status === 'confirmada') {
+//             const participantesNotificar = await buscarParticipantesParaNotificacao(caravanaId);
+//             if (participantesNotificar.length > 0) {
+//                 const emailConfirmacaoSubject = `Caravana para ${nomeLocalidade} Confirmada!`;
+//                 const emailConfirmacaoHtml = `
+//                     <p>Olá!</p>
+//                     <p>A caravana para ${nomeLocalidade} na data ${formatDate(caravanaData.data)} foi confirmada!</p>
+//                     <p>Detalhes:</p>
+//                     <ul>
+//                         <li>Localidade: ${nomeLocalidade}</li>
+//                         <li>Data: ${formatDate(caravanaData.data)}</li>
+//                         <li>Horário de Saída: ${caravanaData.horarioSaida || 'A definir'}</li>
+//                     </ul>
+//                 `;
+//                 for (const participante of participantesNotificar) {
+//                     if (participante.email !== usuarioEmail) {
+//                         await sendEmail(participante.email, emailConfirmacaoSubject, emailConfirmacaoHtml);
+//                     }
+//                 }
+//             }
+//         }
+//     } catch (emailError) {
+//         console.error(`Falha ao enviar e-mail(s) após compra para caravana ${caravanaId}:`, emailError);
+//     }
+// }
 
+// async function alocarTransporte(pessoas, transportesDisponiveis) {
+//     if (pessoas <= 0) return { alocacao: [], custoTotal: 0 };
+//     if (!transportesDisponiveis || transportesDisponiveis.length === 0) return null; // Impossível sem transportes
 
+//     // 1. Calcula custo por assento e ordena do mais barato para o mais caro por assento
+//     const transportesOrdenados = transportesDisponiveis
+//         .map(t => ({ ...t, custoPorAssento: t.assentos > 0 ? t.custoAluguel / t.assentos : Infinity }))
+//         .sort((a, b) => a.custoPorAssento - b.custoPorAssento);
+
+//     let pessoasRestantes = pessoas;
+//     const alocacaoFinal = [];
+//     let custoTotal = 0;
+//     const disponibilidadeTemp = new Map(transportesOrdenados.map(t => [t.id, t.quantidadeDisponivel]));
+
+//     // 2. Algoritmo Guloso Principal (preencher com os mais eficientes)
+//     for (const transporte of transportesOrdenados) {
+//         if (pessoasRestantes <= 0) break;
+//         if (transporte.assentos <= 0) continue; // Ignora transporte sem assentos
+
+//         const disponivel = disponibilidadeTemp.get(transporte.id) || 0;
+//         if (disponivel <= 0) continue; // Pula se não houver mais deste tipo
+
+//         // Quantos deste tipo precisamos/podemos usar?
+//         const maxNecessarios = Math.ceil(pessoasRestantes / transporte.assentos);
+//         const usar = Math.min(maxNecessarios, disponivel); // Usa o mínimo entre o necessário e o disponível
+
+//         alocacaoFinal.push({
+//             transporteId: transporte.id,
+//             nome: transporte.nome,
+//             assentos: transporte.assentos,
+//             quantidadeUsada: usar
+//         });
+//         custoTotal += usar * transporte.custoAluguel;
+//         pessoasRestantes -= usar * transporte.assentos;
+//         disponibilidadeTemp.set(transporte.id, disponivel - usar); // Atualiza disponibilidade temporária
+//     }
+
+//     if (pessoasRestantes > 0) {
+//         console.warn(`Alocação falhou: Faltaram ${pessoasRestantes} assentos.`);
+//         return null; // Não foi possível alocar todos
+//     }
+
+//     return { alocacao: alocacaoFinal, custoTotal };
+// }
 
 
 
@@ -547,50 +590,7 @@ const verificarFuncionarioOuAdmin = async (req, res, next) => {
 };
 
 
-async function alocarTransporte(pessoas, transportesDisponiveis) {
-    if (pessoas <= 0) return { alocacao: [], custoTotal: 0 };
-    if (!transportesDisponiveis || transportesDisponiveis.length === 0) return null; // Impossível sem transportes
 
-    // 1. Calcula custo por assento e ordena do mais barato para o mais caro por assento
-    const transportesOrdenados = transportesDisponiveis
-        .map(t => ({ ...t, custoPorAssento: t.assentos > 0 ? t.custoAluguel / t.assentos : Infinity }))
-        .sort((a, b) => a.custoPorAssento - b.custoPorAssento);
-
-    let pessoasRestantes = pessoas;
-    const alocacaoFinal = [];
-    let custoTotal = 0;
-    const disponibilidadeTemp = new Map(transportesOrdenados.map(t => [t.id, t.quantidadeDisponivel]));
-
-    // 2. Algoritmo Guloso Principal (preencher com os mais eficientes)
-    for (const transporte of transportesOrdenados) {
-        if (pessoasRestantes <= 0) break;
-        if (transporte.assentos <= 0) continue; // Ignora transporte sem assentos
-
-        const disponivel = disponibilidadeTemp.get(transporte.id) || 0;
-        if (disponivel <= 0) continue; // Pula se não houver mais deste tipo
-
-        // Quantos deste tipo precisamos/podemos usar?
-        const maxNecessarios = Math.ceil(pessoasRestantes / transporte.assentos);
-        const usar = Math.min(maxNecessarios, disponivel); // Usa o mínimo entre o necessário e o disponível
-
-        alocacaoFinal.push({
-            transporteId: transporte.id,
-            nome: transporte.nome,
-            assentos: transporte.assentos,
-            quantidadeUsada: usar
-        });
-        custoTotal += usar * transporte.custoAluguel;
-        pessoasRestantes -= usar * transporte.assentos;
-        disponibilidadeTemp.set(transporte.id, disponivel - usar); // Atualiza disponibilidade temporária
-    }
-
-    if (pessoasRestantes > 0) {
-        console.warn(`Alocação falhou: Faltaram ${pessoasRestantes} assentos.`);
-        return null; // Não foi possível alocar todos
-    }
-
-    return { alocacao: alocacaoFinal, custoTotal };
-}
 
 
 
@@ -1209,6 +1209,85 @@ app.put('/caravanas/:id', verificarAutenticacao, verificarAdmin, async (req, res
     }
 });
 
+
+app.put('/caravanas/:id/confirmar-manual', verificarAutenticacao, verificarAdmin, async (req, res) => {
+    const { id: caravanaId } = req.params;
+
+    try {
+        const caravanaRef = db.collection('caravanas').doc(caravanaId);
+        const caravanaDoc = await caravanaRef.get();
+
+        if (!caravanaDoc.exists) {
+            return res.status(404).json({ error: "Caravana não encontrada." });
+        }
+        const caravana = caravanaDoc.data();
+
+        if (caravana.status === 'confirmada') {
+            return res.status(400).json({ error: "Esta caravana já está confirmada." });
+        }
+        if (caravana.status === 'cancelada' || caravana.status === 'concluida') {
+            return res.status(400).json({ error: `Não é possível confirmar uma caravana com status '${caravana.status}'.` });
+        }
+
+        // Validações para confirmação manual
+        const ocupacaoMinima = caravana.ocupacaoMinima || 0;
+        const vagasOcupadasClientes = caravana.vagasOcupadas || 0; // Apenas clientes
+        if (vagasOcupadasClientes < ocupacaoMinima) {
+            return res.status(400).json({ error: `Ocupação mínima de clientes (${ocupacaoMinima}) não atingida. Atualmente com ${vagasOcupadasClientes} clientes.` });
+        }
+
+        const transporteDefinidoECompleto =
+            (caravana.transporteDefinidoManualmente === true || caravana.transporteAutoDefinido === true) &&
+            Array.isArray(caravana.transportesFinalizados) &&
+            caravana.transportesFinalizados.length > 0 &&
+            caravana.transportesFinalizados.every(v => v.placa && v.motoristaUid && v.administradorUid);
+
+        if (!transporteDefinidoECompleto) {
+            return res.status(400).json({ error: "Para confirmar manualmente, o transporte deve estar completamente definido: Todos os veículos devem ter tipo, placa, motorista e administrador atribuídos." });
+        }
+
+        // Se passou nas validações, confirma
+        await caravanaRef.update({
+            status: 'confirmada',
+            confirmadaEm: admin.firestore.FieldValue.serverTimestamp(),
+            motivoCancelamento: null,
+            lastUpdate: admin.firestore.FieldValue.serverTimestamp()
+        });
+
+        // Enviar notificação aos participantes
+        try {
+            const participantes = await buscarParticipantesParaNotificacao(caravanaId);
+            if (participantes.length > 0) {
+                const localidadeInfo = await getLocalidadeData(caravana.localidadeId);
+                const nomeLocalidade = localidadeInfo.nomeLocalidade || 'Destino Desconhecido';
+                const dataFormatada = await formatDate(caravana.data);
+                const emailSubject = `Caravana Confirmada! - ${nomeLocalidade} (${dataFormatada})`;
+                const emailHtml = `
+                    <p>Olá!</p>
+                    <p>Ótima notícia! A caravana para <strong>${nomeLocalidade}</strong> na data <strong>${dataFormatada}</strong> foi CONFIRMADA pela administração!</p>
+                    <p>Prepare-se para a viagem! Mais detalhes e lembretes serão enviados.</p>
+                    <p>Atenciosamente,<br/>Equipe Caravana da Boa Viagem</p>
+                `;
+                for (const p of participantes) {
+                    await sendEmail(p.email, emailSubject, emailHtml);
+                }
+                console.log(`[${caravanaId}] Emails de confirmação manual (status) enviados.`);
+            }
+        } catch (emailError) {
+            console.error(`[${caravanaId}] Erro ao enviar emails de confirmação manual (status):`, emailError);
+        }
+
+        res.status(200).json({ message: "Caravana confirmada manualmente com sucesso!" });
+
+    } catch (error) {
+        console.error(`Erro ao confirmar caravana ${caravanaId} manualmente:`, error);
+        if (error.message.includes('não encontrada') || error.message.includes('inválido') || error.message.includes('insuficiente') || error.message.includes('atingida')) {
+            res.status(400).json({ error: error.message });
+        } else {
+            res.status(500).json({ error: "Erro interno ao confirmar caravana.", details: error.message });
+        }
+    }
+});
 
 
 
@@ -2042,15 +2121,21 @@ app.post('/comprar-ingresso', verificarAutenticacao, async (req, res) => {
 
         // --- LÓGICA DE EMAIL ---
         try {
-            const localidadeInfo = await getLocalidadeData(caravanaDataParaEmail.localidadeId);
-            const nomeLocalidadeFinal = localidadeInfo.nomeLocalidade || 'Destino Desconhecido';
+            const caravanaAtualizadaDocAposCompra = await caravanaRef.get(); // Pega dados mais recentes
+            const dadosCaravanaParaEmailUsuario = caravanaAtualizadaDocAposCompra.exists ? caravanaAtualizadaDocAposCompra.data() : caravanaDataParaEmail;
 
-            const emailCompraSubject = `Confirmação de Compra - Caravana para ${nomeLocalidadeFinal}`;
+            const localidadeInfoCompra = await getLocalidadeData(dadosCaravanaParaEmailUsuario.localidadeId);
+            const nomeLocalidadeFinalCompra = localidadeInfoCompra.nomeLocalidade || 'Destino Desconhecido';
+            const dataFormatadaCompra = await formatDate(dadosCaravanaParaEmailUsuario.data);
+
+            const emailCompraSubject = `Confirmação de Compra - Caravana para ${nomeLocalidadeFinalCompra}`;
             const emailCompraHtml = `
                 <p>Olá ${usuarioNome || ''}!</p>
-                <p>Sua compra de ${quantidadeNumerica} ingresso(s) para a caravana com destino a <strong>${nomeLocalidadeFinal}</strong> na data ${formatDate(caravanaDataParaEmail.data)} foi realizada com sucesso!</p>
-                <p>Horário de Saída Previsto: ${caravanaDataParaEmail.horarioSaida || 'A definir'}</p>
-                <p>Detalhes sobre o transporte e ponto de encontro serão enviados mais próximo à data da viagem.</p>
+                <p>Sua compra de ${quantidadeNumerica} ingresso(s) para a caravana com destino a <strong>${nomeLocalidadeFinalCompra}</strong> na data ${dataFormatadaCompra} foi realizada com sucesso!</p>
+                <p>Horário de Saída Previsto: ${dadosCaravanaParaEmailUsuario.horarioSaida || 'A definir'}</p>
+                <p>Ponto de Encontro: ${dadosCaravanaParaEmailUsuario.pontoEncontro || 'A definir (verifique próximo à data)'}</p>
+                <p>Retorno Estimado: ${dadosCaravanaParaEmailUsuario.dataHoraRetorno ? (await formatDate(dadosCaravanaParaEmailUsuario.dataHoraRetorno)) + ' às ' + new Date(dadosCaravanaParaEmailUsuario.dataHoraRetorno).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', timeZone: 'America/Sao_Paulo' }) : 'A definir'}</p>
+                <p>Detalhes sobre o transporte e outras instruções serão enviados mais próximo à data da viagem, caso o transporte ainda não tenha sido definido.</p>
                 <p>Agradecemos a preferência!</p>
                 <p>Atenciosamente,<br/>Equipe Caravana da Boa Viagem</p>
             `;
@@ -2060,29 +2145,40 @@ app.post('/comprar-ingresso', verificarAutenticacao, async (req, res) => {
             console.error(`[${caravanaId}] Falha ao enviar email de confirmação de compra para ${usuarioEmail}:`, emailCompraError);
         }
 
+        // 2. Email para o Admin (se alocação ideal sugerida mudou)
         if (alocacaoAntes !== null && alocacaoDepois !== null && alocacoesDiferentes(alocacaoAntes, alocacaoDepois)) {
             console.log(`[${caravanaId}] Alocação ideal alterada. Enviando email para admin...`);
             try {
-                 const localidadeInfo = await getLocalidadeData(caravanaDataParaEmail.localidadeId);
-                 const nomeLocalidadeFinal = localidadeInfo.nomeLocalidade || 'Destino Desconhecido';
+                 const caravanaAtualizadaDocAdminEmail = await caravanaRef.get(); // Pega dados mais recentes, incluindo capacidadeCalculada
+                 const dadosCaravanaParaEmailAdmin = caravanaAtualizadaDocAdminEmail.exists ? caravanaAtualizadaDocAdminEmail.data() : caravanaDataParaEmail;
+
+                 const localidadeInfoAdmin = await getLocalidadeData(dadosCaravanaParaEmailAdmin.localidadeId);
+                 const nomeLocalidadeFinalAdmin = localidadeInfoAdmin.nomeLocalidade || 'Destino Desconhecido';
+                 const dataFormatadaViagemAdmin = await formatDate(dadosCaravanaParaEmailAdmin.data);
+                 const dataFormatadaConfAdmin = await formatDate(dadosCaravanaParaEmailAdmin.dataConfirmacaoTransporte);
 
                 const formatarAlocacaoParaEmail = (aloc) => {
                     if (!aloc || aloc.length === 0) return "<li>Nenhuma sugestão anterior ou cálculo falhou.</li>";
                     return aloc.map(item => `<li>${item.quantidade}x ${item.nomeTipo} (${item.assentos} assentos)</li>`).join('');
                 };
 
-                const emailSubjectAdmin = `Alerta: Alocação Sugerida Alterada - ${nomeLocalidadeFinal} (${formatDate(caravanaDataParaEmail.data)})`;
+                const emailSubjectAdmin = `Alerta: Alocação Sugerida Alterada - ${nomeLocalidadeFinalAdmin} (${dataFormatadaViagemAdmin})`;
                 const emailHtmlAdmin = `
                     <p>Olá Administrador,</p>
-                    <p>A alocação de transporte ideal sugerida para a caravana <strong>${nomeLocalidadeFinal}</strong> (Data: ${formatDate(caravanaDataParaEmail.data)}) foi recalculada devido a uma nova compra.</p>
-                    <p>Data final para definição: <strong>${formatDate(caravanaDataParaEmail.dataConfirmacaoTransporte)}</strong>.</p>
-                    <hr><p><strong>Alocação Anterior Sugerida:</strong></p><ul>${formatarAlocacaoParaEmail(alocacaoAntes)}</ul>
-                    <hr><p><strong>Nova Alocação Sugerida:</strong></p>
+                    <p>A alocação de transporte ideal sugerida para a caravana <strong>${nomeLocalidadeFinalAdmin}</strong> (Data: ${dataFormatadaViagemAdmin}) foi recalculada devido a uma nova compra.</p>
+                    <p>Data final para definição: <strong>${dataFormatadaConfAdmin}</strong>.</p>
+                    <hr>
+                    <p><strong>Alocação Anterior Sugerida:</strong></p>
+                    <ul>${formatarAlocacaoParaEmail(alocacaoAntes)}</ul>
+                    <hr>
+                    <p><strong>Nova Alocação Sugerida:</strong></p>
                     <ul>
                         ${formatarAlocacaoParaEmail(alocacaoDepois)}
-                        <li>Capacidade Total Sugerida: ${caravanaDataParaEmail.capacidadeCalculada || 'N/A'}</li>
-                    </ul><hr>
+                        <li>Capacidade Total Sugerida: ${dadosCaravanaParaEmailAdmin.capacidadeCalculada || 'N/A'}</li>
+                    </ul>
+                    <hr>
                     <p>Verifique e defina o transporte manualmente se necessário antes da data limite.</p>
+                    <p>Atenciosamente,<br/>Sistema Caravana da Boa Viagem</p>
                 `;
 
                 await sendEmail(process.env.ADMIN_EMAIL, emailSubjectAdmin, emailHtmlAdmin);
@@ -2092,6 +2188,7 @@ app.post('/comprar-ingresso', verificarAutenticacao, async (req, res) => {
                 console.error(`[${caravanaId}] Falha ao enviar email de alteração de alocação para admin:`, emailAdminError);
             }
         }
+
         // --- FIM LÓGICA DE EMAIL ---
 
         res.status(200).json({ message: `${quantidadeNumerica} ingresso(s) comprado(s) com sucesso!`});
@@ -2435,14 +2532,24 @@ app.put('/caravanas/:id/definir-transporte-final', verificarAutenticacao, verifi
         });
 
         // --- Envio de Email aos Participantes (APÓS a transação e DEFINIÇÃO MANUAL) ---
-        if (transportesSalvosComAtribuicao) { // Só envia se a definição foi salva
+        if (transportesSalvosComAtribuicao) {
             try {
-                // Busca todos os participantes da caravana uma vez
+                // Busca dados da caravana atualizados após a transação para usar no email
+                const caravanaAtualizadaDocEmail = await caravanaRef.get();
+                const caravanaFinalDataEmail = caravanaAtualizadaDocEmail.exists ? caravanaAtualizadaDocEmail.data() : caravanaParaEmail; // Fallback
+
                 const participantesSnapshot = await db.collection('participantes').where('caravanaId', '==', caravanaId).get();
                 if (!participantesSnapshot.empty) {
-                    const localidadeInfo = await getLocalidadeData(caravanaParaEmail.localidadeId);
-                    const nomeLocalidade = localidadeInfo.nomeLocalidade || 'Destino Desconhecido';
-                    const emailSubject = `Transporte Confirmado - Caravana ${nomeLocalidade} (${formatDate(caravanaParaEmail.data)})`;
+                    const localidadeInfoEmail = await getLocalidadeData(caravanaFinalDataEmail.localidadeId);
+                    const nomeLocalidadeEmail = localidadeInfoEmail.nomeLocalidade || 'Destino Desconhecido';
+                    const dataFormatadaEmail = await formatDate(caravanaFinalDataEmail.data);
+                    const pontoEncontroEmail = caravanaFinalDataEmail.pontoEncontro || 'A definir (verifique próximo à data)';
+                    const dataHoraRetornoFormatada = caravanaFinalDataEmail.dataHoraRetorno
+                        ? (await formatDate(caravanaFinalDataEmail.dataHoraRetorno)) + ' às ' + new Date(caravanaFinalDataEmail.dataHoraRetorno).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', timeZone: 'America/Sao_Paulo' })
+                        : 'A definir';
+
+
+                    const emailSubject = `Transporte Confirmado - Caravana ${nomeLocalidadeEmail} (${dataFormatadaEmail})`;
 
                     console.log(`[${caravanaId}] Preparando ${participantesSnapshot.size} emails de confirmação de transporte (Manual)...`);
 
@@ -2450,29 +2557,33 @@ app.put('/caravanas/:id/definir-transporte-final', verificarAutenticacao, verifi
                         const participante = participanteDoc.data();
                         const participanteId = participanteDoc.id;
 
-                        // Encontra em qual veículo este participante foi alocado
                         let veiculoAtribuido = null;
                         let indiceVeiculo = -1;
                         for(let i = 0; i < transportesSalvosComAtribuicao.length; i++) {
                             if(transportesSalvosComAtribuicao[i].participantesAtribuidos?.includes(participanteId)) {
                                 veiculoAtribuido = transportesSalvosComAtribuicao[i];
-                                indiceVeiculo = i + 1; // Índice baseado em 1 para o usuário
+                                indiceVeiculo = i + 1;
                                 break;
                             }
                         }
 
                         let transporteDesc = `Transporte ${indiceVeiculo}: ${veiculoAtribuido?.nomeTipo || 'Tipo não informado'}.`;
+                        if (veiculoAtribuido && veiculoAtribuido.placa) {
+                            transporteDesc += ` (Placa: ${veiculoAtribuido.placa})`;
+                        }
                         if (!veiculoAtribuido) {
-                             transporteDesc = "Seu veículo será confirmado em breve."; // Fallback caso algo dê errado na atribuição
+                             transporteDesc = "Seu veículo específico será confirmado. Por favor, verifique os detalhes com a organização.";
                              console.warn(`Participante ${participanteId} não encontrado em nenhum veículo atribuído para caravana ${caravanaId}`);
                         }
 
                         const emailHtml = `
                             <p>Olá!</p>
-                            <p>Boas notícias! O transporte para a caravana com destino a <strong>${nomeLocalidade}</strong> na data <strong>${formatDate(caravanaParaEmail.data)}</strong> foi confirmado.</p>
+                            <p>Boas notícias! O transporte para a caravana com destino a <strong>${nomeLocalidadeEmail}</strong> na data <strong>${dataFormatadaEmail}</strong> foi confirmado.</p>
                             <p>Você foi alocado(a) no ${transporteDesc}</p>
-                            <p>Horário de Saída Previsto: ${caravanaParaEmail.horarioSaida || 'A definir'}</p>
-                            <p>Informações sobre o ponto de encontro exato e outras instruções serão enviadas mais próximo à data.</p>
+                            <p>Ponto de Encontro: ${pontoEncontroEmail}</p>
+                            <p>Horário de Saída Previsto: ${caravanaFinalDataEmail.horarioSaida || 'A definir'}</p>
+                            <p>Retorno Estimado: ${dataHoraRetornoFormatada}</p>
+                            <p>Mais informações sobre o ponto de encontro exato e outras instruções importantes serão enviadas mais próximo à data da viagem ou podem ser consultadas diretamente com a organização.</p>
                             <p>Atenciosamente,<br/>Equipe Caravana da Boa Viagem</p>
                         `;
                         await sendEmail(participante.email, emailSubject, emailHtml);
@@ -2483,6 +2594,9 @@ app.put('/caravanas/:id/definir-transporte-final', verificarAutenticacao, verifi
                  console.error(`[${caravanaId}] Erro ao enviar emails de confirmação de transporte (Manual):`, emailError);
             }
         }
+
+
+        
         // --- Fim Envio de Email ---
 
         res.status(200).json({ message: "Definição manual de transporte e atribuição de participantes salva." });
@@ -2571,24 +2685,24 @@ app.put('/caravanas/:id/definir-transporte-final', verificarAutenticacao, verifi
 
 
 const confirmarOuCancelarPosVendas = async () => {
-    console.log('[CRON] Executando confirmação/cancelamento Pós-Vendas...');
+    console.log('[CRON] Iniciando: Confirmação/Cancelamento Pós-Vendas...');
     const hoje = new Date();
     const ontem = new Date(hoje);
     ontem.setDate(hoje.getDate() - 1);
-    const dataOntemStr = ontem.toISOString().split('T')[0]; // Formato YYYY-MM-DD
+    const dataOntemStr = ontem.toISOString().split('T')[0];
 
     try {
         const caravanasPendentesSnap = await db.collection('caravanas')
-            .where('dataFechamentoVendas', '==', dataOntemStr) // Vendas fecharam ontem
-            .where('status', '==', 'nao_confirmada') // Apenas as não confirmadas
+            .where('dataFechamentoVendas', '==', dataOntemStr)
+            .where('status', '==', 'nao_confirmada')
             .get();
 
         if (caravanasPendentesSnap.empty) {
-            console.log('[CRON] Nenhuma caravana pós-vendas para confirmar/cancelar.');
+            console.log('[CRON] Pós-Vendas: Nenhuma caravana para processar.');
             return;
         }
 
-        console.log(`[CRON] Verificando ${caravanasPendentesSnap.size} caravanas pós-vendas.`);
+        console.log(`[CRON] Pós-Vendas: Verificando ${caravanasPendentesSnap.size} caravanas.`);
 
         for (const doc of caravanasPendentesSnap.docs) {
             const caravanaId = doc.id;
@@ -2597,75 +2711,94 @@ const confirmarOuCancelarPosVendas = async () => {
 
             const ocupacaoMinima = caravana.ocupacaoMinima || 0;
             const vagasOcupadas = caravana.vagasOcupadas || 0;
-
-            // Condição 1: Atingiu Ocupação Mínima?
             const ocupacaoAtingida = vagasOcupadas >= ocupacaoMinima;
 
-            // Condição 2: Transporte Definido e Completo?
             let transporteCompleto = false;
-            if (caravana.transporteDefinidoManualmente === true && // Precisa ser definido manualmente
-                Array.isArray(caravana.transportesFinalizados) &&
-                caravana.transportesFinalizados.length > 0)
-            {
-                // Verifica se TODOS os veículos na definição manual têm placa E motorista
+            const transporteDefinido = caravana.transporteDefinidoManualmente === true || caravana.transporteAutoDefinido === true;
+
+            if (transporteDefinido && Array.isArray(caravana.transportesFinalizados) && caravana.transportesFinalizados.length > 0) {
                 transporteCompleto = caravana.transportesFinalizados.every(
-                    veiculo => veiculo.placa && veiculo.motoristaUid
-                    // Não precisa checar admin aqui, pois a regra é ter placa e motorista
+                    veiculo => veiculo.placa && veiculo.motoristaUid && veiculo.administradorUid
                 );
             }
 
-            let updateData = {
-                lastUpdate: admin.firestore.FieldValue.serverTimestamp()
-            };
+            let updateData = { lastUpdate: admin.firestore.FieldValue.serverTimestamp() };
             let motivo = '';
-            let enviarNotificacaoConfirmacao = false;
-            let enviarNotificacaoCancelamento = false;
+            let notificarParticipantesConfirmacao = false;
+            let notificarParticipantesCancelamento = false;
 
             if (ocupacaoAtingida && transporteCompleto) {
-                // CONFIRMAR
                 updateData.status = 'confirmada';
-                updateData.confirmadaEm = admin.firestore.FieldValue.serverTimestamp(); // Opcional: marcar quando confirmou
-                motivo = 'Confirmada automaticamente: ocupação mínima atingida e transporte definido.';
-                enviarNotificacaoConfirmacao = true;
-                console.log(`[CRON] ${caravanaId}: Confirmando - Ocupação (${vagasOcupadas}/${ocupacaoMinima}), Transporte Completo.`);
+                updateData.confirmadaEm = admin.firestore.FieldValue.serverTimestamp();
+                motivo = 'Confirmada automaticamente: ocupação mínima atingida e transporte completo definido.';
+                notificarParticipantesConfirmacao = true;
+                console.log(`[CRON Pós-Vendas ${caravanaId}]: Confirmando.`);
             } else {
-                // CANCELAR
                 updateData.status = 'cancelada';
-                if (!ocupacaoAtingida && !transporteCompleto) {
-                    motivo = 'Cancelada automaticamente: ocupação mínima não atingida e transporte não definido/completo.';
-                } else if (!ocupacaoAtingida) {
-                    motivo = 'Cancelada automaticamente: ocupação mínima não atingida.';
-                } else { // !transporteCompleto
-                    motivo = 'Cancelada automaticamente: transporte definido, mas faltam detalhes (placa/motorista) em algum veículo.';
-                }
+                if (!ocupacaoAtingida && !transporteCompleto) motivo = 'Cancelada: ocupação mínima não atingida e transporte não completamente definido.';
+                else if (!ocupacaoAtingida) motivo = 'Cancelada: ocupação mínima não atingida.';
+                else motivo = 'Cancelada: transporte não completamente definido (faltam placas/motoristas/admins nos veículos).';
                 updateData.motivoCancelamento = motivo;
-                enviarNotificacaoCancelamento = true;
-                console.log(`[CRON] ${caravanaId}: Cancelando - Ocupação (${vagasOcupadas}/${ocupacaoMinima}), Transporte Completo (${transporteCompleto}). Motivo: ${motivo}`);
+                notificarParticipantesCancelamento = true;
+                console.log(`[CRON Pós-Vendas ${caravanaId}]: Cancelando. Motivo: ${motivo}`);
             }
 
-            // Atualiza o status no Firestore
             try {
                 await caravanaRef.update(updateData);
+                const localidadeInfo = await getLocalidadeData(caravana.localidadeId);
+                const nomeLocalidade = localidadeInfo.nomeLocalidade || 'Destino Desconhecido';
+                const dataFormatada = await formatDate(caravana.data);
+                const pontoEncontroFormatado = caravana.pontoEncontro || 'A definir (consulte a organização)';
+                const horarioSaidaFormatado = caravana.horarioSaida || 'A definir';
+                const dataHoraRetornoFormatada = caravana.dataHoraRetorno
+                    ? (await formatDate(caravana.dataHoraRetorno)) + ' às ' + new Date(caravana.dataHoraRetorno).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', timeZone: 'America/Sao_Paulo'})
+                    : 'A definir';
 
-                // Enviar notificações após atualizar o status
-                // (Adapte as funções buscarParticipantesParaNotificacao e sendEmail)
-                /*
-                if (enviarNotificacaoConfirmacao) {
+                if (notificarParticipantesConfirmacao) {
                     const participantes = await buscarParticipantesParaNotificacao(caravanaId);
-                    // Enviar email de confirmação para participantes
-                } else if (enviarNotificacaoCancelamento) {
+                    if (participantes.length > 0) {
+                        const emailSubject = `Caravana Confirmada! - ${nomeLocalidade} (${dataFormatada})`;
+                        let transporteDescConfirmacao = "Detalhes do transporte e ponto de encontro serão informados em breve.";
+                        if (Array.isArray(caravana.transportesFinalizados) && caravana.transportesFinalizados.length > 0) {
+                            const primeiroVeiculo = caravana.transportesFinalizados[0];
+                            transporteDescConfirmacao = `Seu transporte principal é do tipo ${primeiroVeiculo.nomeTipo || 'Não especificado'}.`;
+                            if (primeiroVeiculo.placa) transporteDescConfirmacao += ` Placa: ${primeiroVeiculo.placa}.`;
+                        }
+                        const emailHtml = `
+                            <p>Olá!</p>
+                            <p>Ótima notícia! A caravana para <strong>${nomeLocalidade}</strong> (${dataFormatada}) foi CONFIRMADA!</p>
+                            <p>Ponto de Encontro: ${pontoEncontroFormatado}</p>
+                            <p>Horário de Saída: ${horarioSaidaFormatado}</p>
+                            <p>Retorno Estimado: ${dataHoraRetornoFormatada}</p>
+                            <p>${transporteDescConfirmacao}</p>
+                            <p>Aguarde mais informações sobre detalhes finais e o seu veículo específico, se houver mais de um.</p>
+                            <p>Atenciosamente,<br/>Equipe Caravana da Boa Viagem</p>
+                        `;
+                        for (const p of participantes) await sendEmail(p.email, emailSubject, emailHtml);
+                        console.log(`[CRON Pós-Vendas ${caravanaId}]: E-mails de confirmação (status) enviados.`);
+                    }
+                } else if (notificarParticipantesCancelamento) {
                     const participantes = await buscarParticipantesParaNotificacao(caravanaId);
-                     // Enviar email de cancelamento para participantes
+                     if (participantes.length > 0) {
+                        const emailSubject = `Caravana Cancelada - ${nomeLocalidade} (${dataFormatada})`;
+                        const emailHtml = `
+                            <p>Olá!</p>
+                            <p>Lamentamos informar que a caravana para <strong>${nomeLocalidade}</strong> (${dataFormatada}) foi cancelada.</p>
+                            <p>Motivo: ${motivo}</p>
+                            <p>Informações sobre reembolso serão enviadas em breve.</p>
+                            <p>Atenciosamente,<br/>Equipe Caravana da Boa Viagem</p>
+                        `;
+                        for (const p of participantes) await sendEmail(p.email, emailSubject, emailHtml);
+                         console.log(`[CRON Pós-Vendas ${caravanaId}]: E-mails de cancelamento enviados.`);
+                    }
                 }
-                */
-
-            } catch (updateError) {
-                console.error(`[CRON] Erro ao atualizar status da caravana ${caravanaId}:`, updateError);
+            } catch (updateOrEmailError) {
+                console.error(`[CRON Pós-Vendas ${caravanaId}]: Erro ao atualizar ou notificar:`, updateOrEmailError);
             }
         }
         console.log('[CRON] Verificação pós-vendas concluída.');
     } catch (error) {
-        console.error('[CRON] Erro GERAL na tarefa de confirmação/cancelamento pós-vendas:', error);
+        console.error('[CRON] Erro GERAL na tarefa Pós-Vendas:', error);
     }
 };
 
@@ -2673,68 +2806,91 @@ const confirmarOuCancelarPosVendas = async () => {
 
 
 
+
 // ATUALIZADO: Enviar Lembretes DIARIAMENTE para Caravanas Confirmadas
 const enviarLembretes = async () => {
-    console.log('[CRON] Executando envio de lembretes DIÁRIOS...');
+    console.log('[CRON] Iniciando: Envio de Lembretes Diários...');
     const hoje = new Date();
-    hoje.setHours(0, 0, 0, 0);
+    const dataHojeStr = hoje.toISOString().split('T')[0];
 
     try {
-        // Busca TODAS as caravanas confirmadas que AINDA NÃO OCORRERAM
         const caravanasConfirmadasSnap = await db.collection('caravanas')
             .where('status', '==', 'confirmada')
-            .where('data', '>=', hoje.toISOString().split('T')[0]) // Compara com data de hoje (ou posterior)
+            .where('data', '>', dataHojeStr)
             .get();
 
         if (caravanasConfirmadasSnap.empty) {
-            console.log('[CRON] Nenhuma caravana confirmada futura encontrada para lembrete.');
+            console.log('[CRON] Lembretes: Nenhuma caravana confirmada para lembrete hoje.');
             return;
         }
 
-        console.log(`[CRON] Enviando lembretes para ${caravanasConfirmadasSnap.size} caravanas confirmadas...`);
+        console.log(`[CRON] Lembretes: Enviando para ${caravanasConfirmadasSnap.size} caravanas confirmadas...`);
 
         for (const doc of caravanasConfirmadasSnap.docs) {
             const caravana = doc.data();
             const caravanaId = doc.id;
 
-            // A verificação de data foi movida para a query, o IF abaixo foi removido:
-            // if (hoje.getTime() === dataLembrete.getTime()) { ... }
-
             try {
                 const participantesNotificar = await buscarParticipantesParaNotificacao(caravanaId);
                 if (participantesNotificar.length > 0) {
-                    const localidadeData = await getLocalidadeData(caravana.localidadeId);
-                    const nomeLocalidade = localidadeData.nomeLocalidade || caravana.localidadeId;
-                    let infoTransporte = "<p>Detalhes do transporte serão confirmados em breve.</p>";
-                    if (caravana.transporteConfirmado && caravana.transportesAlocados?.length > 0) {
-                        infoTransporte = "<p>Seu transporte alocado:</p><ul>";
-                        caravana.transportesAlocados.forEach(t => { infoTransporte += `<li>${t.nome || 'Veículo'} - Placa: ${t.placa || 'N/A'}</li>`; });
-                        infoTransporte += "</ul>";
-                    } else if (caravana.transporteConfirmado) { infoTransporte = "<p>Transporte confirmado (sem veículo específico).</p>"; }
+                    const localidadeInfo = await getLocalidadeData(caravana.localidadeId);
+                    const nomeLocalidade = localidadeInfo.nomeLocalidade || 'Destino Desconhecido';
+                    const dataFormatadaViagem = await formatDate(caravana.data);
+                    const pontoEncontro = caravana.pontoEncontro || 'A definir (consulte a organização)';
+                    const horarioSaida = caravana.horarioSaida || 'A definir';
+                    const dataHoraRetornoFormatada = caravana.dataHoraRetorno
+                        ? (await formatDate(caravana.dataHoraRetorno)) + ' às ' + new Date(caravana.dataHoraRetorno).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', timeZone: 'America/Sao_Paulo'})
+                        : 'A definir';
 
-                    const emailSubject = `Lembrete: Caravana para ${nomeLocalidade} em ${formatDate(caravana.data)}`;
+                    let detalhesTransporteEmail = "<p>O transporte está confirmado! Detalhes específicos como placa, motorista e o seu veículo exato (se houver mais de um) serão informados pela equipe mais próximo à data ou no dia do embarque.</p>";
+
+                    if ((caravana.transporteDefinidoManualmente || caravana.transporteAutoDefinido) && Array.isArray(caravana.transportesFinalizados) && caravana.transportesFinalizados.length > 0) {
+                         let veiculosStr = "";
+                         for (const v of caravana.transportesFinalizados) {
+                            veiculosStr += `<li>Tipo: ${v.nomeTipo || 'N/D'} (${v.assentos || 'N/D'} assentos)`;
+                            if (v.placa) veiculosStr += ` - Placa: ${v.placa}`;
+                            // Opcional: adicionar nome do admin/motorista se já definido e se fizer sentido no lembrete
+                            // if (v.motoristaUid) { const mot = await getFuncionarioData(v.motoristaUid); if(mot) veiculosStr += ` - Motorista: ${mot.nome}`;}
+                            veiculosStr += `</li>`;
+                         }
+                         if (veiculosStr) {
+                             detalhesTransporteEmail = `<p><strong>Veículos Planejados para a Caravana:</strong></p><ul>${veiculosStr}</ul> <p>Você será informado sobre seu veículo específico e os responsáveis mais próximo à data.</p>`;
+                         }
+                    }
+
+                    const emailSubject = `Lembrete: Sua Caravana para ${nomeLocalidade} é em ${dataFormatadaViagem}!`;
                     const emailHtml = `
                         <p>Olá!</p>
-                        <p>Lembrete diário sobre sua caravana confirmada para <strong>${nomeLocalidade}</strong> no dia ${formatDate(caravana.data)}.</p>
-                        ${caravana.horarioSaida ? `<p>Horário previsto de saída: ${caravana.horarioSaida}.</p>` : ''}
-                        ${infoTransporte}
-                        <p>Estamos ansiosos para viajar com você!</p>
+                        <p>Este é um lembrete sobre sua caravana confirmada para <strong>${nomeLocalidade}</strong> no dia <strong>${dataFormatadaViagem}</strong>.</p>
+                        <p><strong>Ponto de Encontro:</strong> ${pontoEncontro}</p>
+                        <p><strong>Horário de Saída:</strong> ${horarioSaida}</p>
+                        <p><strong>Retorno Estimado:</strong> ${dataHoraRetornoFormatada}</p>
+                        ${detalhesTransporteEmail}
+                        <p>Prepare-se para uma ótima viagem!</p>
                         <p>Atenciosamente,<br/>Equipe Caravana da Boa Viagem</p>
-                    `; // Mensagem adaptada para lembrete diário
+                    `;
+
+                    console.log(`[CRON Lembrete ${caravanaId}] Preparando ${participantesNotificar.length} emails...`);
                     for (const participante of participantesNotificar) {
                         await sendEmail(participante.email, emailSubject, emailHtml);
                     }
-                     console.log(`[CRON] ${participantesNotificar.length} lembretes enviados para ${caravanaId}.`);
+                    console.log(`[CRON Lembrete ${caravanaId}] Lembretes enviados.`);
                 }
-            } catch (lembreteError) { console.error(`[CRON] Erro ao enviar lembretes para ${caravanaId}:`, lembreteError); }
-        } // Fim do loop for
-         console.log('[CRON] Envio de lembretes diários concluído.');
-    } catch (error) { console.error('[CRON] Erro geral envio lembretes:', error); }
+            } catch (lembreteError) {
+                console.error(`[CRON Lembrete ${caravanaId}] Erro ao processar lembretes:`, lembreteError);
+            }
+        }
+        console.log('[CRON] Envio de Lembretes Diários concluído.');
+    } catch (error) {
+        console.error('[CRON] Erro GERAL no envio de Lembretes:', error);
+    }
 };
 
 
+
+
 const finalizarTransporteAutomaticamente = async () => {
-    console.log('[CRON] Executando finalização automática de transporte...');
+    console.log('[CRON] Iniciando: Finalização Automática de Transporte...');
     const hoje = new Date();
     const ontem = new Date(hoje);
     ontem.setDate(hoje.getDate() - 1);
@@ -2745,35 +2901,68 @@ const finalizarTransporteAutomaticamente = async () => {
             .where('dataConfirmacaoTransporte', '==', dataOntemStr)
             .where('transporteDefinidoManualmente', '==', false)
             .where('transporteAutoDefinido', '==', false)
-            .where('status', 'in', ['confirmada', 'nao_confirmada'])
+            .where('status', '==', 'nao_confirmada')
             .get();
 
         if (caravanasParaFinalizarSnap.empty) {
-            console.log('[CRON] Nenhuma caravana para finalização automática hoje.');
+            console.log('[CRON] Finalização Auto: Nenhuma caravana não confirmada para processar hoje.');
             return;
         }
 
-        console.log(`[CRON] Encontradas ${caravanasParaFinalizarSnap.size} caravanas para finalizar transporte.`);
-        const tiposSnapshot = await db.collection('transportes').get();
+        console.log(`[CRON] Finalização Auto: Encontradas ${caravanasParaFinalizarSnap.size} caravanas.`);
+        const tiposSnapshot = await db.collection('transportes').orderBy('assentos', 'desc').get();
         const tiposDisponiveis = tiposSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 
         if (tiposDisponiveis.length === 0) {
-            console.error("[CRON] Nenhum tipo de transporte encontrado.");
+            console.error("[CRON] Finalização Auto: Nenhum tipo de transporte cadastrado no sistema. Impossível alocar.");
             return;
         }
 
         for (const doc of caravanasParaFinalizarSnap.docs) {
             const caravanaId = doc.id;
-            const caravana = doc.data(); // Dados da caravana ANTES da atualização
+            const caravana = doc.data();
             const caravanaRef = db.collection('caravanas').doc(caravanaId);
             const vagasOcupadas = caravana.vagasOcupadas || 0;
             const maxVeiculos = caravana.maximoTransportes || 0;
-            const pessoasParaAlocacao = vagasOcupadas + 1;
+            const ocupacaoMinima = caravana.ocupacaoMinima || 0;
 
-            console.log(`[CRON] Processando ${caravanaId}: ${vagasOcupadas} clientes, ${maxVeiculos} max veículos.`);
+            const pessoasParaAlocacaoInicial = vagasOcupadas + 1;
 
-            const alocacaoFinal = await alocarTransporteOtimizado(pessoasParaAlocacao, maxVeiculos, tiposDisponiveis);
-            let transportesComAtribuicao = null; // Para usar no email do admin
+            console.log(`[CRON] Processando ${caravanaId}: ${vagasOcupadas} clientes, ${maxVeiculos} max veículos. Tentando alocar para ${pessoasParaAlocacaoInicial} (com 1 admin).`);
+
+            const alocacaoParaPessoasComAdminGeral = await alocarTransporteOtimizado(pessoasParaAlocacaoInicial, maxVeiculos, tiposDisponiveis);
+
+            if (!alocacaoParaPessoasComAdminGeral.sucesso || alocacaoParaPessoasComAdminGeral.combinacao.length === 0) {
+                console.error(`[CRON ${caravanaId}] Falha inicial ao tentar alocar para ${pessoasParaAlocacaoInicial} pessoas com ${maxVeiculos} veículos: ${alocacaoParaPessoasComAdminGeral.erro}`);
+                 try {
+                      await caravanaRef.update({
+                          status: 'cancelada',
+                          motivoCancelamento: `Falha crítica na alocação automática de transporte: ${alocacaoParaPessoasComAdminGeral.erro || 'Não foi possível encontrar veículos.'}`,
+                          transporteAutoDefinido: true,
+                          lastUpdate: admin.firestore.FieldValue.serverTimestamp()
+                      });
+                      console.log(`[CRON ${caravanaId}] Caravana cancelada por falha crítica na alocação.`);
+                       // Opcional: Enviar email de cancelamento aos participantes
+                       const participantesParaCancelar = await buscarParticipantesParaNotificacao(caravanaId);
+                       if(participantesParaCancelar.length > 0){
+                           const localidadeInfoCancel = await getLocalidadeData(caravana.localidadeId);
+                           const nomeLocalidadeCancel = localidadeInfoCancel.nomeLocalidade || 'Destino Desconhecido';
+                           const dataFormatadaCancel = await formatDate(caravana.data);
+                           const emailSubject = `Caravana Cancelada - ${nomeLocalidadeCancel} (${dataFormatadaCancel})`;
+                           const emailHtml = `<p>Olá! A caravana para ${nomeLocalidadeCancel} em ${dataFormatadaCancel} foi cancelada devido a: Falha na alocação automática do transporte (${alocacaoParaPessoasComAdminGeral.erro || 'Não foi possível encontrar veículos adequados.'}). Contato sobre reembolso em breve.</p>`;
+                           for(const p of participantesParaCancelar) await sendEmail(p.email, emailSubject, emailHtml);
+                           console.log(`[CRON ${caravanaId}] Emails de cancelamento (falha alocação) enviados.`);
+                       }
+                 } catch(cancelError) { console.error(`[CRON ${caravanaId}] Erro ao cancelar caravana:`, cancelError); }
+                continue;
+            }
+
+            const numVeiculosNaAlocacaoOtima = alocacaoParaPessoasComAdminGeral.combinacao.reduce((sum, item) => sum + item.quantidade, 0);
+            const pessoasNecessariasReais = vagasOcupadas + numVeiculosNaAlocacaoOtima;
+
+            console.log(`[CRON ${caravanaId}]: Aloc. inicial sugere ${numVeiculosNaAlocacaoOtima} veículos. Recalculando para ${pessoasNecessariasReais} pessoas (com ${numVeiculosNaAlocacaoOtima} admins).`);
+            const alocacaoFinal = await alocarTransporteOtimizado(pessoasNecessariasReais, maxVeiculos, tiposDisponiveis);
+            let transportesComAtribuicao = null;
             let capacidadeFinalCalculada = 0;
 
             if (alocacaoFinal.sucesso) {
@@ -2787,92 +2976,93 @@ const finalizarTransporteAutomaticamente = async () => {
 
                 const numAdminsFinais = transportesBase.length;
                 if (capacidadeFinalCalculada < (vagasOcupadas + numAdminsFinais)) {
-                     console.error(`[CRON] ERRO LÓGICO ${caravanaId}: Cap Final ${capacidadeFinalCalculada} < Vagas ${vagasOcupadas} + Admins ${numAdminsFinais}. Cancelando.`);
-                      // Cancela a caravana se a capacidade não for suficiente
+                     console.error(`[CRON ERRO LÓGICO ${caravanaId}]: Cap Final ${capacidadeFinalCalculada} < Vagas ${vagasOcupadas} + Admins ${numAdminsFinais}. Cancelando por segurança.`);
                       await caravanaRef.update({
                           status: 'cancelada',
-                          motivoCancelamento: `Erro interno: Capacidade (${capacidadeFinalCalculada}) insuficiente para ${vagasOcupadas} clientes + ${numAdminsFinais} admin(s) após alocação automática.`,
-                          transporteAutoDefinido: true, // Marca como tentado
+                          motivoCancelamento: `Erro interno: Capacidade final (${capacidadeFinalCalculada}) insuficiente para ${vagasOcupadas} clientes + ${numAdminsFinais} admin(s) após alocação.`,
+                          transporteAutoDefinido: true,
                           lastUpdate: admin.firestore.FieldValue.serverTimestamp()
                       });
-                       // Enviar email de cancelamento (lógica omitida para brevidade, mas importante)
+                       // Opcional: Enviar email de cancelamento
                      continue;
                  }
 
                 transportesComAtribuicao = await distribuirParticipantes(caravanaId, transportesBase);
 
-                console.log(`[CRON] ${caravanaId}: Alocado ${JSON.stringify(alocacaoFinal.combinacao)}, Capacidade ${capacidadeFinalCalculada}. Atualizando Firestore...`);
+                console.log(`[CRON ${caravanaId}]: Alocado ${JSON.stringify(alocacaoFinal.combinacao)}, Capacidade ${capacidadeFinalCalculada}. Atualizando Firestore...`);
                 try {
+                    // Não muda o status para 'confirmada' aqui. Isso é responsabilidade do job 'confirmarOuCancelarPosVendas'
                     await caravanaRef.update({
                         transportesFinalizados: transportesComAtribuicao,
                         capacidadeFinalizada: capacidadeFinalCalculada,
                         transporteAutoDefinido: true,
                         transporteDefinidoManualmente: false,
-                        ...(caravana.status === 'nao_confirmada' && vagasOcupadas >= (caravana.ocupacaoMinima || 0) && { status: 'confirmada' }),
                         lastUpdate: admin.firestore.FieldValue.serverTimestamp()
                     });
-                    console.log(`[CRON] ${caravanaId}: Transporte finalizado automaticamente.`);
+                    console.log(`[CRON ${caravanaId}]: Transporte finalizado automaticamente.`);
 
-                    // --- Envio de Email APENAS para o Admin ---
+                    // Envio de Email APENAS para o Admin
                     try {
-                         const localidadeInfo = await getLocalidadeData(caravana.localidadeId);
-                         const nomeLocalidade = localidadeInfo.nomeLocalidade || 'Destino Desconhecido';
-                         const emailSubjectAdmin = `Ação Necessária: Transporte Definido Automaticamente - ${nomeLocalidade} (${formatDate(caravana.data)})`;
+                         const localidadeInfoCron = await getLocalidadeData(caravana.localidadeId);
+                         const nomeLocalidadeCron = localidadeInfoCron.nomeLocalidade || 'Destino Desconhecido';
+                         const dataFormatadaViagemCron = await formatDate(caravana.data);
+                         const dataFormatadaConfCron = await formatDate(caravana.dataConfirmacaoTransporte);
 
+                         const emailSubjectAdmin = `Ação Necessária: Transporte Definido Automaticamente - ${nomeLocalidadeCron} (${dataFormatadaViagemCron})`;
                          const formatarVeiculosParaAdmin = (veiculos) => {
                              if (!veiculos || veiculos.length === 0) return "<li>Nenhum veículo definido.</li>";
                              return veiculos.map((v, i) => `<li>Veículo ${i + 1}: ${v.nomeTipo} (${v.assentos} assentos) - ${v.participantesAtribuidos?.length || 0} participantes atribuídos</li>`).join('');
                          };
-
                          const emailHtmlAdmin = `
                              <p>Olá Administrador,</p>
-                             <p>O sistema definiu automaticamente os veículos para a caravana <strong>${nomeLocalidade}</strong> (Data: ${formatDate(caravana.data)}) com base nos participantes inscritos.</p>
+                             <p>O sistema definiu automaticamente os veículos para a caravana <strong>${nomeLocalidadeCron}</strong> (Data: ${dataFormatadaViagemCron}) com base nos participantes inscritos até a data de confirmação (${dataFormatadaConfCron}).</p>
                              <p><strong>Veículos Definidos Automaticamente:</strong></p>
-                             <ul>
-                                ${formatarVeiculosParaAdmin(transportesComAtribuicao)}
-                             </ul>
-                             <p><strong>Capacidade Final:</strong> ${capacidadeFinalCalculada}</p>
-                             <p><strong>Ação Necessária:</strong> Por favor, acesse o painel administrativo para:</p>
-                             <ul>
-                                 <li>Revisar a alocação de veículos (e alterar se necessário).</li>
-                                 <li>Atribuir Placas.</li>
-                                 <li>Atribuir Motoristas para cada veículo.</li>
-                                 <li>Atribuir Administradores responsáveis por cada veículo.</li>
-                             </ul>
+                             <ul>${formatarVeiculosParaAdmin(transportesComAtribuicao)}</ul>
+                             <p><strong>Capacidade Final Definida:</strong> ${capacidadeFinalCalculada}</p>
+                             <p><strong>Ação Necessária:</strong> Acesse o painel para revisar, atribuir placas, motoristas e administradores por veículo.</p>
                              <p>Atenciosamente,<br/>Sistema Caravana da Boa Viagem</p>
                          `;
                          await sendEmail(process.env.ADMIN_EMAIL, emailSubjectAdmin, emailHtmlAdmin);
-                         console.log(`[CRON ${caravanaId}] Email de notificação de definição automática enviado para admin.`);
+                         console.log(`[CRON ${caravanaId}] Email de notificação (Auto) enviado para admin.`);
                     } catch (emailError) {
                          console.error(`[CRON ${caravanaId}] Erro ao enviar email para admin (Auto):`, emailError);
                     }
-                    // --- Fim Envio de Email para Admin ---
 
                 } catch (updateError) {
                      console.error(`[CRON] Erro ao ATUALIZAR ${caravanaId}:`, updateError);
                 }
 
             } else { // Falha na alocação
-                 console.error(`[CRON] FALHA alocar ${caravanaId}: ${alocacaoFinal.erro}`);
+                 console.error(`[CRON] FALHA ao alocar transporte para ${caravanaId} (${pessoasParaAlocacaoInicial} pessoas -> ${pessoasNecessariasReais} reais, ${maxVeiculos} veículos): ${alocacaoFinal.erro}`);
                  try {
                       await caravanaRef.update({
                           status: 'cancelada',
-                          motivoCancelamento: `Falha na alocação automática: ${alocacaoFinal.erro}`,
+                          motivoCancelamento: `Falha na alocação automática de transporte: ${alocacaoFinal.erro || 'Não foi possível encontrar veículos adequados.'}`,
                           transporteAutoDefinido: true,
                           lastUpdate: admin.firestore.FieldValue.serverTimestamp()
                       });
-                      console.log(`[CRON] ${caravanaId}: Cancelada por falha na alocação.`);
-                      // Enviar Email de Cancelamento aos participantes
-                      // ... (lógica de email de cancelamento como antes) ...
+                      console.log(`[CRON ${caravanaId}]: Caravana cancelada por falha na alocação automática.`);
+                       const participantesParaCancelar = await buscarParticipantesParaNotificacao(caravanaId);
+                       if(participantesParaCancelar.length > 0){
+                           const localidadeInfoCancel = await getLocalidadeData(caravana.localidadeId);
+                           const nomeLocalidadeCancel = localidadeInfoCancel.nomeLocalidade || 'Destino Desconhecido';
+                           const dataFormatadaCancel = await formatDate(caravana.data);
+                           const emailSubject = `Caravana Cancelada - ${nomeLocalidadeCancel} (${dataFormatadaCancel})`;
+                           const emailHtml = `<p>Olá! A caravana para ${nomeLocalidadeCancel} em ${dataFormatadaCancel} foi cancelada devido a: Falha na alocação automática do transporte (${alocacaoFinal.erro || 'Não foi possível encontrar veículos adequados.'}). Contato sobre reembolso em breve.</p>`;
+                           for(const p of participantesParaCancelar) await sendEmail(p.email, emailSubject, emailHtml);
+                           console.log(`[CRON ${caravanaId}] Emails de cancelamento (falha alocação) enviados.`);
+                       }
                  } catch(cancelError) { console.error(`[CRON] Erro CANCELAR ${caravanaId}:`, cancelError); }
             }
         }
-        console.log('[CRON] Finalização automática concluída.');
-
+        console.log('[CRON] Finalização Automática de Transporte concluída.');
     } catch (error) {
-        console.error('[CRON] Erro GERAL finalização:', error);
+        console.error('[CRON] Erro GERAL na tarefa de Finalização Automática:', error);
     }
 };
+
+
+
 
 
 

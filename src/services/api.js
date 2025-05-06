@@ -68,9 +68,9 @@ export const deleteCaravana = async (id) => apiRequest('delete', `/caravanas/${i
 export const comprarIngresso = async (caravanaId, quantidade) => apiRequest('post', '/comprar-ingresso', { caravanaId, quantidade });
 export const cancelCaravan = (id, motivo = null) => apiRequest('put', `/cancelar-caravana/${id}`, { motivo });
 export const getParticipantesCaravana = async (caravanaId) => apiRequest('get', `/participantes/${caravanaId}`);
-export const getParticipantesDistribuidos = async (caravanaId, params = null) => {
-    return apiRequest('get', `/caravanas/${caravanaId}/participantes-distribuidos`, null, params);};
-
+export const getParticipantesDistribuidos = async (caravanaId, params = null) => {return apiRequest('get', `/caravanas/${caravanaId}/participantes-distribuidos`, null, params);};
+export const confirmarCaravanaManual = async (caravanaId) => { apiRequest('put', `/caravanas/${caravanaId}/confirmar-manual`);};
+    
 // --- Transportes ---
 export const createTransporte = async (transporteData) => apiRequest('post', '/transportes', transporteData);
 export const getTransportes = async () => apiRequest('get', '/transportes');

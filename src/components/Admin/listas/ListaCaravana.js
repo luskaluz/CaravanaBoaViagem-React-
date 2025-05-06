@@ -6,12 +6,12 @@ import Participantes from '../modal/Participantes';
 import FormularioCaravana from '../formularios/FormularioCaravana';
 import CaravanaCard from '../../CaravanaCard/CaravanaCard';
 import ModalDefinirTransporte from '../modal/ModalDefinirTransporte';
-import LoadingSpinner from '../../LoadingSpinner/LoadingSpinner'; // Importa Spinner
+import LoadingSpinner from '../../LoadingSpinner/LoadingSpinner';
 
 function ListaCaravanasAdmin({ caravanas: propCaravanas, onCaravanaClick }) {
     const [caravanas, setCaravanas] = useState(propCaravanas || []);
     const [error, setError] = useState(null);
-    const [isLoading, setIsLoading] = useState(true); // Inicia true
+    const [isLoading, setIsLoading] = useState(true);
     const [status, setStatus] = useState(null);
     const [sortBy, setSortBy] = useState('data');
     const [showSubmenu, setShowSubmenu] = useState(false);
@@ -51,14 +51,14 @@ function ListaCaravanasAdmin({ caravanas: propCaravanas, onCaravanaClick }) {
         const ocupacaoA = calcularOcupacaoPercent(a);
         const ocupacaoB = calcularOcupacaoPercent(b);
         if(ocupacaoB !== ocupacaoA) return ocupacaoB - ocupacaoA;
-        return sortByData(a,b); // Desempate por data
+        return sortByData(a,b);
     };
 
     const sortByLucroAtual = (a, b) => {
         const lucroA = ((a.vagasOcupadas || 0) * (a.preco || 0)) - (a.despesas || 0);
         const lucroB = ((b.vagasOcupadas || 0) * (b.preco || 0)) - (b.despesas || 0);
          if(lucroB !== lucroA) return lucroB - lucroA;
-         return sortByData(a,b); // Desempate por data
+         return sortByData(a,b);
     };
 
     const loadCaravanas = async () => {
@@ -72,7 +72,6 @@ function ListaCaravanasAdmin({ caravanas: propCaravanas, onCaravanaClick }) {
             if (sortBy === 'data') processedData.sort(sortByData);
             else if (sortBy === 'ocupacao') processedData.sort(sortByOcupacao);
             else if (sortBy === 'lucroAtual') processedData.sort(sortByLucroAtual);
-            // Outras ordenações (ex: preço) são feitas via query no backend
 
             setCaravanas(processedData);
         } catch (error) {
@@ -94,22 +93,24 @@ function ListaCaravanasAdmin({ caravanas: propCaravanas, onCaravanaClick }) {
 
     const handleCancelarCaravana = async (id) => {
         if (!window.confirm("Cancelar esta caravana?")) return;
-        // Opcional: setar loading específico
+        setIsLoading(true); // Para feedback visual
         try {
             await api.cancelCaravan(id);
-            loadCaravanas(); // Recarrega
+            loadCaravanas();
             alert('Caravana cancelada!');
         } catch (error) { setError(error.message); alert(`Erro: ${error.message}`); }
-        finally { /* parar loading específico */ }
+        finally { setIsLoading(false); }
     };
 
     const handleDeletar = async (id) => {
         if (!window.confirm("EXCLUIR esta caravana PERMANENTEMENTE?")) return;
+        setIsLoading(true);
         try {
             await api.deleteCaravana(id);
             loadCaravanas();
             alert('Caravana excluída!');
         } catch (error) { setError(error.message); alert(`Erro: ${error.message}`); }
+        finally { setIsLoading(false); }
     };
 
     const handleEdit = (caravana) => { setCaravanaParaEditar(caravana); setShowModalEditar(true); };
@@ -123,6 +124,23 @@ function ListaCaravanasAdmin({ caravanas: propCaravanas, onCaravanaClick }) {
     const closeModalDefinirTransporte = () => { setCaravanaParaDefinirTransporte(null); setShowModalDefinirTransporte(false); };
     const handleTransporteDefinido = () => { closeModalDefinirTransporte(); loadCaravanas(); alert('Transporte definido!'); };
 
+    const handleConfirmarManual = async (id, nomeLocalidade) => {
+        if (!window.confirm(`Confirmar manualmente a caravana para "${nomeLocalidade}"? Verifique se todos os critérios (ocupação, transporte completo) são atendidos.`)) return;
+        setIsLoading(true);
+        setError(null);
+        try {
+            const response = await api.confirmarCaravanaManual(id);
+            alert(response.message || 'Operação de confirmação realizada.');
+            loadCaravanas();
+        } catch (error) {
+            console.error("Erro ao confirmar caravana manualmente:", error);
+            setError(error.message || "Erro ao tentar confirmar.");
+            alert(`Erro ao confirmar: ${error.message || "Erro desconhecido."}`);
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
     const renderContent = () => {
         if (isLoading) return <LoadingSpinner mensagem="Carregando caravanas..." />;
         if (error) return <div className={styles.error}>Erro ao carregar caravanas: {error}</div>;
@@ -133,7 +151,6 @@ function ListaCaravanasAdmin({ caravanas: propCaravanas, onCaravanaClick }) {
                {caravanas.map((caravana) => (
                    <CaravanaCard key={caravana.id} caravana={caravana} isAdmin={true}>
                        <div className={styles.adminInfo}>
-                           {/* A info de ocupação agora vem do CaravanaCard */}
                            {caravana.guiaUid && <p><span className={styles.label}>Guia:</span> {caravana.guia?.nome || '...'}</p>}
                        </div>
                        <div className={styles.buttonRow}>
@@ -142,9 +159,18 @@ function ListaCaravanasAdmin({ caravanas: propCaravanas, onCaravanaClick }) {
                            <button className={styles.participantsButton} onClick={(e)=>{ e.stopPropagation(); openModalParticipantes(caravana.id); }}>Participantes ({caravana.vagasOcupadas || 0})</button>
                        </div>
                        <div className={styles.buttonRow}>
-                           {caravana.status !== 'cancelada' && caravana.status !== 'concluida' &&( <button className={styles.cancelButton} onClick={(e)=>{ e.stopPropagation(); handleCancelarCaravana(caravana.id); }}>Cancelar</button> )}
-                           <button className={styles.deleteButton} onClick={(e)=>{ e.stopPropagation(); handleDeletar(caravana.id); }}>Excluir</button>
-                           <button className={`${styles.button} ${styles.transportButton}`} onClick={(e)=>{ e.stopPropagation(); openModalDefinirTransporte(caravana); }}>Definir Transporte</button>
+                            {caravana.status === 'nao_confirmada' && (
+                                <button
+                                    className={`${styles.button} ${styles.confirmManualButton}`}
+                                    onClick={(e) => { e.stopPropagation(); handleConfirmarManual(caravana.id, caravana.nomeLocalidade); }}
+                                    disabled={isLoading}
+                                >
+                                    Confirmar Manual
+                                </button>
+                            )}
+                           {caravana.status !== 'cancelada' && caravana.status !== 'concluida' &&( <button className={styles.cancelButton} onClick={(e)=>{ e.stopPropagation(); handleCancelarCaravana(caravana.id); }} disabled={isLoading}>Cancelar</button> )}
+                           <button className={styles.deleteButton} onClick={(e)=>{ e.stopPropagation(); handleDeletar(caravana.id); }} disabled={isLoading}>Excluir</button>
+                           <button className={`${styles.button} ${styles.transportButton}`} onClick={(e)=>{ e.stopPropagation(); openModalDefinirTransporte(caravana); }} disabled={isLoading}>Definir Transporte</button>
                        </div>
                    </CaravanaCard>
                ))}
@@ -152,12 +178,11 @@ function ListaCaravanasAdmin({ caravanas: propCaravanas, onCaravanaClick }) {
         );
     }
 
-
     return (
         <div className={styles.container}>
             <h2 className={styles.titulo}>Lista de Caravanas</h2>
             <div className={styles.menuContainer}>
-                <button className={styles.menuButton} onClick={toggleSubmenu}> Filtros e Ordenação {showSubmenu ? "▲" : "▼"} </button>
+                <button className={styles.menuButton} onClick={toggleSubmenu} disabled={isLoading}> Filtros e Ordenação {showSubmenu ? "▲" : "▼"} </button>
                 {showSubmenu && (
                      <div className={styles.submenu}>
                          <div className={styles.submenuSection}>
@@ -177,9 +202,7 @@ function ListaCaravanasAdmin({ caravanas: propCaravanas, onCaravanaClick }) {
                      </div>
                  )}
             </div>
-
-             {renderContent()}
-
+            {renderContent()}
             {showModalEditar && (
                 <div className={styles.modalOverlay} onClick={closeModalEditar}>
                     <div className={`${styles.modal} ${styles.modalForm}`} onClick={(e) => e.stopPropagation()}>
