@@ -7,7 +7,7 @@ function Footer() {
       <div className={styles.footerContent}>
         <div className={styles.footerSection}>
           <h3>Sobre Nós</h3>
-          <p><a href="/sobre">Acesse a página sobre nós.</a></p>
+          <p><a href="/sobre">Conheça nossa empresa!.</a></p>
         </div>
 
         <div className={styles.footerSection}>
