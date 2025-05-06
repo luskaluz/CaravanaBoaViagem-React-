@@ -1264,7 +1264,7 @@ app.put('/caravanas/:id/confirmar-manual', verificarAutenticacao, verificarAdmin
                 const emailSubject = `Caravana Confirmada! - ${nomeLocalidade} (${dataFormatada})`;
                 const emailHtml = `
                     <p>Olá!</p>
-                    <p>Ótima notícia! A caravana para <strong>${nomeLocalidade}</strong> na data <strong>${dataFormatada}</strong> foi CONFIRMADA pela administração!</p>
+                    <p>Ótima notícia! A caravana para ${nomeLocalidade}na data ${dataFormatada} foi confirmada pela administração!</p>
                     <p>Prepare-se para a viagem! Mais detalhes e lembretes serão enviados.</p>
                     <p>Atenciosamente,<br/>Equipe Caravana da Boa Viagem</p>
                 `;
@@ -1630,8 +1630,8 @@ app.put('/cancelar-caravana/:id', verificarAutenticacao, verificarAdmin, async (
             const emailSubject = `Caravana para ${nomeLocalidade} Cancelada`;
             const emailHtml = `
               <p>Olá!</p>
-              <p>Informamos que a caravana para <strong>${nomeLocalidade}</strong> marcada para ${formatDate(caravana.data)} foi cancelada.</p>
-              ${motivo ? `<p><strong>Motivo:</strong> ${motivo}</p>` : ''}
+              <p>Informamos que a caravana para ${nomeLocalidade} marcada para ${formatDate(caravana.data)} foi cancelada.</p>
+              ${motivo ? `<p>Motivo: ${motivo}</p>` : ''}
               <p>Entendemos que isso pode causar inconvenientes. Por favor, entre em contato conosco para discutir opções de reembolso ou realocação, se aplicável.</p>
               <p>Atenciosamente,<br/>Equipe Caravana da Boa Viagem</p>
             `;
@@ -1779,90 +1779,129 @@ app.put('/caravanas/:id/alocacao-manual', verificarAutenticacao, verificarAdmin,
 
 app.get('/caravanas/:caravanaId/participantes-distribuidos', verificarAutenticacao, verificarFuncionarioOuAdmin, async (req, res) => {
     const { caravanaId } = req.params;
-    // Pega UID e Cargo do funcionário logado (se houver) da query string
     const { funcionarioUid, cargo } = req.query;
-    const isAdminView = !funcionarioUid; // Assume que é admin se UID não for passado
+    const isAdminView = !funcionarioUid;
+
+    console.log(`[Participantes Distribuidos] Iniciando para Caravana ID: ${caravanaId}, Funcionario UID: ${funcionarioUid}, Cargo: ${cargo}`);
 
     try {
         const caravanaDoc = await db.collection('caravanas').doc(caravanaId).get();
         if (!caravanaDoc.exists) {
+            console.log(`[Participantes Distribuidos] Caravana ${caravanaId} não encontrada.`);
             return res.status(404).json({ error: 'Caravana não encontrada.' });
         }
         const caravana = caravanaDoc.data();
+        console.log(`[Participantes Distribuidos] Caravana encontrada. Status: ${caravana.status}`);
 
-        const transporteDefinido = (caravana.transporteDefinidoManualmente || caravana.transporteAutoDefinido) && caravana.transportesFinalizados && caravana.transportesFinalizados.length > 0;
+        const transporteDefinido = (caravana.transporteDefinidoManualmente || caravana.transporteAutoDefinido) &&
+                                 caravana.transportesFinalizados &&
+                                 caravana.transportesFinalizados.length > 0;
 
         if (!transporteDefinido) {
-            // Se não definido, retorna a lista completa para todos (admin ou funcionário)
-             const participantesSnapshot = await db.collection('participantes')
-                 .where('caravanaId', '==', caravanaId)
-                 .orderBy('timestamp', 'desc')
-                 .get();
-             const todosParticipantes = await Promise.all(participantesSnapshot.docs.map(async doc => {
-                 const pData = doc.data();
-                 const userDoc = pData.uid ? await db.collection('users').doc(pData.uid).get() : null;
-                 const userData = userDoc && userDoc.exists ? userDoc.data() : {};
-                 return { id: doc.id, ...pData, nome: userData.nome || pData.nome, telefone: userData.telefone || null };
-             }));
+            console.log(`[Participantes Distribuidos] Transporte não definido para ${caravanaId}. Retornando lista geral.`);
+            const participantesSnapshot = await db.collection('participantes')
+                .where('caravanaId', '==', caravanaId)
+                .orderBy('timestamp', 'desc')
+                .get();
+            const todosParticipantes = await Promise.all(participantesSnapshot.docs.map(async doc => {
+                const pData = doc.data();
+                let nomeParticipante = pData.nome || 'Nome não informado';
+                let telefoneParticipante = null;
+                if (pData.uid) {
+                    try {
+                        const userDoc = await db.collection('users').doc(pData.uid).get();
+                        if (userDoc.exists) {
+                            nomeParticipante = userDoc.data().nome || nomeParticipante;
+                            telefoneParticipante = userDoc.data().telefone || null;
+                        }
+                    } catch (userFetchError) {
+                        console.error(`[Participantes Distribuidos] Erro ao buscar usuário ${pData.uid}:`, userFetchError);
+                    }
+                }
+                return { id: doc.id, ...pData, nome: nomeParticipante, telefone: telefoneParticipante };
+            }));
             return res.status(200).json({ definicaoCompleta: false, todosParticipantes: todosParticipantes });
         }
 
-        // Se transporte definido, busca detalhes e filtra se necessário
+        console.log(`[Participantes Distribuidos] Transporte definido. Processando veículos...`);
         const participantesMap = new Map();
-        const funcionariosMap = new Map();
+        const funcionariosMap = new Map(); // Cache para funcionários já buscados
 
-        let veiculosFiltrados = [...caravana.transportesFinalizados]; // Começa com todos
+        let veiculosParaProcessar = [...caravana.transportesFinalizados];
 
-        // Filtra para funcionário específico (se não for admin e não for guia)
         if (!isAdminView && cargo && cargo !== 'guia') {
-            veiculosFiltrados = caravana.transportesFinalizados.filter(veiculo =>
+            console.log(`[Participantes Distribuidos] Filtrando veículos para funcionário ${funcionarioUid} (cargo: ${cargo})`);
+            veiculosParaProcessar = caravana.transportesFinalizados.filter(veiculo =>
                 (cargo === 'administrador' && veiculo.administradorUid === funcionarioUid) ||
                 (cargo === 'motorista' && veiculo.motoristaUid === funcionarioUid)
             );
-             // Se após filtrar não sobrar nenhum veículo para este funcionário, retorna vazio
-             if (veiculosFiltrados.length === 0) {
-                 return res.status(200).json({ definicaoCompleta: true, veiculosComParticipantes: [] });
-             }
+            if (veiculosParaProcessar.length === 0) {
+                console.log(`[Participantes Distribuidos] Nenhum veículo atribuído a este funcionário.`);
+                return res.status(200).json({ definicaoCompleta: true, veiculosComParticipantes: [] });
+            }
         }
-        // Guias e Admins verão todos os veículos definidos
+        console.log(`[Participantes Distribuidos] Número de veículos para processar: ${veiculosParaProcessar.length}`);
+
 
         const veiculosComParticipantesDetalhados = await Promise.all(
-            veiculosFiltrados.map(async (veiculo) => { // Itera sobre os veículos filtrados (ou todos)
+            veiculosParaProcessar.map(async (veiculo, veiculoIndex) => {
                 const participantesAtribuidosDetalhes = [];
                 if (veiculo.participantesAtribuidos && Array.isArray(veiculo.participantesAtribuidos)) {
-                    // Cria um Set para buscar cada participante apenas uma vez
                     const participantesIdsUnicos = [...new Set(veiculo.participantesAtribuidos)];
+                    console.log(`[Participantes Distribuidos] Veículo ${veiculoIndex}: Buscando ${participantesIdsUnicos.length} participantes únicos.`);
 
                     for (const participanteDocId of participantesIdsUnicos) {
+                        if (!participanteDocId) { // Checagem extra
+                             console.warn(`[Participantes Distribuidos] Encontrado ID de participante nulo/undefined no veículo ${veiculoIndex}`);
+                             continue;
+                        }
                         let participanteDetalhe = participantesMap.get(participanteDocId);
                         if (!participanteDetalhe) {
-                            const pDoc = await db.collection('participantes').doc(participanteDocId).get();
-                            if (pDoc.exists) {
-                                participanteDetalhe = { id: pDoc.id, ...pDoc.data() };
-                                // Busca nome/telefone do usuário
-                                const userDoc = participanteDetalhe.uid ? await db.collection('users').doc(participanteDetalhe.uid).get() : null;
-                                const userData = userDoc && userDoc.exists ? userDoc.data() : {};
-                                participanteDetalhe.nome = userData.nome || participanteDetalhe.nome;
-                                participanteDetalhe.telefone = userData.telefone || null;
-
-                                participantesMap.set(participanteDocId, participanteDetalhe);
+                            try {
+                                const pDoc = await db.collection('participantes').doc(participanteDocId).get();
+                                if (pDoc.exists) {
+                                    participanteDetalhe = { id: pDoc.id, ...pDoc.data() };
+                                    let nomeP = participanteDetalhe.nome || 'Nome não informado';
+                                    let telP = null;
+                                    if (participanteDetalhe.uid) {
+                                        const userDoc = await db.collection('users').doc(participanteDetalhe.uid).get();
+                                        if (userDoc.exists) {
+                                            nomeP = userDoc.data().nome || nomeP;
+                                            telP = userDoc.data().telefone || null;
+                                        }
+                                    }
+                                    participanteDetalhe.nome = nomeP;
+                                    participanteDetalhe.telefone = telP;
+                                    participantesMap.set(participanteDocId, participanteDetalhe);
+                                } else {
+                                    console.warn(`[Participantes Distribuidos] Documento do participante ${participanteDocId} não encontrado.`);
+                                }
+                            } catch (pError) {
+                                console.error(`[Participantes Distribuidos] Erro ao buscar doc do participante ${participanteDocId}:`, pError);
                             }
                         }
                         if (participanteDetalhe) participantesAtribuidosDetalhes.push(participanteDetalhe);
                     }
-                    // Ordena por nome após buscar detalhes
-                    participantesAtribuidosDetalhes.sort((a, b) => a.nome.localeCompare(b.nome));
+                    participantesAtribuidosDetalhes.sort((a, b) => (a.nome || '').localeCompare(b.nome || ''));
                 }
 
                  let adminData = null;
                  if (veiculo.administradorUid) {
-                     adminData = funcionariosMap.get(veiculo.administradorUid) || await getFuncionarioData(veiculo.administradorUid);
-                     if(adminData) funcionariosMap.set(veiculo.administradorUid, adminData);
+                     if (funcionariosMap.has(veiculo.administradorUid)) {
+                         adminData = funcionariosMap.get(veiculo.administradorUid);
+                     } else {
+                         adminData = await getFuncionarioData(veiculo.administradorUid); // Sua função helper
+                         if(adminData) funcionariosMap.set(veiculo.administradorUid, adminData);
+                     }
                  }
                  let motoristaData = null;
                  if (veiculo.motoristaUid) {
-                     motoristaData = funcionariosMap.get(veiculo.motoristaUid) || await getFuncionarioData(veiculo.motoristaUid);
-                     if(motoristaData) funcionariosMap.set(veiculo.motoristaUid, motoristaData);
+                     if (funcionariosMap.has(veiculo.motoristaUid)) {
+                         motoristaData = funcionariosMap.get(veiculo.motoristaUid);
+                     } else {
+                         motoristaData = await getFuncionarioData(veiculo.motoristaUid);
+                         if(motoristaData) funcionariosMap.set(veiculo.motoristaUid, motoristaData);
+                     }
                  }
 
                 return {
@@ -1870,23 +1909,24 @@ app.get('/caravanas/:caravanaId/participantes-distribuidos', verificarAutenticac
                         tipoId: veiculo.tipoId, nomeTipo: veiculo.nomeTipo,
                         assentos: veiculo.assentos, placa: veiculo.placa
                     },
-                    administrador: adminData ? { uid: adminData.id, nome: adminData.nome } : null,
-                    motorista: motoristaData ? { uid: motoristaData.id, nome: motoristaData.nome } : null,
+                    administrador: adminData ? { uid: adminData.id || adminData.uid, nome: adminData.nome } : null,
+                    motorista: motoristaData ? { uid: motoristaData.id || motoristaData.uid, nome: motoristaData.nome } : null,
                     participantesAtribuidos: participantesAtribuidosDetalhes
                 };
             })
         );
-
+        console.log(`[Participantes Distribuidos] Processamento concluído para ${caravanaId}. Enviando resposta.`);
         res.status(200).json({
             definicaoCompleta: true,
             veiculosComParticipantes: veiculosComParticipantesDetalhados
         });
 
     } catch (error) {
-        console.error(`Erro ao buscar participantes distribuídos da caravana ${caravanaId}:`, error);
-        res.status(500).json({ error: "Erro interno ao buscar participantes distribuídos." });
+        console.error(`[Participantes Distribuidos] ERRO GERAL para caravana ${caravanaId}:`, error);
+        res.status(500).json({ error: "Erro interno ao buscar participantes distribuídos.", details: error.message });
     }
 });
+
 
 
 
@@ -2131,7 +2171,7 @@ app.post('/comprar-ingresso', verificarAutenticacao, async (req, res) => {
             const emailCompraSubject = `Confirmação de Compra - Caravana para ${nomeLocalidadeFinalCompra}`;
             const emailCompraHtml = `
                 <p>Olá ${usuarioNome || ''}!</p>
-                <p>Sua compra de ${quantidadeNumerica} ingresso(s) para a caravana com destino a <strong>${nomeLocalidadeFinalCompra}</strong> na data ${dataFormatadaCompra} foi realizada com sucesso!</p>
+                <p>Sua compra de ${quantidadeNumerica} ingresso(s) para a caravana com destino a ${nomeLocalidadeFinalCompra} na data ${dataFormatadaCompra} foi realizada com sucesso!</p>
                 <p>Horário de Saída Previsto: ${dadosCaravanaParaEmailUsuario.horarioSaida || 'A definir'}</p>
                 <p>Ponto de Encontro: ${dadosCaravanaParaEmailUsuario.pontoEncontro || 'A definir (verifique próximo à data)'}</p>
                 <p>Retorno Estimado: ${dadosCaravanaParaEmailUsuario.dataHoraRetorno ? (await formatDate(dadosCaravanaParaEmailUsuario.dataHoraRetorno)) + ' às ' + new Date(dadosCaravanaParaEmailUsuario.dataHoraRetorno).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', timeZone: 'America/Sao_Paulo' }) : 'A definir'}</p>
@@ -2165,13 +2205,13 @@ app.post('/comprar-ingresso', verificarAutenticacao, async (req, res) => {
                 const emailSubjectAdmin = `Alerta: Alocação Sugerida Alterada - ${nomeLocalidadeFinalAdmin} (${dataFormatadaViagemAdmin})`;
                 const emailHtmlAdmin = `
                     <p>Olá Administrador,</p>
-                    <p>A alocação de transporte ideal sugerida para a caravana <strong>${nomeLocalidadeFinalAdmin}</strong> (Data: ${dataFormatadaViagemAdmin}) foi recalculada devido a uma nova compra.</p>
-                    <p>Data final para definição: <strong>${dataFormatadaConfAdmin}</strong>.</p>
+                    <p>A alocação de transporte ideal sugerida para a caravana ${nomeLocalidadeFinalAdmin} (Data: ${dataFormatadaViagemAdmin}) foi recalculada devido a uma nova compra.</p>
+                    <p>Data final para definição: ${dataFormatadaConfAdmin}.</p>
                     <hr>
-                    <p><strong>Alocação Anterior Sugerida:</strong></p>
+                    <p>Alocação Anterior Sugerida:</p>
                     <ul>${formatarAlocacaoParaEmail(alocacaoAntes)}</ul>
                     <hr>
-                    <p><strong>Nova Alocação Sugerida:</strong></p>
+                    <p>Nova Alocação Sugerida:</p>
                     <ul>
                         ${formatarAlocacaoParaEmail(alocacaoDepois)}
                         <li>Capacidade Total Sugerida: ${dadosCaravanaParaEmailAdmin.capacidadeCalculada || 'N/A'}</li>
@@ -2578,7 +2618,7 @@ app.put('/caravanas/:id/definir-transporte-final', verificarAutenticacao, verifi
 
                         const emailHtml = `
                             <p>Olá!</p>
-                            <p>Boas notícias! O transporte para a caravana com destino a <strong>${nomeLocalidadeEmail}</strong> na data <strong>${dataFormatadaEmail}</strong> foi confirmado.</p>
+                            <p>Boas notícias! O transporte para a caravana com destino a ${nomeLocalidadeEmail} na data ${dataFormatadaEmail} foi confirmado.</p>
                             <p>Você foi alocado(a) no ${transporteDesc}</p>
                             <p>Ponto de Encontro: ${pontoEncontroEmail}</p>
                             <p>Horário de Saída Previsto: ${caravanaFinalDataEmail.horarioSaida || 'A definir'}</p>
@@ -2663,7 +2703,7 @@ app.put('/caravanas/:id/definir-transporte-final', verificarAutenticacao, verifi
 //                                const emailSubject = `Caravana para ${nomeLocalidade} Cancelada Automaticamente`;
 //                                const emailHtml = `
 //                                 <p>Olá!</p>
-//                                 <p>Informamos que a caravana para <strong>${nomeLocalidade}</strong> marcada para ${formatDate(caravana.data)} foi cancelada automaticamente por não atingir o número mínimo de participantes até a data limite.</p>
+//                                 <p>Informamos que a caravana para ${nomeLocalidade} marcada para ${formatDate(caravana.data)} foi cancelada automaticamente por não atingir o número mínimo de participantes até a data limite.</p>
 //                                 <p>Por favor, entre em contato conosco para discutir opções de reembolso.</p>
 //                                `;
 //                                for (const participante of participantesNotificar) {
@@ -2766,7 +2806,7 @@ const confirmarOuCancelarPosVendas = async () => {
                         }
                         const emailHtml = `
                             <p>Olá!</p>
-                            <p>Ótima notícia! A caravana para <strong>${nomeLocalidade}</strong> (${dataFormatada}) foi CONFIRMADA!</p>
+                            <p>Ótima notícia! A caravana para ${nomeLocalidade} (${dataFormatada}) foi CONFIRMADA!</p>
                             <p>Ponto de Encontro: ${pontoEncontroFormatado}</p>
                             <p>Horário de Saída: ${horarioSaidaFormatado}</p>
                             <p>Retorno Estimado: ${dataHoraRetornoFormatada}</p>
@@ -2783,7 +2823,7 @@ const confirmarOuCancelarPosVendas = async () => {
                         const emailSubject = `Caravana Cancelada - ${nomeLocalidade} (${dataFormatada})`;
                         const emailHtml = `
                             <p>Olá!</p>
-                            <p>Lamentamos informar que a caravana para <strong>${nomeLocalidade}</strong> (${dataFormatada}) foi cancelada.</p>
+                            <p>Lamentamos informar que a caravana para ${nomeLocalidade} (${dataFormatada}) foi cancelada.</p>
                             <p>Motivo: ${motivo}</p>
                             <p>Informações sobre reembolso serão enviadas em breve.</p>
                             <p>Atenciosamente,<br/>Equipe Caravana da Boa Viagem</p>
@@ -2854,17 +2894,17 @@ const enviarLembretes = async () => {
                             veiculosStr += `</li>`;
                          }
                          if (veiculosStr) {
-                             detalhesTransporteEmail = `<p><strong>Veículos Planejados para a Caravana:</strong></p><ul>${veiculosStr}</ul> <p>Você será informado sobre seu veículo específico e os responsáveis mais próximo à data.</p>`;
+                             detalhesTransporteEmail = `<p>Veículos Planejados para a Caravana:</p><ul>${veiculosStr}</ul> <p>Você será informado sobre seu veículo específico e os responsáveis mais próximo à data.</p>`;
                          }
                     }
 
                     const emailSubject = `Lembrete: Sua Caravana para ${nomeLocalidade} é em ${dataFormatadaViagem}!`;
                     const emailHtml = `
                         <p>Olá!</p>
-                        <p>Este é um lembrete sobre sua caravana confirmada para <strong>${nomeLocalidade}</strong> no dia <strong>${dataFormatadaViagem}</strong>.</p>
-                        <p><strong>Ponto de Encontro:</strong> ${pontoEncontro}</p>
-                        <p><strong>Horário de Saída:</strong> ${horarioSaida}</p>
-                        <p><strong>Retorno Estimado:</strong> ${dataHoraRetornoFormatada}</p>
+                        <p>Este é um lembrete sobre sua caravana confirmada para ${nomeLocalidade} no dia ${dataFormatadaViagem}.</p>
+                        <p>Ponto de Encontro: ${pontoEncontro}</p>
+                        <p>Horário de Saída: ${horarioSaida}</p>
+                        <p>Retorno Estimado: ${dataHoraRetornoFormatada}</p>
                         ${detalhesTransporteEmail}
                         <p>Prepare-se para uma ótima viagem!</p>
                         <p>Atenciosamente,<br/>Equipe Caravana da Boa Viagem</p>
@@ -3015,11 +3055,11 @@ const finalizarTransporteAutomaticamente = async () => {
                          };
                          const emailHtmlAdmin = `
                              <p>Olá Administrador,</p>
-                             <p>O sistema definiu automaticamente os veículos para a caravana <strong>${nomeLocalidadeCron}</strong> (Data: ${dataFormatadaViagemCron}) com base nos participantes inscritos até a data de confirmação (${dataFormatadaConfCron}).</p>
-                             <p><strong>Veículos Definidos Automaticamente:</strong></p>
+                             <p>O sistema definiu automaticamente os veículos para a caravana ${nomeLocalidadeCron} (Data: ${dataFormatadaViagemCron}) com base nos participantes inscritos até a data de confirmação (${dataFormatadaConfCron}).</p>
+                             <p>Veículos Definidos Automaticamente:</p>
                              <ul>${formatarVeiculosParaAdmin(transportesComAtribuicao)}</ul>
-                             <p><strong>Capacidade Final Definida:</strong> ${capacidadeFinalCalculada}</p>
-                             <p><strong>Ação Necessária:</strong> Acesse o painel para revisar, atribuir placas, motoristas e administradores por veículo.</p>
+                             <p>Capacidade Final Definida: ${capacidadeFinalCalculada}</p>
+                             <p>Ação Necessária: Acesse o painel para revisar, atribuir placas, motoristas e administradores por veículo.</p>
                              <p>Atenciosamente,<br/>Sistema Caravana da Boa Viagem</p>
                          `;
                          await sendEmail(process.env.ADMIN_EMAIL, emailSubjectAdmin, emailHtmlAdmin);

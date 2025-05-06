@@ -1,8 +1,7 @@
 import axios from 'axios';
-import { auth } from './firebase'; // Verifique o caminho
+import { auth } from './firebase';
 
-// Use variável de ambiente se possível, senão a string direta
-const API_URL = process.env.REACT_APP_API_URL || 'https://caravanaboaviagem-react.onrender.com';
+const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000';
 
 const apiRequest = async (method, url, data = null, params = null) => {
     try {
@@ -10,36 +9,45 @@ const apiRequest = async (method, url, data = null, params = null) => {
         const config = {
             method,
             url: `${API_URL}${url}`,
-            ...(data && { data: data }),
-            params, 
+            ...(data && ['post', 'put', 'patch'].includes(method.toLowerCase()) && { data: data }),
+            params,
             headers: {
                 'Content-Type': 'application/json',
                 ...(token && { Authorization: `Bearer ${token}` }),
             },
-            timeout: 60000, 
+            timeout: 60000,
         };
-
         const response = await axios(config);
         return response.data;
 
     } catch (error) {
-        console.error("Erro na API:", url, error.response?.status, error.response?.data || error.message);
-        let errorMessage = "Erro desconhecido na API.";
-        let statusCode = 500;
+        console.error(`Erro na API: ${method.toUpperCase()} ${url}`, error);
 
-        if (error.response) {
-            errorMessage = error.response.data?.error || error.response.data?.message || `Erro ${error.response.status}`;
+        let errorMessage = "Ocorreu um erro desconhecido na comunicação com o servidor.";
+        let statusCode = 500;
+        let errorData = null;
+
+        if (error.code === 'ECONNABORTED' && error.message.includes('timeout')) {
+             errorMessage = `Tempo limite (${(error.config?.timeout || 0) / 1000}s) excedido ao tentar acessar a rota ${url}. O servidor pode estar lento ou indisponível.`;
+             statusCode = 408;
+        } else if (error.response) {
+            errorData = error.response.data;
+            // Tenta pegar a mensagem de erro do backend, senão usa uma genérica
+            errorMessage = errorData?.error || errorData?.message || `Erro ${error.response.status} ao processar sua requisição.`;
             statusCode = error.response.status;
+            console.error("Detalhes do erro da API:", errorData);
         } else if (error.request) {
-            errorMessage = "Não foi possível conectar ao servidor.";
+            errorMessage = "Não foi possível conectar ao servidor. Verifique sua conexão ou o status do servidor.";
             statusCode = 503;
-        } else {
+        } else if (error.message) { // Erro ao configurar a requisição ou outro erro JS
             errorMessage = error.message;
         }
 
-         const apiError = new Error(errorMessage);
-         apiError.status = statusCode; // Adiciona status ao erro
-         throw apiError; // Re-lança o erro customizado
+         const apiError = new Error(errorMessage); // <<< GARANTE QUE É UM OBJETO Error
+         apiError.status = statusCode;
+         apiError.data = errorData;
+         apiError.config = error.config;
+         throw apiError; // <<< Relança o objeto Error
     }
 };
 

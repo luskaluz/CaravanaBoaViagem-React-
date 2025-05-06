@@ -144,14 +144,14 @@ function ListaCaravanasAdmin({ caravanas: propCaravanas, onCaravanaClick }) {
     const renderContent = () => {
         if (isLoading) return <LoadingSpinner mensagem="Carregando caravanas..." />;
         if (error) return <div className={styles.error}>Erro ao carregar caravanas: {error}</div>;
-        if (caravanas.length === 0) return <p className={styles.nenhumaCaravana}>Nenhuma caravana encontrada com os filtros atuais.</p>;
+        if (caravanas.length === 0) return <p>Nenhuma caravana encontrada com os filtros atuais.</p>;
 
         return (
             <div className={styles.cardContainer}>
                {caravanas.map((caravana) => (
                    <CaravanaCard key={caravana.id} caravana={caravana} isAdmin={true}>
                        <div className={styles.adminInfo}>
-                           {caravana.guiaUid && <p><span className={styles.label}>Guia:</span> {caravana.guia?.nome || '...'}</p>}
+                           {caravana.guiaUid && <p><span className={styles.label}>Guia:</span> {caravana.guia?.nome || 'Carregando...'}</p>}
                        </div>
                        <div className={styles.buttonRow}>
                            <button className={styles.editButton} onClick={(e) => { e.stopPropagation(); handleEdit(caravana); }}>Editar Dados</button>
@@ -159,18 +159,38 @@ function ListaCaravanasAdmin({ caravanas: propCaravanas, onCaravanaClick }) {
                            <button className={styles.participantsButton} onClick={(e)=>{ e.stopPropagation(); openModalParticipantes(caravana.id); }}>Participantes ({caravana.vagasOcupadas || 0})</button>
                        </div>
                        <div className={styles.buttonRow}>
+                            {caravana.status !== 'cancelada' && caravana.status !== 'concluida' &&(
+                                <button
+                                    className={styles.cancelButton}
+                                    onClick={(e)=>{ e.stopPropagation(); handleCancelarCaravana(caravana.id); }}
+                                    disabled={isLoading}
+                                >
+                                    Cancelar
+                                </button>
+                             )}
+                           <button
+                                className={styles.deleteButton}
+                                onClick={(e)=>{ e.stopPropagation(); handleDeletar(caravana.id); }}
+                                disabled={isLoading}
+                            >
+                                Excluir
+                            </button>
                             {caravana.status === 'nao_confirmada' && (
                                 <button
-                                    className={`${styles.buttonBase} ${styles.confirmManualButton}`}
+                                    className={`${styles.button} ${styles.confirmManualButton}`}
                                     onClick={(e) => { e.stopPropagation(); handleConfirmarManual(caravana.id, caravana.nomeLocalidade); }}
                                     disabled={isLoading}
                                 >
                                     Confirmar Manual
                                 </button>
                             )}
-                           {caravana.status !== 'cancelada' && caravana.status !== 'concluida' &&( <button className={`${styles.buttonBase} ${styles.cancelButton}`} onClick={(e)=>{ e.stopPropagation(); handleCancelarCaravana(caravana.id); }} disabled={isLoading}>Cancelar</button> )}
-                           <button className={`${styles.buttonBase} ${styles.deleteButton}`} onClick={(e)=>{ e.stopPropagation(); handleDeletar(caravana.id); }} disabled={isLoading}>Excluir</button>
-                           <button className={`${styles.buttonBase} ${styles.transportButton}`} onClick={(e)=>{ e.stopPropagation(); openModalDefinirTransporte(caravana); }} disabled={isLoading}>Definir Transporte</button>
+                           <button
+                                className={`${styles.button} ${styles.transportButton}`}
+                                onClick={(e)=>{ e.stopPropagation(); openModalDefinirTransporte(caravana); }}
+                                disabled={isLoading}
+                            >
+                                Definir Transporte
+                            </button>
                        </div>
                    </CaravanaCard>
                ))}
@@ -182,22 +202,22 @@ function ListaCaravanasAdmin({ caravanas: propCaravanas, onCaravanaClick }) {
         <div className={styles.container}>
             <h2 className={styles.titulo}>Lista de Caravanas</h2>
             <div className={styles.menuContainer}>
-                <button className={styles.menuButtonPrincipal} onClick={toggleSubmenu} disabled={isLoading}> Filtros e Ordenação {showSubmenu ? "▲" : "▼"} </button>
+                <button className={styles.menuButton} onClick={toggleSubmenu} disabled={isLoading}> Filtros e Ordenação {showSubmenu ? "▲" : "▼"} </button>
                 {showSubmenu && (
                      <div className={styles.submenu}>
                          <div className={styles.submenuSection}>
                              <h3>Filtrar por Status:</h3>
-                             <button className={status === null ? styles.activeFilterButton : styles.filterButton} onClick={() => handleStatusChange(null)}>Todas</button>
-                             <button className={status === 'confirmada' ? styles.activeFilterButton : styles.filterButton} onClick={() => handleStatusChange('confirmada')}>Confirmadas</button>
-                             <button className={status === 'nao_confirmada' ? styles.activeFilterButton : styles.filterButton} onClick={() => handleStatusChange('nao_confirmada')}>Não Confirmadas</button>
-                             <button className={status === 'cancelada' ? styles.activeFilterButton : styles.filterButton} onClick={() => handleStatusChange('cancelada')}>Canceladas</button>
-                             <button className={status === 'concluida' ? styles.activeFilterButton : styles.filterButton} onClick={() => handleStatusChange('concluida')}>Concluídas</button>
+                             <button className={status === null ? styles.activeButton : styles.button} onClick={() => handleStatusChange(null)}>Todas</button>
+                             <button className={status === 'confirmada' ? styles.activeButton : styles.button} onClick={() => handleStatusChange('confirmada')}>Confirmadas</button>
+                             <button className={status === 'nao_confirmada' ? styles.activeButton : styles.button} onClick={() => handleStatusChange('nao_confirmada')}>Não Confirmadas</button>
+                             <button className={status === 'cancelada' ? styles.activeButton : styles.button} onClick={() => handleStatusChange('cancelada')}>Canceladas</button>
+                             <button className={status === 'concluida' ? styles.activeButton : styles.button} onClick={() => handleStatusChange('concluida')}>Concluídas</button>
                          </div>
                          <div className={styles.submenuSection}>
                              <h3>Ordenar por:</h3>
-                             <button className={sortBy === 'data' ? styles.activeFilterButton : styles.filterButton} onClick={() => handleSortChange('data')}>Data</button>
-                             <button className={sortBy === 'ocupacao' ? styles.activeFilterButton : styles.filterButton} onClick={() => handleSortChange('ocupacao')}>Ocupação (%)</button>
-                             <button className={sortBy === 'lucroAtual' ? styles.activeFilterButton : styles.filterButton} onClick={() => handleSortChange('lucroAtual')}>Lucro Atual</button>
+                             <button className={sortBy === 'data' ? styles.activeButton : styles.button} onClick={() => handleSortChange('data')}>Data</button>
+                             <button className={sortBy === 'ocupacao' ? styles.activeButton : styles.button} onClick={() => handleSortChange('ocupacao')}>Ocupação (%)</button>
+                             <button className={sortBy === 'lucroAtual' ? styles.activeButton : styles.button} onClick={() => handleSortChange('lucroAtual')}>Lucro Atual</button>
                          </div>
                      </div>
                  )}
