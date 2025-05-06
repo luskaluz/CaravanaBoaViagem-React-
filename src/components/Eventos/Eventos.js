@@ -103,7 +103,7 @@ function Eventos() {
                                 <p><strong>Data: </strong>{caravana.data ? new Date(caravana.data + 'T00:00:00Z').toLocaleDateString('pt-BR', { timeZone: 'UTC' }) : 'N/A'}</p>
                                 <p><strong>Status:</strong> {translateStatus(caravana.status)}</p>
                                 <p><strong>Capacidade Total:</strong> {disponibilidade.capacidadeTotalExibida > 0 ? disponibilidade.capacidadeTotalExibida : 'A definir'}</p>
-                                <p><strong>Vagas Disp. (Clientes):</strong> {disponibilidade.capacidadeTotalExibida === 0 ? 'A definir' : (disponibilidade.vagasCliente === 0 ? 'Esgotado' : disponibilidade.vagasCliente)}</p>
+                                <p><strong>Vagas Disponíveis:</strong> {disponibilidade.capacidadeTotalExibida === 0 ? 'A definir' : (disponibilidade.vagasCliente === 0 ? 'Esgotado' : disponibilidade.vagasCliente)}</p>
                                 <button onClick={() => openPopup(caravana)} className={styles.eventoCardBotao}> Ver Detalhes </button>
                             </div>
                         </div>
