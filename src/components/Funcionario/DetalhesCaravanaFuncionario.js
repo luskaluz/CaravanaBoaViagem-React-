@@ -1,27 +1,30 @@
-import React, { useState, useEffect } from 'react';
-import styles from '../Usuario/DetalhesCaravanaUsuario.module.css'; // Reutiliza estilos do usuário
+import React, { useState, useEffect, useMemo } from 'react';
+import styles from '../Usuario/DetalhesCaravanaUsuario.module.css'; // Reutiliza estilos
 import * as api from '../../services/api';
-import translateStatus from '../translate/translate'; // Importa translateStatus
-
-const PLACEHOLDER_IMAGE_URL = "https://via.placeholder.com/80x120?text=Foto";
+import translateStatus from '../translate/translate';
 
 function DetalhesCaravanaFuncionario({ caravana }) {
     const [descricao, setDescricao] = useState('');
     const [isLoadingDesc, setIsLoadingDesc] = useState(false);
-    const [funcionarios, setFuncionarios] = useState([]); // Para buscar nomes
+    const [funcionarios, setFuncionarios] = useState([]);
     const [loadingFuncionarios, setLoadingFuncionarios] = useState(true);
+    const [errorFuncionarios, setErrorFuncionarios] = useState(null);
 
     useEffect(() => {
         const fetchFuncionarios = async () => {
             if (!caravana) return;
             setLoadingFuncionarios(true);
+            setErrorFuncionarios(null);
             try {
                 const funcData = await api.getFuncionarios();
                 setFuncionarios(funcData);
-            } catch (err) { console.error("Erro ao buscar funcionários:", err); }
+            } catch (err) {
+                console.error("Erro ao buscar funcionários:", err);
+                setErrorFuncionarios("Falha ao carregar dados da equipe.");
+            }
             finally { setLoadingFuncionarios(false); }
         };
-        fetchFuncionarios();
+        if (caravana) fetchFuncionarios();
     }, [caravana]);
 
     useEffect(() => {
@@ -31,18 +34,18 @@ function DetalhesCaravanaFuncionario({ caravana }) {
                 try {
                     const descricaoData = await api.getDescricaoLocalidade(caravana.localidadeId);
                     setDescricao(descricaoData.descricao || '');
-                } catch (err) { console.error(err); setDescricao('Erro ao carregar.'); }
+                } catch (err) { console.error(err); setDescricao('Erro ao carregar descrição.'); }
                 finally { setIsLoadingDesc(false); }
             } else { setDescricao('N/A'); }
         };
-        fetchDescricao();
+        if (caravana) fetchDescricao();
     }, [caravana]);
 
     const getNomeFuncionario = (uid) => {
-        if (!uid) return 'Não definido';
+        if (!uid) return 'Não Definido';
         if (loadingFuncionarios) return 'Carregando...';
         const func = funcionarios.find(f => (f.uid || f.id) === uid);
-        return func ? func.nome : `UID: ${uid} (Não encontrado)`;
+        return func ? func.nome : `Não Encontrado`; // Simplificado
     };
 
      const formatarDataHora = (dateTimeString) => {
@@ -50,32 +53,32 @@ function DetalhesCaravanaFuncionario({ caravana }) {
         try {
             const dt = new Date(dateTimeString);
             if (!isNaN(dt.getTime())) {
-                return dt.toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+                return dt.toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', timeZone: 'America/Sao_Paulo' });
             }
         } catch (e) { console.warn("Erro ao formatar data/hora:", dateTimeString); }
         return 'Inválido';
     };
 
-
-    // Subcomponente para exibir informações BÁSICAS do funcionário
-    const EmployeeInfoBasic = ({ uid, role }) => {
-        const nome = getNomeFuncionario(uid);
-        const displayText = uid ? nome : 'Não Definido';
-       return (
-            <p className={styles.infoItem}><strong>{role}:</strong> {displayText}</p>
-       );
-   };
-
     if (!caravana) return <div className={styles.container}>Caravana não encontrada.</div>;
 
-    const vagasOcupadas = caravana.vagasOcupadas || 0;
-    const capacidadeDefinida = caravana.transporteDefinidoManualmente || caravana.transporteAutoDefinido;
-    const capacidadeFinal = caravana.capacidadeFinalizada || 0;
+    const transporteDefinido = caravana.transporteDefinidoManualmente || caravana.transporteAutoDefinido;
+    const capacidadeExibida = transporteDefinido
+                             ? (caravana.capacidadeFinalizada || 0)
+                             : (caravana.capacidadeMaximaTeorica || 0);
 
+    let numAdminsConsiderados = 0;
+    if (capacidadeExibida > 0) {
+        if (transporteDefinido && Array.isArray(caravana.transportesFinalizados)) {
+            numAdminsConsiderados = Math.min(capacidadeExibida, caravana.transportesFinalizados.length);
+        } else {
+            numAdminsConsiderados = Math.min(capacidadeExibida, caravana.maximoTransportes || 0);
+        }
+    }
+    const vagasDisponiveisParaClientes = Math.max(0, capacidadeExibida - (caravana.vagasOcupadas || 0) - numAdminsConsiderados);
 
     return (
         <div className={styles.container}>
-            <h2 className={styles.title}>Detalhes da Caravana</h2>
+            <h2 className={styles.title}>Detalhes da Caravana (Funcionário)</h2>
             {(caravana.imagemCapaLocalidade || (caravana.imagensLocalidade && caravana.imagensLocalidade.length > 0)) && (
                 <img
                     src={caravana.imagemCapaLocalidade || caravana.imagensLocalidade[0]}
@@ -96,46 +99,42 @@ function DetalhesCaravanaFuncionario({ caravana }) {
                 {isLoadingDesc ? <p>Carregando...</p> : <p className={styles.descricao}>{descricao || 'Sem descrição disponível.'}</p>}
             </div>
 
-             {/* Mostra a equipe PRINCIPAL definida (se houver) */}
-             <div className={styles.infoSection}>
-                 <h3>Equipe Principal</h3>
-                 <EmployeeInfoBasic uid={caravana.administradorUid} role="Admin Principal"/>
-                 <EmployeeInfoBasic uid={caravana.motoristaUid} role="Motorista Principal" />
-                 <EmployeeInfoBasic uid={caravana.guiaUid} role="Guia" />
+            <div className={styles.infoSection}>
+                 <h3>Equipe Geral Atribuída</h3>
+                 <p className={styles.infoItem}><strong>Guia:</strong> {getNomeFuncionario(caravana.guiaUid)}</p>
+                 {errorFuncionarios && <p className={styles.errorSmall}>{errorFuncionarios}</p>}
+                 {/* Não mostra mais admin/motorista geral se o transporte foi finalizado */}
+                 {!transporteDefinido && (
+                     <>
+                         <p className={styles.infoItem}><strong>Administrador Principal (Pré-Definição):</strong> {getNomeFuncionario(caravana.administradorUid)}</p>
+                         <p className={styles.infoItem}><strong>Motorista Principal (Pré-Definição):</strong> {getNomeFuncionario(caravana.motoristaUid)}</p>
+                     </>
+                 )}
              </div>
 
-             {/* Mostra detalhes dos veículos se definidos */}
-             {capacidadeDefinida && Array.isArray(caravana.transportesFinalizados) && caravana.transportesFinalizados.length > 0 && (
+             {transporteDefinido && Array.isArray(caravana.transportesFinalizados) && caravana.transportesFinalizados.length > 0 && (
                  <div className={styles.infoSection}>
-                     <h3>Veículos e Responsáveis</h3>
+                     <h3>Veículos e Responsáveis Definidos</h3>
                      {loadingFuncionarios && <p>Carregando nomes...</p>}
-                     <ul>
+                     {errorFuncionarios && <p className={styles.errorSmall}>{errorFuncionarios}</p>}
+                     <ul className={styles.vehicleList}>
                          {caravana.transportesFinalizados.map((v, index) => (
-                             <li key={index} className={styles.vehicleListItem}>
+                             <li key={`${v.tipoId}-${index}-${v.placa || index}`} className={styles.vehicleListItem}>
                                  <strong>Veículo {index+1}: {v.nomeTipo}</strong> ({v.assentos} assentos)
                                  {v.placa && ` - Placa: ${v.placa}`} <br/>
-                                 <span className={styles.responsible}>Admin: {getNomeFuncionario(v.administradorUid)}</span> <br/>
-                                 <span className={styles.responsible}>Motorista: {getNomeFuncionario(v.motoristaUid)}</span>
+                                 <span className={styles.responsible}><strong>Admin do Veículo:</strong> {getNomeFuncionario(v.administradorUid)}</span> <br/>
+                                 <span className={styles.responsible}><strong>Motorista do Veículo:</strong> {getNomeFuncionario(v.motoristaUid)}</span>
                              </li>
                          ))}
                      </ul>
-                     <p className={styles.infoItem}><strong>Capacidade Final:</strong> {capacidadeFinal}</p>
-                 </div>
-             )}
-
-             {/* Mostra capacidade teórica se transporte NÃO definido */}
-             {!capacidadeDefinida && (
-                 <div className={styles.infoSection}>
-                     <h3>Transporte (Pré-Definição)</h3>
-                     <p className={styles.infoItem}><strong>Nº Máx. Veículos:</strong> {caravana.maximoTransportes || 'N/A'}</p>
-                     <p className={styles.infoItem}><strong>Capacidade Máx. Teórica:</strong> {caravana.capacidadeMaximaTeorica || 'N/A'}</p>
                  </div>
              )}
 
              <div className={styles.infoSection}>
-                <h3>Participantes</h3>
-                <p className={styles.infoItem}><strong>Inscritos (Clientes):</strong> {vagasOcupadas}</p>
-                {/* Vagas disponíveis para clientes é mais complexo aqui, talvez omitir ou simplificar */}
+                <h3>Participantes e Capacidade</h3>
+                <p className={styles.infoItem}><strong>Inscritos (Clientes):</strong> {caravana.vagasOcupadas || 0}</p>
+                <p className={styles.infoItem}><strong>Capacidade Total Exibida:</strong> {capacidadeExibida > 0 ? capacidadeExibida : 'Não definida'}</p>
+                <p className={styles.infoItem}><strong>Vagas Disponíveis (Clientes):</strong> {capacidadeExibida > 0 ? vagasDisponiveisParaClientes : 'N/A'}</p>
              </div>
         </div>
     );

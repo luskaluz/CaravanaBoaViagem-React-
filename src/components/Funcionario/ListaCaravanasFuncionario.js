@@ -31,10 +31,7 @@ function ListaCaravanasFuncionario({ caravanas, onCaravanaClick, onParticipantes
 
                     // Determina se o botão de participantes deve ser mostrado para este funcionário
                     // Guia sempre vê. Admin/Motorista só vê se o transporte foi definido.
-                    const podeVerParticipantes =
-                        funcionarioLogado?.cargo === 'guia' ||
-                        ((funcionarioLogado?.cargo === 'administrador' || funcionarioLogado?.cargo === 'motorista') &&
-                         (caravana.transporteDefinidoManualmente || caravana.transporteAutoDefinido));
+                    const podeVerParticipantes = true;
 
                     return (
                         <div key={caravana.id} className={cardClass} >

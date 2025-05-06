@@ -28,7 +28,7 @@ function Participantes({ caravanaId, funcionarioUid = null, cargo = null }) {
                 if (data.definicaoCompleta && data.veiculosComParticipantes) {
                     const initialOpenState = {};
                     data.veiculosComParticipantes.forEach((_, index) => {
-                        initialOpenState[`veiculo-${index}`] = false; // Começa fechado
+                        initialOpenState[`veiculo-${index}`] = false;
                     });
                     setSecaoAberta(initialOpenState);
                 }
@@ -49,10 +49,8 @@ function Participantes({ caravanaId, funcionarioUid = null, cargo = null }) {
         setSecaoAberta(prev => ({ ...prev, [idSecao]: !prev[idSecao] }));
     };
 
-    // Modificado para usar quantidadeAtribuida
     const renderTabelaParticipantes = (listaParticipantes) => {
         if (!listaParticipantes || listaParticipantes.length === 0) {
-            // Verifica se a lista é vazia após o transporte definido
              if(distribuicao?.definicaoCompleta) {
                  return <p className={styles.semParticipantes}>Nenhum participante atribuído a este veículo.</p>;
              } else {
@@ -66,18 +64,17 @@ function Participantes({ caravanaId, funcionarioUid = null, cargo = null }) {
                         <th>Nome</th>
                         <th>Email</th>
                         <th>Telefone</th>
-                        <th>Ingressos (neste Veículo)</th>
+                        <th>Ingressos (neste Veículo)</th> {/* Mantém o cabeçalho */}
                     </tr>
                 </thead>
                 <tbody>
-                    {/* Mapeia a lista que agora contém quantidadeAtribuida */}
                     {listaParticipantes.map((participante) =>(
                        <tr key={participante.id || participante.uid || participante.email}>
                             <td>{participante.nome || 'N/A'}</td>
                             <td>{participante.email || 'N/A'}</td>
                             <td>{participante.telefone || 'N/A'}</td>
-                            {/* Exibe a quantidade específica deste veículo */}
-                            <td>{participante.quantidadeAtribuida || 'N/A'}</td>
+                            {/* <<< CORREÇÃO AQUI: Usa participante.quantidade >>> */}
+                            <td>{participante.quantidade || 'N/A'}</td>
                        </tr>
                     ))}
                 </tbody>
@@ -93,11 +90,9 @@ function Participantes({ caravanaId, funcionarioUid = null, cargo = null }) {
              {loading && <p className={styles.loading}>Carregando participantes...</p>}
              {error && <p className={styles.error}>Erro: {error}</p>}
 
-             {/* Renderiza lista geral se transporte não definido */}
              {!loading && !error && distribuicao && !distribuicao.definicaoCompleta && (
                 <>
-                    <p className={styles.aviso}>O transporte final ainda não foi definido. Exibindo lista geral de compras.</p>
-                    {/* A tabela aqui pode mostrar a quantidade total da compra original */}
+                    <p className={styles.aviso}>O transporte final ainda não foi definido ou não há participantes. Exibindo lista geral de compras.</p>
                     <table className={styles.table}>
                          <thead>
                              <tr>
@@ -121,7 +116,6 @@ function Participantes({ caravanaId, funcionarioUid = null, cargo = null }) {
                 </>
              )}
 
-            {/* Renderiza por veículo se transporte definido */}
             {!loading && !error && distribuicao && distribuicao.definicaoCompleta && (
                  <>
                     {distribuicao.veiculosComParticipantes.length === 0 &&
@@ -138,14 +132,12 @@ function Participantes({ caravanaId, funcionarioUid = null, cargo = null }) {
                                         {itemVeiculo.veiculoInfo.placa && ` (Placa: ${itemVeiculo.veiculoInfo.placa})`}
                                         <span> | Admin: {itemVeiculo.administrador?.nome || 'N/D'}</span>
                                         <span> | Motorista: {itemVeiculo.motorista?.nome || 'N/D'}</span>
-                                        {/* Usa totalPessoasVeiculo que veio da API */}
                                         <span> | Pessoas no Veículo: {itemVeiculo.totalPessoasVeiculo || 0}</span>
                                     </div>
                                     <span className={styles.setaDropdown}>{estaAberta ? '▲' : '▼'}</span>
                                 </button>
                                 {estaAberta && (
                                     <div className={styles.conteudoDropdown}>
-                                        {/* Passa a lista correta para a tabela */}
                                         {renderTabelaParticipantes(itemVeiculo.participantesAtribuidos)}
                                     </div>
                                 )}

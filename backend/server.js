@@ -894,7 +894,7 @@ app.put('/funcionarios/:id', verificarAutenticacao, verificarAdmin, async (req, 
 
 
 // Rota para listar todos os funcionários (requer admin ou outra permissão)
-app.get('/funcionarios', verificarAutenticacao, verificarAdmin, async (req, res) => { 
+app.get('/funcionarios', verificarAutenticacao, async (req, res) => { 
     try {
         const snapshot = await db.collection('funcionarios').get();
         const funcionarios = [];
@@ -1904,7 +1904,7 @@ app.get('/caravanas/:caravanaId/participantes-distribuidos', verificarAutenticac
                          console.error(`[PD GET ${caravanaId}] Erro ao buscar usuário ${pData.uid}:`, userFetchError);
                      }
                  }
-                 return { id: doc.id, ...pData, nome: nomeParticipante, telefone: telefoneParticipante, quantidade: pData.quantidade || 0 }; // Garante quantidade
+                 return { id: doc.id, ...pData, nome: nomeParticipante, telefone: telefoneParticipante, quantidade: pData.quantidade || 0 };
              }));
             return res.status(200).json({ definicaoCompleta: false, todosParticipantes: todosParticipantes });
         }
@@ -1939,45 +1939,47 @@ app.get('/caravanas/:caravanaId/participantes-distribuidos', verificarAutenticac
 
                     for (const atribuicao of veiculo.participantesAtribuidos) {
                         const participanteDocId = atribuicao.participanteDocId;
-                        const quantidadeAtribuida = atribuicao.quantidadeAtribuida || 0;
+                        const quantidadeNesteVeiculo = atribuicao.quantidadeAtribuida || 0; // Quantos ingressos *desta compra* estão neste veículo
 
-                        if (!participanteDocId || quantidadeAtribuida <= 0) {
-                            console.warn(`[PD GET ${caravanaId}] Atribuição inválida no veículo ${veiculoIndex + 1}:`, atribuicao);
+                        if (!participanteDocId || quantidadeNesteVeiculo <= 0) {
+                            console.warn(`[PD GET ${caravanaId}] Atribuição inválida encontrada no veículo ${veiculoIndex + 1}:`, atribuicao);
                             continue;
                         }
 
-                        totalPessoasNoVeiculo += quantidadeAtribuida;
+                        totalPessoasNoVeiculo += quantidadeNesteVeiculo;
 
-                        let participanteDetalhe = participantesCache.get(participanteDocId);
-                        if (!participanteDetalhe) {
+                        let dadosCompletosParticipante = participantesCache.get(participanteDocId);
+                        if (!dadosCompletosParticipante) {
                             try {
                                 const pDoc = await db.collection('participantes').doc(participanteDocId).get();
                                 if (pDoc.exists) {
-                                    participanteDetalhe = { id: pDoc.id, ...pDoc.data() };
-                                    let nomeP = participanteDetalhe.nome || 'Nome não informado';
+                                    dadosCompletosParticipante = { id: pDoc.id, ...pDoc.data() };
+                                    let nomeP = dadosCompletosParticipante.nome || 'Nome não informado';
                                     let telP = null;
-                                    if (participanteDetalhe.uid) {
-                                        const userDoc = await db.collection('users').doc(participanteDetalhe.uid).get();
+                                    if (dadosCompletosParticipante.uid) {
+                                        const userDoc = await db.collection('users').doc(dadosCompletosParticipante.uid).get();
                                         if (userDoc.exists) {
                                             nomeP = userDoc.data().nome || nomeP;
                                             telP = userDoc.data().telefone || null;
                                         }
                                     }
-                                    participanteDetalhe.nome = nomeP;
-                                    participanteDetalhe.telefone = telP;
-                                    participantesCache.set(participanteDocId, participanteDetalhe);
+                                    dadosCompletosParticipante.nome = nomeP;
+                                    dadosCompletosParticipante.telefone = telP;
+                                    // Não sobrescreve a 'quantidade' original aqui, vamos adicionar a específica do veículo
+                                    participantesCache.set(participanteDocId, dadosCompletosParticipante);
                                 } else {
                                     console.warn(`[PD GET ${caravanaId}] Documento participante ${participanteDocId} não encontrado.`);
-                                     participanteDetalhe = { id: participanteDocId, nome: `Participante ID ${participanteDocId} (Removido?)`, email:'N/A', telefone: 'N/A', quantidadeOriginal: 0 };
+                                     dadosCompletosParticipante = { id: participanteDocId, nome: `Participante ID ${participanteDocId} (Removido?)`, email:'N/A', telefone: 'N/A', quantidade: 0 };
                                 }
                             } catch (pError) {
                                 console.error(`[PD GET ${caravanaId}] Erro buscar participante ${participanteDocId}:`, pError);
-                                participanteDetalhe = { id: participanteDocId, nome: `Erro ao buscar ${participanteDocId}`, email:'N/A', telefone: 'N/A', quantidadeOriginal: 0 };
+                                dadosCompletosParticipante = { id: participanteDocId, nome: `Erro ao buscar ${participanteDocId}`, email:'N/A', telefone: 'N/A', quantidade: 0 };
                             }
                         }
+                        // Adiciona o objeto do participante com a quantidade específica para ESTE VEÍCULO
                         participantesAtribuidosDetalhes.push({
-                            ...participanteDetalhe,
-                            quantidade: quantidadeAtribuida // Renomeia para 'quantidade' para a tabela
+                            ...dadosCompletosParticipante,
+                            quantidade: quantidadeNesteVeiculo // <<< USA A QUANTIDADE ATRIBUÍDA AO VEÍCULO
                         });
                     }
                     participantesAtribuidosDetalhes.sort((a, b) => (a.nome || '').localeCompare(b.nome || ''));
@@ -1998,7 +2000,7 @@ app.get('/caravanas/:caravanaId/participantes-distribuidos', verificarAutenticac
                      motoristaData = funcionariosCache.get(veiculo.motoristaUid);
                 }
 
-                console.log(`[PD GET ${caravanaId}] Veículo ${veiculoIndex + 1} processado. Total de pessoas: ${totalPessoasNoVeiculo}`);
+                console.log(`[PD GET ${caravanaId}] Veículo ${veiculoIndex + 1} processado. Total de pessoas (calculado dos atribuidos): ${totalPessoasNoVeiculo}`);
                 return {
                     veiculoInfo: {
                         tipoId: veiculo.tipoId, nomeTipo: veiculo.nomeTipo,
@@ -2006,8 +2008,8 @@ app.get('/caravanas/:caravanaId/participantes-distribuidos', verificarAutenticac
                     },
                     administrador: adminData ? { uid: adminData.uid || adminData.id, nome: adminData.nome } : null,
                     motorista: motoristaData ? { uid: motoristaData.uid || motoristaData.id, nome: motoristaData.nome } : null,
-                    participantesAtribuidos: participantesAtribuidosDetalhes,
-                    totalPessoasVeiculo: totalPessoasNoVeiculo
+                    participantesAtribuidos: participantesAtribuidosDetalhes, // Lista de participantes com sua 'quantidade' neste veículo
+                    totalPessoasVeiculo: totalPessoasNoVeiculo // A soma das 'quantidade' dos participantes neste veículo
                 };
             })
         );
@@ -2023,6 +2025,7 @@ app.get('/caravanas/:caravanaId/participantes-distribuidos', verificarAutenticac
         res.status(500).json({ error: "Erro interno ao buscar participantes distribuídos.", details: error.message });
     }
 });
+
 
 
 
