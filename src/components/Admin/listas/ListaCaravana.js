@@ -110,7 +110,7 @@ function ListaCaravanasAdmin({ caravanas: propCaravanas, onCaravanaClick }) {
     };
 
     const handleDeletar = async (id) => {
-        if (!window.confirm("EXCLUIR esta caravana PERMANENTEMENTE?")) return;
+        if (!window.confirm("EXCLUIR esta caravana permanentemente?")) return;
         setIsLoading(true);
         setActionError(null);
         try {

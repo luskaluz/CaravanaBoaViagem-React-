@@ -1,57 +1,75 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import styles from '../Usuario/DetalhesCaravanaUsuario.module.css'; // Reutilizando estilos
+import styles from '../Usuario/DetalhesCaravanaUsuario.module.css';
 import * as api from '../../services/api';
 import translateStatus from '../translate/translate';
+import { auth } from '../../services/firebase';
 
-function DetalhesCaravanaFuncionario({ caravana }) {
-    const [descricao, setDescricao] = useState('');
+const PLACEHOLDER_FUNC_IMG = "https://via.placeholder.com/80x80?text=Equipe";
+const PLACEHOLDER_USER_IMG = "https://via.placeholder.com/80x80?text=Eu";
+
+function DetalhesCaravanaUsuario({ caravana, usuarioLogado }) {
+    const [descricaoLocalidade, setDescricaoLocalidade] = useState('');
     const [isLoadingDesc, setIsLoadingDesc] = useState(false);
-    const [funcionarios, setFuncionarios] = useState([]);
-    const [loadingFuncionarios, setLoadingFuncionarios] = useState(true);
-    const [errorFuncionarios, setErrorFuncionarios] = useState(null);
+    const [todosFuncionarios, setTodosFuncionarios] = useState([]);
+    const [loadingEquipe, setLoadingEquipe] = useState(true);
+    const [errorEquipe, setErrorEquipe] = useState(null);
 
     useEffect(() => {
-        const fetchFuncionarios = async () => {
-            if (!caravana) return;
-            setLoadingFuncionarios(true);
-            setErrorFuncionarios(null);
+        let isMounted = true;
+        const fetchAllFuncionarios = async () => {
+            if (!isMounted) return;
+            setLoadingEquipe(true);
+            setErrorEquipe(null);
             try {
                 const funcData = await api.getFuncionarios();
-                setFuncionarios(funcData);
+                if (isMounted) {
+                    setTodosFuncionarios(funcData || []);
+                }
             } catch (err) {
-                console.error("Erro DetalhesFunc: buscar funcionários:", err);
-                setErrorFuncionarios("Falha ao carregar nomes da equipe.");
+                console.error("Erro DetalhesCaravanaUsuario: buscar todos os funcionários:", err);
+                if (isMounted) setErrorEquipe("Falha ao carregar dados da equipe.");
+            } finally {
+                if (isMounted) setLoadingEquipe(false);
             }
-            finally { setLoadingFuncionarios(false); }
         };
-        if (caravana) fetchFuncionarios();
-    }, [caravana]);
+        fetchAllFuncionarios();
+        return () => { isMounted = false; };
+    }, []);
 
     useEffect(() => {
+        let isMounted = true;
         const fetchDescricao = async () => {
             if (caravana && caravana.localidadeId) {
-                setIsLoadingDesc(true);
+                if (isMounted) setIsLoadingDesc(true);
                 try {
-                    const descricaoData = await api.getDescricaoLocalidade(caravana.localidadeId);
-                    setDescricao(descricaoData.descricao || '');
-                } catch (err) { console.error(err); setDescricao('Erro ao carregar descrição.'); }
-                finally { setIsLoadingDesc(false); }
+                    const localidadeData = await api.getDescricaoLocalidade(caravana.localidadeId);
+                    if (isMounted) setDescricaoLocalidade(localidadeData.descricao || '');
+                } catch (error) {
+                    console.error("Erro ao buscar descrição:", error);
+                    if (isMounted) setDescricaoLocalidade('Erro ao carregar descrição.');
+                } finally {
+                    if (isMounted) setIsLoadingDesc(false);
+                }
             } else {
-                setDescricao('N/A');
+                if (isMounted) setDescricaoLocalidade('N/A');
             }
         };
         if (caravana) fetchDescricao();
+        return () => { isMounted = false; };
     }, [caravana]);
 
-    const getNomeFuncionario = useCallback((uid) => {
-        if (!uid) return 'Não Definido';
-        if (loadingFuncionarios) return 'Carregando...';
-        if (errorFuncionarios) return 'Erro Equipe';
-        const func = funcionarios.find(f => (f.uid === uid || f.id === uid));
-        return func ? func.nome : `Funcionário (ID: ${uid.substring(0, 6)}...) Não Encontrado`;
-    }, [funcionarios, loadingFuncionarios, errorFuncionarios]);
+    const getFuncionarioDetalhado = useCallback((uid) => {
+        if (!uid) return null;
+        if (loadingEquipe) return { nome: 'Carregando...', isLoading: true, uid };
+        if (errorEquipe) return { nome: 'Falha ao carregar equipe', isError: true, uid };
+        const funcionarioEncontrado = todosFuncionarios.find(f => f.uid === uid || f.id === uid);
+        if (funcionarioEncontrado) {
+            return { ...funcionarioEncontrado, isLoading: false, isError: false };
+        }
+        return { nome: `Responsável (ID: ${uid.substring(0,6)}...)`, isNotFound: true, isLoading: false, uid };
+    }, [todosFuncionarios, loadingEquipe, errorEquipe]);
 
-     const formatarDataHora = (dateTimeString) => {
+    const formatarDataHora = (dateTimeString) => {
         if (!dateTimeString) return 'A definir';
         try {
             const dt = new Date(dateTimeString);
@@ -66,131 +84,133 @@ function DetalhesCaravanaFuncionario({ caravana }) {
         return 'Inválido';
     };
 
-    const detalhesEquipeVeiculos = useMemo(() => {
+    const equipeDaCaravana = useMemo(() => {
         const resultado = {
-            guiaNome: caravana ? getNomeFuncionario(caravana.guiaUid) : 'N/A',
-            adminsVeiculos: new Map(),
-            motoristasVeiculos: new Map(),
-            veiculosInfo: []
+            guia: caravana ? getFuncionarioDetalhado(caravana.guiaUid) : null,
+            adminsDosVeiculos: new Map(),
+            motoristasDosVeiculos: new Map()
         };
-        if (!caravana) return resultado;
-
+        if (!caravana || loadingEquipe || errorEquipe) return resultado;
         const transporteDefinido = caravana.transporteDefinidoManualmente || caravana.transporteAutoDefinido;
-
         if (transporteDefinido && Array.isArray(caravana.transportesFinalizados)) {
-            caravana.transportesFinalizados.forEach((v, index) => {
-                const adminNome = getNomeFuncionario(v.administradorUid);
-                const motoristaNome = getNomeFuncionario(v.motoristaUid);
-
-                if (v.administradorUid && !resultado.adminsVeiculos.has(v.administradorUid)) {
-                    resultado.adminsVeiculos.set(v.administradorUid, adminNome);
+            caravana.transportesFinalizados.forEach((veiculo) => {
+                if (veiculo.administradorUid) {
+                    const admin = getFuncionarioDetalhado(veiculo.administradorUid);
+                    if (admin && !admin.isNotFound && !resultado.adminsDosVeiculos.has(admin.uid || admin.id)) {
+                        resultado.adminsDosVeiculos.set(admin.uid || admin.id, admin);
+                    }
                 }
-                if (v.motoristaUid && !resultado.motoristasVeiculos.has(v.motoristaUid)) {
-                    resultado.motoristasVeiculos.set(v.motoristaUid, motoristaNome);
+                if (veiculo.motoristaUid) {
+                    const motorista = getFuncionarioDetalhado(veiculo.motoristaUid);
+                    if (motorista && !motorista.isNotFound && !resultado.motoristasDosVeiculos.has(motorista.uid || motorista.id)) {
+                        resultado.motoristasDosVeiculos.set(motorista.uid || motorista.id, motorista);
+                    }
                 }
-                resultado.veiculosInfo.push({
-                    id: v.idInternoVeiculo || `${v.tipoId}-${index}`, // Usa um ID interno se vier do backend, senão gera
-                    nomeTipo: v.nomeTipo,
-                    assentos: v.assentos,
-                    placa: v.placa,
-                    adminNome: adminNome,
-                    motoristaNome: motoristaNome
-                });
             });
         }
         return resultado;
-    }, [caravana, getNomeFuncionario]);
+    }, [caravana, getFuncionarioDetalhado, loadingEquipe, errorEquipe]);
 
+    const RenderFuncionarioCard = ({ funcionarioData, role, isCurrentUser = false }) => {
+        const targetData = isCurrentUser ? usuarioLogado : funcionarioData;
+        if (!targetData && !isCurrentUser) return <p className={styles.infoItem}><strong>{role}:</strong> A ser confirmado</p>;
+        if (isCurrentUser && !targetData) return <p className={styles.infoItem}><strong>{role}:</strong> Dados do usuário não carregados</p>;
+        if (targetData?.isLoading) return <p className={styles.infoItem}><strong>{role}:</strong> Carregando...</p>;
+        if (targetData?.isError && !targetData?.isNotFound) return <p className={styles.infoItemError}><strong>{role}:</strong> {targetData.nome}</p>;
+        if (targetData?.isNotFound) return <p className={styles.infoItem}><strong>{role}:</strong> {targetData.nome}</p>;
 
-    if (!caravana) return <div className={styles.container}>Caravana não selecionada.</div>;
+        const foto = targetData.fotoUrl || (isCurrentUser && auth.currentUser?.photoURL) || (isCurrentUser ? PLACEHOLDER_USER_IMG : PLACEHOLDER_FUNC_IMG);
+        const nome = targetData.nome || (isCurrentUser && auth.currentUser?.displayName) || 'Nome não disponível';
+        const email = targetData.email || (isCurrentUser && auth.currentUser?.email) || 'N/A';
+        const telefone = targetData.telefone || 'N/A';
 
-    const transporteDefinido = caravana.transporteDefinidoManualmente || caravana.transporteAutoDefinido;
-    const capacidadeExibida = transporteDefinido
-                             ? (caravana.capacidadeFinalizada || 0)
-                             : (caravana.capacidadeMaximaTeorica || 0);
+        return (
+            <div className={styles.funcionarioCard}>
+                <img
+                    src={foto}
+                    alt={nome}
+                    className={styles.funcionarioFoto}
+                    onError={(e) => { e.target.onerror = null; e.target.src = isCurrentUser ? PLACEHOLDER_USER_IMG : PLACEHOLDER_FUNC_IMG; }}
+                />
+                <div className={styles.funcionarioInfo}>
+                    <p className={styles.funcionarioNome}><strong>{role}:</strong> {nome}</p>
+                    <p className={styles.funcionarioDetalheSmall}><strong>Email:</strong> {email}</p>
+                    <p className={styles.funcionarioDetalheSmall}><strong>Telefone:</strong> {telefone}</p>
+                </div>
+            </div>
+        );
+    };
 
-    let numAdminsConsiderados = 0;
-    if (capacidadeExibida > 0) {
-        if (transporteDefinido && Array.isArray(caravana.transportesFinalizados)) {
-            numAdminsConsiderados = Math.min(capacidadeExibida, caravana.transportesFinalizados.length);
-        } else {
-            numAdminsConsiderados = Math.min(capacidadeExibida, caravana.maximoTransportes || 0);
-        }
-    }
-    const vagasDisponiveisParaClientes = Math.max(0, capacidadeExibida - (caravana.vagasOcupadas || 0) - numAdminsConsiderados);
+    if (!caravana) return <div className={styles.container}>Selecione uma caravana para ver os detalhes.</div>;
 
     return (
         <div className={styles.container}>
-            <h2 className={styles.title}>Detalhes da Caravana</h2>
+            <h2 className={styles.title}>Detalhes da Sua Caravana</h2>
+            {usuarioLogado && (
+                <div className={styles.infoSection}>
+                    <h3>Seus Dados</h3>
+                    <RenderFuncionarioCard
+                        funcionarioData={null}
+                        role="Participante"
+                        isCurrentUser={true}
+                    />
+                    <p className={styles.infoItem}><strong>Ingressos Comprados por você:</strong> {caravana.quantidadeTotalUsuario || 'N/A'}</p>
+                </div>
+            )}
+            <hr className={styles.separator} />
             {(caravana.imagemCapaLocalidade || (caravana.imagensLocalidade && caravana.imagensLocalidade.length > 0)) && (
-                <img
-                    src={caravana.imagemCapaLocalidade || caravana.imagensLocalidade[0]}
-                    alt={caravana.nomeLocalidade || 'Localidade'}
-                    className={styles.image}
-                    onError={(e) => { e.target.onerror = null; e.target.src="./images/imagem_padrao.jpg" }}
-                />
+                <img src={caravana.imagemCapaLocalidade || caravana.imagensLocalidade[0]} alt={caravana.nomeLocalidade || 'Localidade'} className={styles.image} onError={(e) => {
+                    e.target.onerror = null;
+                    if (caravana.imagensLocalidade && caravana.imagensLocalidade.length > 1 && e.target.src !== caravana.imagensLocalidade[1]) {
+                        e.target.src = caravana.imagensLocalidade[1];
+                    } else {
+                        e.target.src = "./images/imagem_padrao.jpg";
+                    }
+                }} />
             )}
             <p className={styles.infoItem}><strong>Localidade:</strong> {caravana.nomeLocalidade || 'N/A'}</p>
-            <p className={styles.infoItem}><strong>Data Viagem: </strong>{caravana.data ? new Date(caravana.data + 'T00:00:00Z').toLocaleDateString('pt-BR', {timeZone: 'UTC'}) : 'N/A'}</p>
-            <p className={styles.infoItem}><strong>Ponto de Encontro:</strong> {caravana.pontoEncontro || 'A definir'}</p>
+            <p className={styles.infoItem}><strong>Data Viagem: </strong>{caravana.data ? new Date(caravana.data + 'T00:00:00Z').toLocaleDateString('pt-BR', { timeZone: 'UTC' }) : 'N/A'}</p>
+            <p className={styles.infoItem}><strong>Ponto de Encontro:</strong> {caravana.pontoEncontro || 'A definir (verifique próximo à data)'}</p>
             <p className={styles.infoItem}><strong>Horário Saída: </strong> {caravana.horarioSaida || 'A definir'}</p>
             <p className={styles.infoItem}><strong>Retorno Estimado:</strong> {formatarDataHora(caravana.dataHoraRetorno)}</p>
             <p className={styles.infoItem}><strong>Status:</strong> {translateStatus(caravana.status)}</p>
-
             <div className={styles.infoSection}>
                  <h3>Descrição da Localidade</h3>
-                {isLoadingDesc ? <p>Carregando...</p> : <p className={styles.descricao}>{descricao || 'Sem descrição disponível.'}</p>}
+                {isLoadingDesc ? <p>Carregando...</p> : <p className={styles.descricao}>{descricaoLocalidade || 'Sem descrição disponível.'}</p>}
             </div>
+            <div className={styles.infoSection}>
+                <h3>Equipe Responsável</h3>
+                {errorEquipe && <p className={`${styles.errorSmall} ${styles.infoItemError}`}>{errorEquipe}</p>}
+                {!loadingEquipe && !errorEquipe && <RenderFuncionarioCard funcionarioData={equipeDaCaravana.guia} role="Guia" />}
 
-             <div className={styles.infoSection}>
-                 <h3>Equipe Responsável</h3>
-                 {errorFuncionarios && <p className={styles.errorSmall}>{errorFuncionarios}</p>}
-                 <p className={styles.infoItem}><strong>Guia:</strong> {detalhesEquipeVeiculos.guiaNome}</p>
+                {(!loadingEquipe && !errorEquipe && equipeDaCaravana.adminsDosVeiculos.size > 0) && <h4>Administrador(es) da Viagem:</h4>}
+                {loadingEquipe && !errorEquipe && <p>Carregando administradores...</p>}
+                {!loadingEquipe && !errorEquipe && equipeDaCaravana.adminsDosVeiculos.size > 0 ? (
+                    Array.from(equipeDaCaravana.adminsDosVeiculos.values()).map(admin => <RenderFuncionarioCard key={admin.uid || admin.id} funcionarioData={admin} role="Admin" />)
+                ) : ( !loadingEquipe && !errorEquipe && <p className={styles.infoItem}>Admin: A ser confirmado</p> )}
 
-                 <p className={styles.infoItem}><strong>Administrador(es) da Viagem:</strong>
-                    {loadingFuncionarios ? ' Carregando...' :
-                     detalhesEquipeVeiculos.adminsVeiculos.size > 0 ?
-                     Array.from(detalhesEquipeVeiculos.adminsVeiculos.values()).join(', ') :
-                     'A ser confirmado'}
-                 </p>
-                 <p className={styles.infoItem}><strong>Motorista(s) da Viagem:</strong>
-                    {loadingFuncionarios ? ' Carregando...' :
-                     detalhesEquipeVeiculos.motoristasVeiculos.size > 0 ?
-                     Array.from(detalhesEquipeVeiculos.motoristasVeiculos.values()).join(', ') :
-                     'A ser confirmado'}
-                 </p>
-             </div>
-
-             {detalhesEquipeVeiculos.veiculosInfo.length > 0 && (
+                 {(!loadingEquipe && !errorEquipe && equipeDaCaravana.motoristasDosVeiculos.size > 0) && <h4>Motorista(s) da Viagem:</h4>}
+                 {loadingEquipe && !errorEquipe && <p>Carregando motoristas...</p>}
+                 {!loadingEquipe && !errorEquipe && equipeDaCaravana.motoristasDosVeiculos.size > 0 ? (
+                    Array.from(equipeDaCaravana.motoristasDosVeiculos.values()).map(motorista => <RenderFuncionarioCard key={motorista.uid || motorista.id} funcionarioData={motorista} role="Motorista" />)
+                ) : ( !loadingEquipe  && !errorEquipe && <p className={styles.infoItem}>Motorista: A ser confirmado</p> )}
+            </div>
+             {(caravana.transporteDefinidoManualmente || caravana.transporteAutoDefinido) && Array.isArray(caravana.transportesFinalizados) && caravana.transportesFinalizados.length > 0 && (
                  <div className={styles.infoSection}>
-                     <h3>Veículos Definidos</h3>
-                     {loadingFuncionarios && <p>Carregando nomes...</p>}
-                     {errorFuncionarios && <p className={styles.errorSmall}>{errorFuncionarios}</p>}
-                     <ul className={styles.vehicleList}>
-                         {detalhesEquipeVeiculos.veiculosInfo.map((v) => (
-                             <li key={v.id} className={styles.vehicleListItem}>
-                                 <strong>{v.nomeTipo}</strong> ({v.assentos} assentos)
-                                 {v.placa && ` - Placa: ${v.placa}`} <br/>
-                                 <span className={styles.responsible}>Admin do Veículo: {v.adminNome}</span> <br/>
-                                 <span className={styles.responsible}>Motorista do Veículo: {v.motoristaNome}</span>
-                             </li>
-                         ))}
-                     </ul>
+                    <h4>Transporte(s) Designado(s)</h4>
+                    <ul className={styles.vehicleListSimple}>
+                        {caravana.transportesFinalizados.map((v, index) => (
+                            <li key={`${v.tipoId || 'tipo'}-${index}`}>
+                                Veículo {index + 1}: {v.nomeTipo || 'Tipo não especificado'}
+                                {v.placa && ` (Placa: ${v.placa})`}
+                            </li>
+                        ))}
+                    </ul>
+                    <p className={styles.transportNote}>Sua alocação específica no veículo será informada pela equipe ou por e-mail mais próximo à data da viagem.</p>
                  </div>
-             )}
-
-             <div className={styles.infoSection}>
-                <h3>Participantes e Capacidade</h3>
-                <p className={styles.infoItem}><strong>Inscritos (Clientes):</strong> {caravana.vagasOcupadas || 0}</p>
-                <p className={styles.infoItem}>
-                    <strong>Capacidade Total:</strong> {capacidadeExibida > 0 ? capacidadeExibida : 'Não definida'}
-                </p>
-                <p className={styles.infoItem}>
-                    <strong>Vagas Disponíveis (Clientes):</strong> {capacidadeExibida > 0 ? vagasDisponiveisParaClientes : 'N/A'}
-                </p>
-             </div>
+            )}
         </div>
     );
 }
 
-export default DetalhesCaravanaFuncionario;
+export default DetalhesCaravanaUsuario;

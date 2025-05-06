@@ -130,3 +130,193 @@
 .fecharButton:hover {
     background-color: #5a6268;
 }
+/* DetalhesCaravanaUsuario.module.css (ou seu arquivo de estilo principal) */
+
+/* ... seus estilos existentes ... */
+
+.infoSection {
+    margin-top: 20px;
+    padding-top: 15px;
+    border-top: 1px solid #eee;
+}
+
+.infoSection h3 {
+    margin-top: 0;
+    margin-bottom: 10px;
+    color: #333;
+    font-size: 1.2rem;
+}
+
+.infoSection h4 { /* Para o título "Transporte Designado" */
+    margin-top: 10px;
+    margin-bottom: 5px;
+    color: #444;
+    font-size: 1.1rem;
+}
+
+.infoItem {
+    margin-bottom: 8px;
+    line-height: 1.5;
+}
+
+.infoItem strong {
+    color: #111;
+}
+
+.errorSmall {
+    color: #c0392b;
+    font-size: 0.85rem;
+    margin-left: 5px;
+    display: inline; /* Para ficar ao lado do label se necessário */
+}
+
+.vehicleList {
+  list-style: none;
+  padding-left: 0;
+}
+
+.vehicleListItem {
+  background-color: #f9f9f9;
+  border: 1px solid #eee;
+  padding: 10px;
+  margin-bottom: 8px;
+  border-radius: 4px;
+  font-size: 0.95rem;
+}
+
+.vehicleListItem strong {
+  display: block;
+  margin-bottom: 5px;
+  color: #2c3e50; /* Cor mais escura para o nome do veículo */
+}
+
+.responsible {
+  display: block;
+  font-size: 0.9em;
+  color: #555;
+  margin-left: 15px; /* Recuo para os responsáveis */
+  padding-top: 3px;
+}
+
+.transportInfo { /* Para a mensagem final */
+    margin-top: 15px;
+    padding-top: 10px;
+    border-top: 1px dashed #ccc;
+}
+
+.transportInfo p {
+    font-style: italic;
+    color: #666;
+    font-size: 0.9rem;
+}
+/* Em DetalhesCaravanaAdmin.module.css e/ou DetalhesCaravanaUsuario.module.css */
+/* ... seus estilos existentes ... */
+
+.funcionarioCard {
+    display: flex;
+    align-items: center;
+    margin-bottom: 12px;
+    padding: 8px;
+    background-color: #f9f9f9;
+    border: 1px solid #eee;
+    border-radius: 4px;
+  }
+  
+  .funcionarioFoto {
+    width: 60px; /* Ajuste conforme necessário */
+    height: 60px;
+    object-fit: cover; /* Garante que a imagem cubra o espaço sem distorcer */
+    margin-right: 15px;
+    border: 2px solid #ddd;
+  }
+  
+  .funcionarioInfo {
+    display: flex;
+    flex-direction: column;
+  }
+  
+  .funcionarioNome {
+    margin: 0 0 4px 0;
+    font-size: 1rem;
+    color: #333;
+  }
+  
+  .funcionarioNome strong {
+      color: #111;
+  }
+  
+  .funcionarioDetalhe {
+    margin: 1px 0;
+    font-size: 0.85rem;
+    color: #555;
+  }
+  
+  .funcionarioDetalheSmall { /* Para usuário, se quiser menor */
+    margin: 1px 0;
+    font-size: 0.8rem;
+    color: #666;
+  }
+  
+  
+  .infoItemError { /* Para quando o funcionário não é encontrado */
+      color: #721c24; /* Cor de erro sutil */
+      font-style: italic;
+  }
+  .infoItemError strong {
+      color: #721c24;
+  }
+  
+  
+  .secaoPessoal h4, .secaoVeiculos h4 { /* Títulos de subseção */
+      margin-top: 15px;
+      margin-bottom: 8px;
+      color: #4a4a4a;
+      font-size: 1.05rem;
+      border-bottom: 1px solid #eee;
+      padding-bottom: 5px;
+  }
+  
+  .vehicleList {
+    list-style: none;
+    padding-left: 0;
+  }
+  
+  .vehicleListItem {
+    background-color: #fdfdfd;
+    border: 1px solid #f0f0f0;
+    padding: 12px;
+    margin-bottom: 10px;
+    border-radius: 4px;
+  }
+  
+  .vehicleListItem strong {
+    display: block;
+    margin-bottom: 6px;
+    color: #2c3e50;
+    font-size: 1.05rem;
+  }
+  
+  .responsible {
+    display: block;
+    font-size: 0.9em;
+    color: #555;
+    margin-left: 10px;
+    padding-top: 4px;
+  }
+  
+  /* Estilo para lista de veículos do usuário (mais simples) */
+  .vehicleListSimple {
+      list-style: disc;
+      margin-left: 20px;
+      padding-left: 0;
+  }
+  .vehicleListSimple li {
+      margin-bottom: 5px;
+      font-size: 0.95rem;
+  }
+  .transportNote {
+      font-style: italic;
+      color: #666;
+      font-size: 0.9rem;
+      margin-top: 10px;
+  }

@@ -93,7 +93,7 @@ const CaravanaCard = ({ caravana, isAdmin = false, children }) => {
         <p className={styles.cardText}>Saída: {caravana.horarioSaida || 'A definir'}</p>
         <p className={styles.cardText}>Status: {translateStatus(caravana.status)}</p>
         <p className={styles.cardText}>
-             Vagas (Clientes): {
+             Vagas: {
                capacidadeTotalExibida === 0 ? 'A definir'
                : vagasCliente === 0 ? 'Esgotado'
                : vagasCliente

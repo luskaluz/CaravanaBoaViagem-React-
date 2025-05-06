@@ -893,28 +893,28 @@ app.put('/funcionarios/:id', verificarAutenticacao, verificarAdmin, async (req, 
 });
 
 
-// Rota para listar todos os funcionários (requer admin ou outra permissão)
 app.get('/funcionarios', verificarAutenticacao, async (req, res) => {
+    // ... sua lógica para buscar e retornar nome, cargo, fotoUrl ...
+    // IMPORTANTE: NÃO retorne dados sensíveis como email, telefone, salário aqui
+    // se for para ser acessado por qualquer usuário.
     try {
         const snapshot = await db.collection('funcionarios').orderBy('nome').get();
         const funcionarios = [];
         snapshot.forEach(doc => {
-            // Adapte os campos retornados conforme a necessidade de privacidade
-            // Se esta lista é para TODOS os usuários logados, talvez só nome e ID/UID.
-            // Se precisar de mais campos paraEnt o admin, ele pode ter outra rota ou
-            // o frontend pode filtrar o que exibe baseado no papel do usuário logendido! Você quer que a rota `GET /funcionarios` no backend seja acessível por **qualquer usuário autenticado**, e que os componentes `DetalhesCaravanaFuncionario.js` e `DetalhesCaravanaUsuario.ado.
             const data = doc.data();
             funcionarios.push({
-                id: doc.id, // ou data.uid se o ID do doc não for o UID do auth
-                uid: data.uid, // Garante que o UID do auth esteja presente
+                id: doc.id,
+                uid: data.uid,
                 nome: data.nome,
-                cargo: data.cargo
+                cargo: data.cargo,
+                fotoUrl: data.fotoUrl || null, // Garante que envia fotoUrl
+                ...data
             });
         });
         res.status(200).json(funcionarios);
     } catch (error) {
-        console.error("Erro ao listar funcionários:", error);
-        res.status(500).json({ error: "Erro interno ao listar funcionários." });
+        console.error("Erro ao listar funcionários (rota pública autenticada):", error);
+        res.status(500).json({ error: "Erro interno ao listar equipe." });
     }
 });
 
@@ -1309,23 +1309,25 @@ app.put('/caravanas/:id', verificarAutenticacao, verificarAdmin, async (req, res
 });
 
 
+// server.js (Apenas a rota PUT /caravanas/:id/confirmar-manual Modificada)
+
 app.put('/caravanas/:id/confirmar-manual', verificarAutenticacao, verificarAdmin, async (req, res) => {
     const { id: caravanaId } = req.params;
-    let caravanaPreUpdateParaEmail = null; // Para dados da caravana ANTES da transação
+    let dadosCaravanaParaEmail = null; // Para usar no email após a transação
 
     try {
         const caravanaRef = db.collection('caravanas').doc(caravanaId);
 
-        // --- INÍCIO DA TRANSAÇÃO ---
-        const statusUpdate = await db.runTransaction(async (transaction) => {
+        const statusUpdateResult = await db.runTransaction(async (transaction) => {
             const caravanaDoc = await transaction.get(caravanaRef);
             if (!caravanaDoc.exists) {
                 throw new Error("Caravana não encontrada.");
             }
             const caravana = caravanaDoc.data();
-            caravanaPreUpdateParaEmail = { ...caravana, id: caravanaId }; // Guarda estado ANTES para email
+            dadosCaravanaParaEmail = { ...caravana, id: caravanaId }; // Captura estado para email
 
             if (caravana.status === 'confirmada') {
+                // Retorna um objeto indicando que já estava confirmada
                 return { jaConfirmada: true, message: "Esta caravana já está confirmada." };
             }
             if (caravana.status === 'cancelada' || caravana.status === 'concluida') {
@@ -1334,88 +1336,78 @@ app.put('/caravanas/:id/confirmar-manual', verificarAutenticacao, verificarAdmin
 
             const ocupacaoMinima = caravana.ocupacaoMinima || 0;
             const vagasOcupadasClientes = caravana.vagasOcupadas || 0;
+            console.log(`[ConfirmarManual ${caravanaId}] Vagas Clientes: ${vagasOcupadasClientes}, Mínimo: ${ocupacaoMinima}`);
             if (vagasOcupadasClientes < ocupacaoMinima) {
                 throw new Error(`Ocupação mínima de clientes (${ocupacaoMinima}) não atingida. Atualmente com ${vagasOcupadasClientes} clientes.`);
             }
 
+            // Verifica se o transporte foi DEFINIDO (manual ou auto) E se todos os detalhes estão completos
             const transporteDefinidoECompleto =
                 (caravana.transporteDefinidoManualmente === true || caravana.transporteAutoDefinido === true) &&
                 Array.isArray(caravana.transportesFinalizados) &&
                 caravana.transportesFinalizados.length > 0 &&
                 caravana.transportesFinalizados.every(v => v.placa && v.motoristaUid && v.administradorUid);
 
+            console.log(`[ConfirmarManual ${caravanaId}] Transporte Definido e Completo: ${transporteDefinidoECompleto}`);
             if (!transporteDefinidoECompleto) {
                 throw new Error("Para confirmar manualmente, o transporte deve estar completamente definido: Todos os veículos devem ter tipo, placa, motorista e administrador atribuídos.");
             }
 
-            let transportesFinaisParaSalvar = [...caravana.transportesFinalizados];
-            const precisaDistribuir = transportesFinaisParaSalvar.some(v => !v.participantesAtribuidos || v.participantesAtribuidos.length === 0);
-
-            if (precisaDistribuir) {
-                console.log(`[ConfirmarManual ${caravanaId}] Re-distribuindo participantes pois faltava atribuição...`);
-                const veiculosBase = transportesFinaisParaSalvar.map(({ participantesAtribuidos, ...resto }) => resto);
-
-            }
-
-            const hoje = new Date();
-            const dataFechamentoVendasNova = hoje.toISOString().split('T')[0];
-
+            // Se passou em todas as validações, prepara para confirmar
             const updateData = {
                 status: 'confirmada',
                 confirmadaEm: admin.firestore.FieldValue.serverTimestamp(),
-                motivoCancelamento: null,
-                dataFechamentoVendas: dataFechamentoVendasNova,
-                // transportesFinalizados não precisa ser atualizado aqui se a distribuição já foi feita
-                // ao definir o transporte. Apenas confirmamos o status.
+                motivoCancelamento: null, // Limpa motivo de cancelamento se houver
+                // Não vamos alterar dataFechamentoVendas aqui, a menos que seja uma regra específica
                 lastUpdate: admin.firestore.FieldValue.serverTimestamp()
             };
 
             transaction.update(caravanaRef, updateData);
+            console.log(`[ConfirmarManual ${caravanaId}] Transação: Caravana marcada como confirmada.`);
             return { sucesso: true, message: "Caravana confirmada manualmente com sucesso!" };
         });
-        // --- FIM DA TRANSAÇÃO ---
 
-        if (statusUpdate.jaConfirmada) {
-            return res.status(400).json({ error: statusUpdate.message });
+        if (statusUpdateResult.jaConfirmada) {
+            return res.status(200).json({ message: statusUpdateResult.message }); // Retorna 200 se já estava confirmada
         }
 
-        // --- Envio de Email aos Participantes (APÓS a transação) ---
-        if (statusUpdate.sucesso && caravanaPreUpdateParaEmail) { // Usa caravanaPreUpdateParaEmail para dados como localidade, data, etc.
+        // Envio de Email aos Participantes (APÓS a transação bem-sucedida)
+        if (statusUpdateResult.sucesso && dadosCaravanaParaEmail) {
             try {
-                // <<< BUSCA OS DADOS ATUALIZADOS DA CARAVANA PARA O EMAIL >>>
+                // Pega os dados MAIS RECENTES da caravana para o email, especialmente transportesFinalizados
                 const caravanaAtualizadaDoc = await caravanaRef.get();
-                if (!caravanaAtualizadaDoc.exists) {
-                    throw new Error("Caravana não encontrada após atualização para envio de email.");
-                }
-                const caravanaAtualizadaParaEmail = caravanaAtualizadaDoc.data();
-                const transportesParaEmail = caravanaAtualizadaParaEmail.transportesFinalizados || []; // Usa o campo atualizado
-
+                if (!caravanaAtualizadaDoc.exists) throw new Error("Caravana não encontrada após confirmação.");
+                const caravanaFinalParaEmail = caravanaAtualizadaDoc.data();
 
                 const participantes = await buscarParticipantesParaNotificacao(caravanaId);
                 if (participantes.length > 0) {
-                    const localidadeInfo = await getLocalidadeData(caravanaPreUpdateParaEmail.localidadeId);
+                    const localidadeInfo = await getLocalidadeData(caravanaFinalParaEmail.localidadeId);
                     const nomeLocalidade = localidadeInfo.nomeLocalidade || 'Destino Desconhecido';
-                    const dataFormatadaEmail = await formatDate(caravanaPreUpdateParaEmail.data);
-                    const emailSubject = `Caravana Confirmada! - ${nomeLocalidade} (${dataFormatadaEmail})`;
+                    const dataFormatadaEmail = await formatDate(caravanaFinalParaEmail.data); // Usa await se formatDate for async
+                    const pontoEncontroEmail = caravanaFinalParaEmail.pontoEncontro || 'A definir';
+                    const horarioSaidaEmail = caravanaFinalParaEmail.horarioSaida || 'A definir';
+                    const dataHoraRetornoFormatada = caravanaFinalParaEmail.dataHoraRetorno
+                        ? await formatDate(caravanaFinalParaEmail.dataHoraRetorno, true, 'America/Sao_Paulo') // Passa true para incluir hora
+                        : 'A definir';
 
+                    const emailSubject = `Caravana Confirmada! - ${nomeLocalidade} (${dataFormatadaEmail})`;
                     console.log(`[ConfirmarManual ${caravanaId}] Preparando ${participantes.length} emails de confirmação...`);
 
                     for (const p of participantes) {
                         const participanteDocSnapshot = await db.collection('participantes').where('caravanaId', '==', caravanaId).where('email', '==', p.email).limit(1).get();
-                        let veiculoAtribuidoInfo = "Seu veículo será detalhado em breve.";
-                        let nomeParticipanteParaEmail = p.nome || 'Viajante'; // Usa o nome do objeto 'p' se disponível
+                        let veiculoAtribuidoInfo = "Seu veículo específico será detalhado pela equipe.";
+                        let nomeParticipanteParaEmail = p.nome || 'Viajante';
 
-                        if (!participanteDocSnapshot.empty) {
+                        if (!participanteDocSnapshot.empty && Array.isArray(caravanaFinalParaEmail.transportesFinalizados)) {
                              const participanteDocId = participanteDocSnapshot.docs[0].id;
                              const participanteData = participanteDocSnapshot.docs[0].data();
-                             nomeParticipanteParaEmail = participanteData.nome || nomeParticipanteParaEmail; // Prioriza nome do doc
+                             nomeParticipanteParaEmail = participanteData.nome || nomeParticipanteParaEmail;
 
                              let indiceVeiculo = -1;
                              let veiculoEncontrado = null;
-
-                             for(let i = 0; i < transportesParaEmail.length; i++) {
-                                 if(transportesParaEmail[i].participantesAtribuidos?.includes(participanteDocId)) {
-                                     veiculoEncontrado = transportesParaEmail[i];
+                             for(let i = 0; i < caravanaFinalParaEmail.transportesFinalizados.length; i++) {
+                                 if(caravanaFinalParaEmail.transportesFinalizados[i].participantesAtribuidos?.find(pa => pa.participanteDocId === participanteDocId)) {
+                                     veiculoEncontrado = caravanaFinalParaEmail.transportesFinalizados[i];
                                      indiceVeiculo = i + 1;
                                      break;
                                  }
@@ -1424,18 +1416,18 @@ app.put('/caravanas/:id/confirmar-manual', verificarAutenticacao, verificarAdmin
                                  veiculoAtribuidoInfo = `Transporte ${indiceVeiculo}: ${veiculoEncontrado.nomeTipo || 'Tipo não informado'}`;
                                  if (veiculoEncontrado.placa) veiculoAtribuidoInfo += ` (Placa: ${veiculoEncontrado.placa})`;
                                  veiculoAtribuidoInfo += ".";
+                             } else {
+                                 console.warn(`[ConfirmarManual ${caravanaId}] Part. ${participanteDocId} não encontrado em transportesFinalizados.`);
                              }
-                        } else {
-                            console.warn(`[ConfirmarManual ${caravanaId}] Não foi possível encontrar o documento do participante com email ${p.email} para detalhar veículo.`);
                         }
 
                         const emailHtml = `
                             <p>Olá ${nomeParticipanteParaEmail}!</p>
-                            <p>Ótima notícia! A caravana para <strong>${nomeLocalidade}</strong> na data <strong>${dataFormatadaEmail}</strong> foi confirmada pela administração!</p>
+                            <p>Ótima notícia! A caravana para <strong>${nomeLocalidade}</strong> na data <strong>${dataFormatadaEmail}</strong> foi confirmada!</p>
                             <p>Você foi alocado(a) no: ${veiculoAtribuidoInfo}</p>
-                            <p>Ponto de Encontro: ${caravanaPreUpdateParaEmail.pontoEncontro || 'A definir'}</p>
-                            <p>Horário de Saída Previsto: ${caravanaPreUpdateParaEmail.horarioSaida || 'A definir'}</p>
-                            <p>Retorno Estimado: ${caravanaPreUpdateParaEmail.dataHoraRetorno ? await formatDate(new Date(caravanaPreUpdateParaEmail.dataHoraRetorno).toISOString().split('T')[0]) + ' às ' + new Date(caravanaPreUpdateParaEmail.dataHoraRetorno).toLocaleTimeString('pt-BR', {hour: '2-digit', minute: '2-digit', timeZone: 'America/Sao_Paulo'}) : 'A definir'}</p>
+                            <p>Ponto de Encontro: ${pontoEncontroEmail}</p>
+                            <p>Horário de Saída Previsto: ${horarioSaidaEmail}</p>
+                            <p>Retorno Estimado: ${dataHoraRetornoFormatada}</p>
                             <p>Prepare-se para a viagem! Mais detalhes e lembretes serão enviados.</p>
                             <p>Atenciosamente,<br/>Equipe Caravana da Boa Viagem</p>
                         `;
@@ -1448,19 +1440,13 @@ app.put('/caravanas/:id/confirmar-manual', verificarAutenticacao, verificarAdmin
             }
         }
 
-        res.status(200).json({ message: statusUpdate.message });
+        res.status(200).json({ message: statusUpdateResult.message });
 
     } catch (error) {
         console.error(`Erro ao confirmar caravana ${caravanaId} manualmente:`, error);
-        // <<< CORREÇÃO ANTERIOR QUE JÁ DEVE ESTAR AÍ >>>
         const errorMessage = error instanceof Error ? error.message : "Ocorreu um erro desconhecido.";
-        const statusCode = errorMessage.includes('não encontrada') || errorMessage.includes('inválido') || errorMessage.includes('insuficiente') || errorMessage.includes('atingida') ? 400 : 500;
-
-        res.status(statusCode).json({
-             error: errorMessage,
-             ...(statusCode === 500 && { details: error.toString() })
-        });
-        // <<< FIM CORREÇÃO ANTERIOR >>>
+        const statusCode = errorMessage.includes('não encontrada') || errorMessage.includes('inválido') || errorMessage.includes('insuficiente') || errorMessage.includes('atingida') || errorMessage.includes('Não é possível confirmar') ? 400 : 500;
+        res.status(statusCode).json({ error: errorMessage, ...(statusCode === 500 && { details: error.toString() }) });
     }
 });
 
