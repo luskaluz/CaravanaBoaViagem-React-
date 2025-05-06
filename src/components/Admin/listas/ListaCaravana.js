@@ -10,7 +10,8 @@ import LoadingSpinner from '../../LoadingSpinner/LoadingSpinner';
 
 function ListaCaravanasAdmin({ caravanas: propCaravanas, onCaravanaClick }) {
     const [caravanas, setCaravanas] = useState(propCaravanas || []);
-    const [error, setError] = useState(null);
+    const [listError, setListError] = useState(null);
+    const [actionError, setActionError] = useState(null);
     const [isLoading, setIsLoading] = useState(true);
     const [status, setStatus] = useState(null);
     const [sortBy, setSortBy] = useState('data');
@@ -63,7 +64,8 @@ function ListaCaravanasAdmin({ caravanas: propCaravanas, onCaravanaClick }) {
 
     const loadCaravanas = async () => {
         setIsLoading(true);
-        setError(null);
+        setListError(null);
+        setActionError(null);
         try {
             let data = propCaravanas ? [...propCaravanas] : await api.getCaravanas();
             let filteredData = status ? data.filter(c => c.status === status) : [...data];
@@ -75,7 +77,7 @@ function ListaCaravanasAdmin({ caravanas: propCaravanas, onCaravanaClick }) {
 
             setCaravanas(processedData);
         } catch (error) {
-            setError(error.message || "Erro desconhecido");
+            setListError(error.message || "Erro desconhecido ao carregar caravanas.");
             console.error("Erro ao buscar/processar Caravanas", error);
         } finally {
             setIsLoading(false);
@@ -94,23 +96,33 @@ function ListaCaravanasAdmin({ caravanas: propCaravanas, onCaravanaClick }) {
     const handleCancelarCaravana = async (id) => {
         if (!window.confirm("Cancelar esta caravana?")) return;
         setIsLoading(true);
+        setActionError(null);
         try {
             await api.cancelCaravan(id);
-            loadCaravanas();
             alert('Caravana cancelada!');
-        } catch (error) { setError(error.message); alert(`Erro: ${error.message}`); }
-        finally { setIsLoading(false); }
+            loadCaravanas();
+        } catch (error) {
+            setActionError(error.message || "Erro ao cancelar.");
+            alert(`Erro: ${error.message || "Erro desconhecido."}`);
+        } finally {
+            setIsLoading(false);
+        }
     };
 
     const handleDeletar = async (id) => {
         if (!window.confirm("EXCLUIR esta caravana PERMANENTEMENTE?")) return;
         setIsLoading(true);
+        setActionError(null);
         try {
             await api.deleteCaravana(id);
-            loadCaravanas();
             alert('Caravana excluída!');
-        } catch (error) { setError(error.message); alert(`Erro: ${error.message}`); }
-        finally { setIsLoading(false); }
+            loadCaravanas();
+        } catch (error) {
+            setActionError(error.message || "Erro ao excluir.");
+            alert(`Erro: ${error.message || "Erro desconhecido."}`);
+        } finally {
+            setIsLoading(false);
+        }
     };
 
     const handleEdit = (caravana) => { setCaravanaParaEditar(caravana); setShowModalEditar(true); };
@@ -127,14 +139,14 @@ function ListaCaravanasAdmin({ caravanas: propCaravanas, onCaravanaClick }) {
     const handleConfirmarManual = async (id, nomeLocalidade) => {
         if (!window.confirm(`Confirmar manualmente a caravana para "${nomeLocalidade}"? Verifique se todos os critérios (ocupação, transporte completo) são atendidos.`)) return;
         setIsLoading(true);
-        setError(null);
+        setActionError(null);
         try {
             const response = await api.confirmarCaravanaManual(id);
             alert(response.message || 'Operação de confirmação realizada.');
             loadCaravanas();
         } catch (error) {
             console.error("Erro ao confirmar caravana manualmente:", error);
-            setError(error.message || "Erro ao tentar confirmar.");
+            setActionError(error.message || "Erro desconhecido ao tentar confirmar.");
             alert(`Erro ao confirmar: ${error.message || "Erro desconhecido."}`);
         } finally {
             setIsLoading(false);
@@ -142,9 +154,15 @@ function ListaCaravanasAdmin({ caravanas: propCaravanas, onCaravanaClick }) {
     };
 
     const renderContent = () => {
-        if (isLoading) return <LoadingSpinner mensagem="Carregando caravanas..." />;
-        if (error) return <div className={styles.error}>Erro ao carregar caravanas: {error}</div>;
-        if (caravanas.length === 0) return <p>Nenhuma caravana encontrada com os filtros atuais.</p>;
+        if (listError && caravanas.length === 0) {
+            return <div className={styles.error}>Erro ao carregar caravanas: {listError}</div>;
+        }
+        if (isLoading && caravanas.length === 0) {
+            return <LoadingSpinner mensagem="Carregando caravanas..." />;
+        }
+        if (!isLoading && caravanas.length === 0 && !listError) {
+            return <p>Nenhuma caravana encontrada com os filtros atuais.</p>;
+        }
 
         return (
             <div className={styles.cardContainer}>
@@ -201,6 +219,8 @@ function ListaCaravanasAdmin({ caravanas: propCaravanas, onCaravanaClick }) {
     return (
         <div className={styles.container}>
             <h2 className={styles.titulo}>Lista de Caravanas</h2>
+            {actionError && <div className={`${styles.error} ${styles.actionError}`}>{actionError}</div>}
+
             <div className={styles.menuContainer}>
                 <button className={styles.menuButton} onClick={toggleSubmenu} disabled={isLoading}> Filtros e Ordenação {showSubmenu ? "▲" : "▼"} </button>
                 {showSubmenu && (

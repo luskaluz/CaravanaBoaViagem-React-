@@ -1782,23 +1782,23 @@ app.get('/caravanas/:caravanaId/participantes-distribuidos', verificarAutenticac
     const { funcionarioUid, cargo } = req.query;
     const isAdminView = !funcionarioUid;
 
-    console.log(`[Participantes Distribuidos] Iniciando para Caravana ID: ${caravanaId}, Funcionario UID: ${funcionarioUid}, Cargo: ${cargo}`);
+    console.log(`[PD] Iniciando para Caravana ID: ${caravanaId}, Funcionario UID: ${funcionarioUid}, Cargo: ${cargo}`);
 
     try {
         const caravanaDoc = await db.collection('caravanas').doc(caravanaId).get();
         if (!caravanaDoc.exists) {
-            console.log(`[Participantes Distribuidos] Caravana ${caravanaId} não encontrada.`);
+            console.log(`[PD] Caravana ${caravanaId} não encontrada.`);
             return res.status(404).json({ error: 'Caravana não encontrada.' });
         }
         const caravana = caravanaDoc.data();
-        console.log(`[Participantes Distribuidos] Caravana encontrada. Status: ${caravana.status}`);
+        console.log(`[PD] Caravana encontrada. Status: ${caravana.status}`);
 
         const transporteDefinido = (caravana.transporteDefinidoManualmente || caravana.transporteAutoDefinido) &&
                                  caravana.transportesFinalizados &&
                                  caravana.transportesFinalizados.length > 0;
 
         if (!transporteDefinido) {
-            console.log(`[Participantes Distribuidos] Transporte não definido para ${caravanaId}. Retornando lista geral.`);
+            console.log(`[PD] Transporte não definido para ${caravanaId}. Retornando lista geral.`);
             const participantesSnapshot = await db.collection('participantes')
                 .where('caravanaId', '==', caravanaId)
                 .orderBy('timestamp', 'desc')
@@ -1815,7 +1815,7 @@ app.get('/caravanas/:caravanaId/participantes-distribuidos', verificarAutenticac
                             telefoneParticipante = userDoc.data().telefone || null;
                         }
                     } catch (userFetchError) {
-                        console.error(`[Participantes Distribuidos] Erro ao buscar usuário ${pData.uid}:`, userFetchError);
+                        console.error(`[PD] Erro ao buscar usuário ${pData.uid}:`, userFetchError);
                     }
                 }
                 return { id: doc.id, ...pData, nome: nomeParticipante, telefone: telefoneParticipante };
@@ -1823,36 +1823,37 @@ app.get('/caravanas/:caravanaId/participantes-distribuidos', verificarAutenticac
             return res.status(200).json({ definicaoCompleta: false, todosParticipantes: todosParticipantes });
         }
 
-        console.log(`[Participantes Distribuidos] Transporte definido. Processando veículos...`);
+        console.log(`[PD] Transporte definido. Processando ${caravana.transportesFinalizados.length} veículos...`);
         const participantesMap = new Map();
-        const funcionariosMap = new Map(); // Cache para funcionários já buscados
+        const funcionariosCache = new Map(); // Renomeado para clareza
 
         let veiculosParaProcessar = [...caravana.transportesFinalizados];
 
         if (!isAdminView && cargo && cargo !== 'guia') {
-            console.log(`[Participantes Distribuidos] Filtrando veículos para funcionário ${funcionarioUid} (cargo: ${cargo})`);
+            console.log(`[PD] Filtrando veículos para funcionário ${funcionarioUid} (cargo: ${cargo})`);
             veiculosParaProcessar = caravana.transportesFinalizados.filter(veiculo =>
                 (cargo === 'administrador' && veiculo.administradorUid === funcionarioUid) ||
                 (cargo === 'motorista' && veiculo.motoristaUid === funcionarioUid)
             );
             if (veiculosParaProcessar.length === 0) {
-                console.log(`[Participantes Distribuidos] Nenhum veículo atribuído a este funcionário.`);
+                console.log(`[PD] Nenhum veículo atribuído a este funcionário.`);
                 return res.status(200).json({ definicaoCompleta: true, veiculosComParticipantes: [] });
             }
         }
-        console.log(`[Participantes Distribuidos] Número de veículos para processar: ${veiculosParaProcessar.length}`);
+        console.log(`[PD] Número de veículos para processar após filtro: ${veiculosParaProcessar.length}`);
 
 
         const veiculosComParticipantesDetalhados = await Promise.all(
             veiculosParaProcessar.map(async (veiculo, veiculoIndex) => {
+                console.log(`[PD] Processando veículo ${veiculoIndex + 1}: Tipo ID ${veiculo.tipoId}, Admin UID ${veiculo.administradorUid}, Motorista UID ${veiculo.motoristaUid}`);
                 const participantesAtribuidosDetalhes = [];
                 if (veiculo.participantesAtribuidos && Array.isArray(veiculo.participantesAtribuidos)) {
                     const participantesIdsUnicos = [...new Set(veiculo.participantesAtribuidos)];
-                    console.log(`[Participantes Distribuidos] Veículo ${veiculoIndex}: Buscando ${participantesIdsUnicos.length} participantes únicos.`);
+                    console.log(`[PD] Veículo ${veiculoIndex + 1}: Buscando ${participantesIdsUnicos.length} participantes únicos.`);
 
                     for (const participanteDocId of participantesIdsUnicos) {
-                        if (!participanteDocId) { // Checagem extra
-                             console.warn(`[Participantes Distribuidos] Encontrado ID de participante nulo/undefined no veículo ${veiculoIndex}`);
+                        if (!participanteDocId) {
+                             console.warn(`[PD] Encontrado ID de participante nulo/undefined no veículo ${veiculoIndex + 1}`);
                              continue;
                         }
                         let participanteDetalhe = participantesMap.get(participanteDocId);
@@ -1874,10 +1875,10 @@ app.get('/caravanas/:caravanaId/participantes-distribuidos', verificarAutenticac
                                     participanteDetalhe.telefone = telP;
                                     participantesMap.set(participanteDocId, participanteDetalhe);
                                 } else {
-                                    console.warn(`[Participantes Distribuidos] Documento do participante ${participanteDocId} não encontrado.`);
+                                    console.warn(`[PD] Documento do participante ${participanteDocId} não encontrado.`);
                                 }
                             } catch (pError) {
-                                console.error(`[Participantes Distribuidos] Erro ao buscar doc do participante ${participanteDocId}:`, pError);
+                                console.error(`[PD] Erro ao buscar doc do participante ${participanteDocId}:`, pError);
                             }
                         }
                         if (participanteDetalhe) participantesAtribuidosDetalhes.push(participanteDetalhe);
@@ -1885,47 +1886,66 @@ app.get('/caravanas/:caravanaId/participantes-distribuidos', verificarAutenticac
                     participantesAtribuidosDetalhes.sort((a, b) => (a.nome || '').localeCompare(b.nome || ''));
                 }
 
-                 let adminData = null;
-                 if (veiculo.administradorUid) {
-                     if (funcionariosMap.has(veiculo.administradorUid)) {
-                         adminData = funcionariosMap.get(veiculo.administradorUid);
-                     } else {
-                         adminData = await getFuncionarioData(veiculo.administradorUid); // Sua função helper
-                         if(adminData) funcionariosMap.set(veiculo.administradorUid, adminData);
-                     }
-                 }
-                 let motoristaData = null;
-                 if (veiculo.motoristaUid) {
-                     if (funcionariosMap.has(veiculo.motoristaUid)) {
-                         motoristaData = funcionariosMap.get(veiculo.motoristaUid);
-                     } else {
-                         motoristaData = await getFuncionarioData(veiculo.motoristaUid);
-                         if(motoristaData) funcionariosMap.set(veiculo.motoristaUid, motoristaData);
-                     }
-                 }
+                // --- LÓGICA DE BUSCA DE FUNCIONÁRIO CORRIGIDA E COM LOGS ---
+                let adminObj = null;
+                if (veiculo.administradorUid) {
+                    if (funcionariosCache.has(veiculo.administradorUid)) {
+                        adminObj = funcionariosCache.get(veiculo.administradorUid);
+                        console.log(`[PD] Admin ${veiculo.administradorUid} encontrado no cache.`);
+                    } else {
+                        console.log(`[PD] Buscando Admin UID: ${veiculo.administradorUid} no Firestore...`);
+                        adminObj = await getFuncionarioData(veiculo.administradorUid);
+                        if (adminObj) {
+                            console.log(`[PD] Admin ${veiculo.administradorUid} encontrado:`, adminObj.nome);
+                            funcionariosCache.set(veiculo.administradorUid, adminObj);
+                        } else {
+                            console.warn(`[PD] Admin ${veiculo.administradorUid} NÃO encontrado.`);
+                        }
+                    }
+                }
+
+                let motoristaObj = null;
+                if (veiculo.motoristaUid) {
+                     if (funcionariosCache.has(veiculo.motoristaUid)) {
+                        motoristaObj = funcionariosCache.get(veiculo.motoristaUid);
+                        console.log(`[PD] Motorista ${veiculo.motoristaUid} encontrado no cache.`);
+                    } else {
+                        console.log(`[PD] Buscando Motorista UID: ${veiculo.motoristaUid} no Firestore...`);
+                        motoristaObj = await getFuncionarioData(veiculo.motoristaUid);
+                        if (motoristaObj) {
+                            console.log(`[PD] Motorista ${veiculo.motoristaUid} encontrado:`, motoristaObj.nome);
+                            funcionariosCache.set(veiculo.motoristaUid, motoristaObj);
+                        } else {
+                            console.warn(`[PD] Motorista ${veiculo.motoristaUid} NÃO encontrado.`);
+                        }
+                    }
+                }
+                // --- FIM LÓGICA CORRIGIDA ---
 
                 return {
                     veiculoInfo: {
                         tipoId: veiculo.tipoId, nomeTipo: veiculo.nomeTipo,
                         assentos: veiculo.assentos, placa: veiculo.placa
                     },
-                    administrador: adminData ? { uid: adminData.id || adminData.uid, nome: adminData.nome } : null,
-                    motorista: motoristaData ? { uid: motoristaData.id || motoristaData.uid, nome: motoristaData.nome } : null,
+                    // Usa o objeto completo se encontrado, senão null
+                    administrador: adminObj ? { uid: adminObj.uid || adminObj.id, nome: adminObj.nome } : null,
+                    motorista: motoristaObj ? { uid: motoristaObj.uid || motoristaObj.id, nome: motoristaObj.nome } : null,
                     participantesAtribuidos: participantesAtribuidosDetalhes
                 };
             })
         );
-        console.log(`[Participantes Distribuidos] Processamento concluído para ${caravanaId}. Enviando resposta.`);
+        console.log(`[PD] Processamento concluído para ${caravanaId}. Enviando resposta.`);
         res.status(200).json({
             definicaoCompleta: true,
             veiculosComParticipantes: veiculosComParticipantesDetalhados
         });
 
     } catch (error) {
-        console.error(`[Participantes Distribuidos] ERRO GERAL para caravana ${caravanaId}:`, error);
+        console.error(`[PD] ERRO GERAL para caravana ${caravanaId}:`, error);
         res.status(500).json({ error: "Erro interno ao buscar participantes distribuídos.", details: error.message });
     }
 });
+
 
 
 
