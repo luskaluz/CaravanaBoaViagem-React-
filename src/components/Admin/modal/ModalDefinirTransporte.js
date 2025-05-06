@@ -134,7 +134,7 @@ function ModalDefinirTransporte({ caravana, onClose, onSave }) {
 
     const renderAlocacaoIdeal = () => {
         if (!caravana.alocacaoIdealAtual || caravana.alocacaoIdealAtual.length === 0) return <p>Nenhuma sugestão automática.</p>;
-        return ( <ul> {caravana.alocacaoIdealAtual.map((item, index) => ( <li key={index}>{item.quantidade}x {item.nomeTipo} ({item.assentos}a)</li> ))} <li><strong>Capacidade maxima:</strong> {caravana.capacidadeCalculada || 'N/A'}</li> </ul> );
+        return ( <ul> {caravana.alocacaoIdealAtual.map((item, index) => ( <li key={index}>{item.quantidade}x {item.nomeTipo} ({item.assentos})</li> ))} <li><strong>Capacidade maxima:</strong> {caravana.capacidadeCalculada || 'N/A'}</li> </ul> );
     };
 
     if (loadingResources) {
@@ -166,7 +166,7 @@ function ModalDefinirTransporte({ caravana, onClose, onSave }) {
                                 <div className={styles.veiculoInfo}>
                                     <strong>{veiculo.nomeTipo} ({veiculo.assentos} assentos)</strong>
                                     <div className={styles.veiculoInputs}>
-                                        <input type="text" placeholder="Placa (Opcional)" value={veiculo.placa || ''} onChange={(e) => handleVeiculoChange(veiculo._instanceId, 'placa', e.target.value)} className={styles.textInput} disabled={isLoading || dataConfirmacaoPassou} />
+                                        <input type="text" placeholder="Placa" value={veiculo.placa || ''} onChange={(e) => handleVeiculoChange(veiculo._instanceId, 'placa', e.target.value)} className={styles.textInput} disabled={isLoading || dataConfirmacaoPassou} />
                                         <select value={veiculo.motoristaUid || ''} onChange={(e) => handleVeiculoChange(veiculo._instanceId, 'motoristaUid', e.target.value)} className={styles.selectInput} disabled={isLoading || dataConfirmacaoPassou}>
                                             <option value="">-- Motorista --</option>
                                             {motoristasDisponiveis.map(mot => (

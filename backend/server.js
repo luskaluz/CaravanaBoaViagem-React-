@@ -219,58 +219,68 @@ async function alocarTransporteOtimizado(pessoasParaAlocar, maxVeiculosPermitido
 }
 
 async function distribuirParticipantes(caravanaId, transportesDefinidos) {
+    console.log(`[Distr ${caravanaId}] Iniciando distribuição para ${transportesDefinidos.length} veículos.`);
     if (!transportesDefinidos || transportesDefinidos.length === 0) {
-        return []; // Retorna a lista vazia se não há veículos
+        return [];
     }
 
     const participantesSnapshot = await db.collection("participantes")
                                           .where("caravanaId", "==", caravanaId)
-                                          .orderBy("timestamp", "asc") // Ordena para distribuição consistente
+                                          .orderBy("timestamp", "asc")
                                           .get();
 
-    // Cria uma lista "plana" de cada ingresso individual
     const ingressosIndividuais = [];
     participantesSnapshot.forEach(doc => {
         const data = doc.data();
         const id = doc.id;
         const qtd = data.quantidade || 1;
         for (let i = 0; i < qtd; i++) {
-            // Guarda info mínima necessária para atribuição e depois busca detalhes
             ingressosIndividuais.push({ participanteDocId: id, indiceIngresso: i + 1 });
         }
     });
+    console.log(`[Distr ${caravanaId}] Total de ${ingressosIndividuais.length} ingressos individuais a distribuir.`);
 
-    // Inicializa a estrutura de retorno com contadores
     const veiculosComContagem = transportesDefinidos.map(v => ({
-        ...v,
-        participantesAtribuidos: [], // Array para IDs de documentos de participantes
-        vagasOcupadasClientes: 0 // Contador de clientes neste veículo
+        tipoId: v.tipoId,
+        nomeTipo: v.nomeTipo,
+        assentos: v.assentos,
+        placa: v.placa,
+        motoristaUid: v.motoristaUid,
+        administradorUid: v.administradorUid,
+        participantesAtribuidos: [],
+        _vagasOcupadasTemp: 0
     }));
 
     let ingressoAtualIndex = 0;
-    // Distribui os ingressos
     for (const veiculo of veiculosComContagem) {
         const assentosDisponiveisVeiculo = veiculo.assentos || 0;
-        while (veiculo.vagasOcupadasClientes < assentosDisponiveisVeiculo && ingressoAtualIndex < ingressosIndividuais.length) {
-            // Atribui o ID do documento do participante ao veículo
-            veiculo.participantesAtribuidos.push(ingressosIndividuais[ingressoAtualIndex].participanteDocId);
-            veiculo.vagasOcupadasClientes++;
+        const participantesNesteVeiculoMap = new Map();
+
+        console.log(`[Distr ${caravanaId}] Processando Veículo ${veiculo.nomeTipo}. Assentos: ${assentosDisponiveisVeiculo}`);
+
+        while (veiculo._vagasOcupadasTemp < assentosDisponiveisVeiculo && ingressoAtualIndex < ingressosIndividuais.length) {
+            const ingressoAtual = ingressosIndividuais[ingressoAtualIndex];
+            participantesNesteVeiculoMap.set(
+                ingressoAtual.participanteDocId,
+                (participantesNesteVeiculoMap.get(ingressoAtual.participanteDocId) || 0) + 1
+            );
+            veiculo._vagasOcupadasTemp++;
             ingressoAtualIndex++;
         }
-        // Remove o contador temporário antes de retornar
-        // delete veiculo.vagasOcupadasClientes;
+
+        for (const [docId, qtd] of participantesNesteVeiculoMap.entries()) {
+            veiculo.participantesAtribuidos.push({ participanteDocId: docId, quantidadeAtribuida: qtd });
+        }
+        console.log(`[Distr ${caravanaId}] Veículo ${veiculo.nomeTipo} finalizado com ${veiculo._vagasOcupadasTemp} pessoas. ${veiculo.participantesAtribuidos.length} registros de participantes distintos.`);
     }
 
     if (ingressoAtualIndex < ingressosIndividuais.length) {
-        // Isso não deveria acontecer se a capacidade foi validada corretamente antes
-        console.error(`[Distr] Sobraram ${ingressosIndividuais.length - ingressoAtualIndex} ingressos não atribuídos para caravana ${caravanaId}!`);
-        // Poderia lançar um erro ou retornar uma flag de erro
+        console.error(`[Distr ${caravanaId}] ALERTA: Sobraram ${ingressosIndividuais.length - ingressoAtualIndex} ingressos não atribuídos!`);
     }
 
-    // Retorna a lista de veículos com os IDs dos participantes atribuídos
-    // Remove o contador temporário
-    return veiculosComContagem.map(({ vagasOcupadasClientes, ...resto }) => resto);
+    return veiculosComContagem.map(({ _vagasOcupadasTemp, ...resto }) => resto);
 }
+
 
 function alocacoesDiferentes(alocacaoA, alocacaoB) {
     const a = alocacaoA || [];
@@ -1353,9 +1363,15 @@ app.put('/caravanas/:id/confirmar-manual', verificarAutenticacao, verificarAdmin
 
     } catch (error) {
         console.error(`Erro ao confirmar caravana ${caravanaId} manualmente:`, error);
-        res.status(error.message.includes('não encontrada') || error.message.includes('inválido') || error.message.includes('insuficiente') || error.message.includes('atingida') ? 400 : 500).json({
-             error: error.message || "Erro interno ao confirmar caravana."
+        // <<< CORREÇÃO ANTERIOR QUE JÁ DEVE ESTAR AÍ >>>
+        const errorMessage = error instanceof Error ? error.message : "Ocorreu um erro desconhecido.";
+        const statusCode = errorMessage.includes('não encontrada') || errorMessage.includes('inválido') || errorMessage.includes('insuficiente') || errorMessage.includes('atingida') ? 400 : 500;
+
+        res.status(statusCode).json({
+             error: errorMessage,
+             ...(statusCode === 500 && { details: error.toString() })
         });
+        // <<< FIM CORREÇÃO ANTERIOR >>>
     }
 });
 
@@ -1852,81 +1868,87 @@ app.get('/caravanas/:caravanaId/participantes-distribuidos', verificarAutenticac
     const { funcionarioUid, cargo } = req.query;
     const isAdminView = !funcionarioUid;
 
-    console.log(`[PD] Iniciando para Caravana ID: ${caravanaId}, Funcionario UID: ${funcionarioUid}, Cargo: ${cargo}`);
+    console.log(`[PD GET ${caravanaId}] Iniciando. Funcionario UID: ${funcionarioUid}, Cargo: ${cargo}`);
 
     try {
         const caravanaDoc = await db.collection('caravanas').doc(caravanaId).get();
         if (!caravanaDoc.exists) {
-            console.log(`[PD] Caravana ${caravanaId} não encontrada.`);
+            console.log(`[PD GET ${caravanaId}] Caravana não encontrada.`);
             return res.status(404).json({ error: 'Caravana não encontrada.' });
         }
         const caravana = caravanaDoc.data();
-        console.log(`[PD] Caravana encontrada. Status: ${caravana.status}`);
+        console.log(`[PD GET ${caravanaId}] Caravana encontrada. Status: ${caravana.status}`);
 
         const transporteDefinido = (caravana.transporteDefinidoManualmente || caravana.transporteAutoDefinido) &&
                                  caravana.transportesFinalizados &&
                                  caravana.transportesFinalizados.length > 0;
 
         if (!transporteDefinido) {
-            console.log(`[PD] Transporte não definido para ${caravanaId}. Retornando lista geral.`);
-            const participantesSnapshot = await db.collection('participantes')
-                .where('caravanaId', '==', caravanaId)
-                .orderBy('timestamp', 'desc')
-                .get();
-            const todosParticipantes = await Promise.all(participantesSnapshot.docs.map(async doc => {
-                const pData = doc.data();
-                let nomeParticipante = pData.nome || 'Nome não informado';
-                let telefoneParticipante = null;
-                if (pData.uid) {
-                    try {
-                        const userDoc = await db.collection('users').doc(pData.uid).get();
-                        if (userDoc.exists) {
-                            nomeParticipante = userDoc.data().nome || nomeParticipante;
-                            telefoneParticipante = userDoc.data().telefone || null;
-                        }
-                    } catch (userFetchError) {
-                        console.error(`[PD] Erro ao buscar usuário ${pData.uid}:`, userFetchError);
-                    }
-                }
-                return { id: doc.id, ...pData, nome: nomeParticipante, telefone: telefoneParticipante };
-            }));
+            console.log(`[PD GET ${caravanaId}] Transporte não definido. Retornando lista geral.`);
+             const participantesSnapshot = await db.collection('participantes')
+                 .where('caravanaId', '==', caravanaId)
+                 .orderBy('timestamp', 'desc')
+                 .get();
+             const todosParticipantes = await Promise.all(participantesSnapshot.docs.map(async doc => {
+                 const pData = doc.data();
+                 let nomeParticipante = pData.nome || 'Nome não informado';
+                 let telefoneParticipante = null;
+                 if (pData.uid) {
+                     try {
+                         const userDoc = await db.collection('users').doc(pData.uid).get();
+                         if (userDoc.exists) {
+                             nomeParticipante = userDoc.data().nome || nomeParticipante;
+                             telefoneParticipante = userDoc.data().telefone || null;
+                         }
+                     } catch (userFetchError) {
+                         console.error(`[PD GET ${caravanaId}] Erro ao buscar usuário ${pData.uid}:`, userFetchError);
+                     }
+                 }
+                 return { id: doc.id, ...pData, nome: nomeParticipante, telefone: telefoneParticipante, quantidade: pData.quantidade || 0 }; // Garante quantidade
+             }));
             return res.status(200).json({ definicaoCompleta: false, todosParticipantes: todosParticipantes });
         }
 
-        console.log(`[PD] Transporte definido. Processando ${caravana.transportesFinalizados.length} veículos...`);
-        const participantesMap = new Map();
-        const funcionariosCache = new Map(); // Renomeado para clareza
+        console.log(`[PD GET ${caravanaId}] Transporte definido. Processando ${caravana.transportesFinalizados.length} veículos...`);
+        const participantesCache = new Map();
+        const funcionariosCache = new Map();
 
         let veiculosParaProcessar = [...caravana.transportesFinalizados];
 
         if (!isAdminView && cargo && cargo !== 'guia') {
-            console.log(`[PD] Filtrando veículos para funcionário ${funcionarioUid} (cargo: ${cargo})`);
+            console.log(`[PD GET ${caravanaId}] Filtrando para funcionário ${funcionarioUid} (${cargo})`);
             veiculosParaProcessar = caravana.transportesFinalizados.filter(veiculo =>
                 (cargo === 'administrador' && veiculo.administradorUid === funcionarioUid) ||
                 (cargo === 'motorista' && veiculo.motoristaUid === funcionarioUid)
             );
             if (veiculosParaProcessar.length === 0) {
-                console.log(`[PD] Nenhum veículo atribuído a este funcionário.`);
+                console.log(`[PD GET ${caravanaId}] Nenhum veículo para este funcionário.`);
                 return res.status(200).json({ definicaoCompleta: true, veiculosComParticipantes: [] });
             }
         }
-        console.log(`[PD] Número de veículos para processar após filtro: ${veiculosParaProcessar.length}`);
-
+        console.log(`[PD GET ${caravanaId}] Número de veículos para processar após filtro: ${veiculosParaProcessar.length}`);
 
         const veiculosComParticipantesDetalhados = await Promise.all(
             veiculosParaProcessar.map(async (veiculo, veiculoIndex) => {
-                console.log(`[PD] Processando veículo ${veiculoIndex + 1}: Tipo ID ${veiculo.tipoId}, Admin UID ${veiculo.administradorUid}, Motorista UID ${veiculo.motoristaUid}`);
+                console.log(`[PD GET ${caravanaId}] Veículo ${veiculoIndex + 1}: Tipo ID ${veiculo.tipoId}, Admin UID ${veiculo.administradorUid}, Motorista UID ${veiculo.motoristaUid}`);
                 const participantesAtribuidosDetalhes = [];
-                if (veiculo.participantesAtribuidos && Array.isArray(veiculo.participantesAtribuidos)) {
-                    const participantesIdsUnicos = [...new Set(veiculo.participantesAtribuidos)];
-                    console.log(`[PD] Veículo ${veiculoIndex + 1}: Buscando ${participantesIdsUnicos.length} participantes únicos.`);
+                let totalPessoasNoVeiculo = 0;
 
-                    for (const participanteDocId of participantesIdsUnicos) {
-                        if (!participanteDocId) {
-                             console.warn(`[PD] Encontrado ID de participante nulo/undefined no veículo ${veiculoIndex + 1}`);
-                             continue;
+                if (veiculo.participantesAtribuidos && Array.isArray(veiculo.participantesAtribuidos)) {
+                    console.log(`[PD GET ${caravanaId}] Veículo ${veiculoIndex + 1}: Tem ${veiculo.participantesAtribuidos.length} objetos de atribuição.`);
+
+                    for (const atribuicao of veiculo.participantesAtribuidos) {
+                        const participanteDocId = atribuicao.participanteDocId;
+                        const quantidadeAtribuida = atribuicao.quantidadeAtribuida || 0;
+
+                        if (!participanteDocId || quantidadeAtribuida <= 0) {
+                            console.warn(`[PD GET ${caravanaId}] Atribuição inválida no veículo ${veiculoIndex + 1}:`, atribuicao);
+                            continue;
                         }
-                        let participanteDetalhe = participantesMap.get(participanteDocId);
+
+                        totalPessoasNoVeiculo += quantidadeAtribuida;
+
+                        let participanteDetalhe = participantesCache.get(participanteDocId);
                         if (!participanteDetalhe) {
                             try {
                                 const pDoc = await db.collection('participantes').doc(participanteDocId).get();
@@ -1943,75 +1965,61 @@ app.get('/caravanas/:caravanaId/participantes-distribuidos', verificarAutenticac
                                     }
                                     participanteDetalhe.nome = nomeP;
                                     participanteDetalhe.telefone = telP;
-                                    participantesMap.set(participanteDocId, participanteDetalhe);
+                                    participantesCache.set(participanteDocId, participanteDetalhe);
                                 } else {
-                                    console.warn(`[PD] Documento do participante ${participanteDocId} não encontrado.`);
+                                    console.warn(`[PD GET ${caravanaId}] Documento participante ${participanteDocId} não encontrado.`);
+                                     participanteDetalhe = { id: participanteDocId, nome: `Participante ID ${participanteDocId} (Removido?)`, email:'N/A', telefone: 'N/A', quantidadeOriginal: 0 };
                                 }
                             } catch (pError) {
-                                console.error(`[PD] Erro ao buscar doc do participante ${participanteDocId}:`, pError);
+                                console.error(`[PD GET ${caravanaId}] Erro buscar participante ${participanteDocId}:`, pError);
+                                participanteDetalhe = { id: participanteDocId, nome: `Erro ao buscar ${participanteDocId}`, email:'N/A', telefone: 'N/A', quantidadeOriginal: 0 };
                             }
                         }
-                        if (participanteDetalhe) participantesAtribuidosDetalhes.push(participanteDetalhe);
+                        participantesAtribuidosDetalhes.push({
+                            ...participanteDetalhe,
+                            quantidade: quantidadeAtribuida // Renomeia para 'quantidade' para a tabela
+                        });
                     }
                     participantesAtribuidosDetalhes.sort((a, b) => (a.nome || '').localeCompare(b.nome || ''));
                 }
 
-                // --- LÓGICA DE BUSCA DE FUNCIONÁRIO CORRIGIDA E COM LOGS ---
-                let adminObj = null;
+                let adminData = null;
                 if (veiculo.administradorUid) {
-                    if (funcionariosCache.has(veiculo.administradorUid)) {
-                        adminObj = funcionariosCache.get(veiculo.administradorUid);
-                        console.log(`[PD] Admin ${veiculo.administradorUid} encontrado no cache.`);
-                    } else {
-                        console.log(`[PD] Buscando Admin UID: ${veiculo.administradorUid} no Firestore...`);
-                        adminObj = await getFuncionarioData(veiculo.administradorUid);
-                        if (adminObj) {
-                            console.log(`[PD] Admin ${veiculo.administradorUid} encontrado:`, adminObj.nome);
-                            funcionariosCache.set(veiculo.administradorUid, adminObj);
-                        } else {
-                            console.warn(`[PD] Admin ${veiculo.administradorUid} NÃO encontrado.`);
-                        }
+                    if (!funcionariosCache.has(veiculo.administradorUid)) {
+                         funcionariosCache.set(veiculo.administradorUid, await getFuncionarioData(veiculo.administradorUid));
                     }
+                    adminData = funcionariosCache.get(veiculo.administradorUid);
                 }
-
-                let motoristaObj = null;
+                let motoristaData = null;
                 if (veiculo.motoristaUid) {
-                     if (funcionariosCache.has(veiculo.motoristaUid)) {
-                        motoristaObj = funcionariosCache.get(veiculo.motoristaUid);
-                        console.log(`[PD] Motorista ${veiculo.motoristaUid} encontrado no cache.`);
-                    } else {
-                        console.log(`[PD] Buscando Motorista UID: ${veiculo.motoristaUid} no Firestore...`);
-                        motoristaObj = await getFuncionarioData(veiculo.motoristaUid);
-                        if (motoristaObj) {
-                            console.log(`[PD] Motorista ${veiculo.motoristaUid} encontrado:`, motoristaObj.nome);
-                            funcionariosCache.set(veiculo.motoristaUid, motoristaObj);
-                        } else {
-                            console.warn(`[PD] Motorista ${veiculo.motoristaUid} NÃO encontrado.`);
-                        }
-                    }
+                     if (!funcionariosCache.has(veiculo.motoristaUid)) {
+                          funcionariosCache.set(veiculo.motoristaUid, await getFuncionarioData(veiculo.motoristaUid));
+                     }
+                     motoristaData = funcionariosCache.get(veiculo.motoristaUid);
                 }
-                // --- FIM LÓGICA CORRIGIDA ---
 
+                console.log(`[PD GET ${caravanaId}] Veículo ${veiculoIndex + 1} processado. Total de pessoas: ${totalPessoasNoVeiculo}`);
                 return {
                     veiculoInfo: {
                         tipoId: veiculo.tipoId, nomeTipo: veiculo.nomeTipo,
                         assentos: veiculo.assentos, placa: veiculo.placa
                     },
-                    // Usa o objeto completo se encontrado, senão null
-                    administrador: adminObj ? { uid: adminObj.uid || adminObj.id, nome: adminObj.nome } : null,
-                    motorista: motoristaObj ? { uid: motoristaObj.uid || motoristaObj.id, nome: motoristaObj.nome } : null,
-                    participantesAtribuidos: participantesAtribuidosDetalhes
+                    administrador: adminData ? { uid: adminData.uid || adminData.id, nome: adminData.nome } : null,
+                    motorista: motoristaData ? { uid: motoristaData.uid || motoristaData.id, nome: motoristaData.nome } : null,
+                    participantesAtribuidos: participantesAtribuidosDetalhes,
+                    totalPessoasVeiculo: totalPessoasNoVeiculo
                 };
             })
         );
-        console.log(`[PD] Processamento concluído para ${caravanaId}. Enviando resposta.`);
+
+        console.log(`[PD GET ${caravanaId}] Enviando resposta com veículos detalhados.`);
         res.status(200).json({
             definicaoCompleta: true,
             veiculosComParticipantes: veiculosComParticipantesDetalhados
         });
 
     } catch (error) {
-        console.error(`[PD] ERRO GERAL para caravana ${caravanaId}:`, error);
+        console.error(`[PD GET ${caravanaId}] ERRO GERAL:`, error);
         res.status(500).json({ error: "Erro interno ao buscar participantes distribuídos.", details: error.message });
     }
 });
