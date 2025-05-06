@@ -102,7 +102,7 @@ function PopupConfira({ caravana: initialCaravana, onClose, onCompraSucesso, loc
         return (
             <div className={styles.popup}>
                 <div className={styles.popupContent}>
-                    <button onClick={onClose} className={styles.popupCloseButton}>×</button>
+                    <button onClick={onClose} className={styles.popupCloseButton}></button>
                     <div className={styles.popupImagens}>
                         <div className={styles.imagemContainer}>
                             <img src={imagemPrincipalLocalidade} alt={localidadeLocal.nome} className={styles.popupImagemPrincipal}/>
@@ -129,7 +129,7 @@ function PopupConfira({ caravana: initialCaravana, onClose, onCompraSucesso, loc
         return (
             <div className={styles.popup}>
                 <div className={styles.popupContent}>
-                    <button onClick={onClose} className={styles.popupCloseButton}>×</button>
+                    <button onClick={onClose} className={styles.popupCloseButton}></button>
                     <div className={styles.popupImagens}>
                         <div className={styles.imagemContainer}>
                             <img src={imagemPrincipalCaravana} alt={caravanaLocal.nomeLocalidade} className={styles.popupImagemPrincipal}/>

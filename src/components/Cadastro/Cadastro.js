@@ -4,7 +4,7 @@ import { auth } from '../../services/firebase';
 import * as api from '../../services/api';
 import styles from './Cadastro.module.css';
 import { useNavigate } from 'react-router-dom';
-import LoadingSpinner from '../LoadingSpinner/LoadingSpinner'; // <<< Importar
+// Não precisa mais importar LoadingSpinner aqui
 
 const ADMIN_EMAIL = process.env.REACT_APP_ADMIN_EMAIL;
 
@@ -15,7 +15,7 @@ function Cadastro() {
     const [idade, setIdade] = useState('');
     const [senha, setSenha] = useState('');
     const [error, setError] = useState('');
-    const [isRegistering, setIsRegistering] = useState(false); // <<< Novo estado
+    const [isRegistering, setIsRegistering] = useState(false); // <<< Mantém estado específico
     const navigate = useNavigate();
 
     const handleCadastro = async (e) => {
@@ -26,7 +26,7 @@ function Cadastro() {
         if (!phoneRegex.test(telefone)) { setError("Formato de telefone inválido."); return; }
         if (ADMIN_EMAIL && email === ADMIN_EMAIL) { setError("Este email é reservado."); return; }
 
-        setIsRegistering(true); // <<< Inicia loading
+        setIsRegistering(true); // <<< Ativa loading do cadastro
 
         try {
             const { user } = await createUserWithEmailAndPassword(auth, email, senha);
@@ -41,7 +41,7 @@ function Cadastro() {
           else if(authError.code === 'auth/invalid-email'){ setError("Email inválido") }
           else { setError('Erro ao cadastrar. Tente novamente.'); }
         } finally {
-            setIsRegistering(false); // <<< Termina loading
+            setIsRegistering(false); // <<< Desativa loading do cadastro
         }
     };
 
@@ -57,6 +57,7 @@ function Cadastro() {
 
     return (
          <div className={styles.container}>
+              {/* Remove o overlay do LoadingSpinner */}
              <form className={styles.form} onSubmit={handleCadastro}>
                  <h2 className={styles.title}>Cadastro</h2>
                  <label className={styles.label}> Nome: <input className={styles.input} type="text" value={nome} onChange={(e) => setNome(e.target.value)} required disabled={isRegistering} /> </label>
@@ -65,7 +66,7 @@ function Cadastro() {
                  <label className={styles.label}> Idade: <input className={styles.input} type="number" value={idade} onChange={(e) => setIdade(e.target.value)} required disabled={isRegistering} /> </label>
                  <label className={styles.label}> Senha: <input className={styles.input} type="password" value={senha} onChange={(e) => setSenha(e.target.value)} required disabled={isRegistering} /> </label>
                  <button className={styles.button} type="submit" disabled={isRegistering}>
-                     {isRegistering ? <LoadingSpinner size="small" text="Cadastrando..." inline={true}/> : 'Cadastrar'}
+                     {isRegistering ? 'Cadastrando...' : 'Cadastrar'} {/* Texto do botão muda */}
                  </button>
                  {error && <p className={styles.errorMessage || styles.error}>{error}</p>}
                  <button type="button" className={styles.buttonSecondary || styles.button} onClick={() => navigate('/login')} disabled={isRegistering}>

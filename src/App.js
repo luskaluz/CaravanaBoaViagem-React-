@@ -1,3 +1,4 @@
+// App.js (Código Completo)
 import React, { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Route, Routes, Navigate } from 'react-router-dom';
 import Header from './components/Header';
@@ -35,13 +36,13 @@ function App() {
         return () => unsubscribe();
     }, []);
 
-    // --- USA O SPINNER ENQUANTO VERIFICA AUTH ---
+    // --- SPINNER AQUI É NECESSÁRIO ---
     if (isCheckingAuth) {
          return (
              <div className={styles.appContainer}>
-                <Header /> {/* Mantém Header/Footer se desejar */}
+                <Header />
                 <main className={styles.mainContent}>
-                     <LoadingSpinner mensagem="Carregando." />
+                     <LoadingSpinner mensagem="Verificando autenticação..." /> {/* Mantém o spinner */}
                 </main>
                 <Footer />
             </div>
@@ -54,18 +55,11 @@ function App() {
     }
 
     function ProtectedRoute({ children, roleRequired }) {
-        if (!user) {
-            return <Navigate to="/login" replace />;
-        }
+        if (!user) { return <Navigate to="/login" replace />; }
         const isUserAdmin = ADMIN_EMAIL && user.email === ADMIN_EMAIL;
-
-        if (roleRequired === 'admin') {
-            return isUserAdmin ? children : <Navigate to="/dashboard" replace />;
-        } else if (roleRequired === 'user') {
-             return !isUserAdmin ? children : <Navigate to="/admin-dashboard" replace />;
-         } else if (roleRequired === 'funcionario') {
-             return !isUserAdmin ? children : <Navigate to="/admin-dashboard" replace />;
-        }
+        if (roleRequired === 'admin') { return isUserAdmin ? children : <Navigate to="/dashboard" replace />; }
+        else if (roleRequired === 'user') { return !isUserAdmin ? children : <Navigate to="/admin-dashboard" replace />; }
+        else if (roleRequired === 'funcionario') { return !isUserAdmin ? children : <Navigate to="/admin-dashboard" replace />; }
         return <Navigate to="/login" replace />;
     }
 
@@ -84,14 +78,11 @@ function App() {
                         <Route path="/" element={<Home />} />
                         <Route path="/sobre" element={<Sobre />} />
                         <Route path="/roteiros" element={<Roteiros />} />
-
                         <Route path="/cadastro" element={user ? <Navigate to={getDefaultRedirectPath()} replace /> : <Cadastro />} />
                         <Route path="/login" element={user ? <Navigate to={getDefaultRedirectPath()} replace /> : <Login />} />
-
                         <Route path="/dashboard" element={ <ProtectedRoute roleRequired="user"> <DashboardUsuario /> </ProtectedRoute> } />
                         <Route path="/admin-dashboard" element={ <ProtectedRoute roleRequired="admin"> <DashboardAdmin /> </ProtectedRoute> } />
                         <Route path="/funcionario-dashboard" element={ <ProtectedRoute roleRequired="funcionario"> <FuncionarioDashboard /> </ProtectedRoute> } />
-
                         <Route path="*" element={<Navigate to={getDefaultRedirectPath()} replace />} />
                     </Routes>
                 </main>

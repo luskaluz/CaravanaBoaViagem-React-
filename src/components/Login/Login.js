@@ -4,7 +4,7 @@ import { signInWithEmailAndPassword, sendPasswordResetEmail } from 'firebase/aut
 import { auth } from '../../services/firebase';
 import * as api from '../../services/api';
 import styles from './Login.module.css';
-import LoadingSpinner from '../LoadingSpinner/LoadingSpinner'; // <<< Importar
+// Não precisa mais importar LoadingSpinner aqui
 
 const ADMIN_EMAIL = process.env.REACT_APP_ADMIN_EMAIL;
 
@@ -13,8 +13,8 @@ function Login() {
     const [password, setPassword] = useState('');
     const [error, setError] = useState('');
     const [successMessage, setSuccessMessage] = useState('');
-    const [isLoggingIn, setIsLoggingIn] = useState(false); // <<< Renomeado para clareza
-    const [isResettingPassword, setIsResettingPassword] = useState(false);
+    const [isLoggingIn, setIsLoggingIn] = useState(false); // Estado para loading do login
+    const [isResettingPassword, setIsResettingPassword] = useState(false); // Estado para loading do reset
     const navigate = useNavigate();
 
     useEffect(() => {
@@ -24,7 +24,7 @@ function Login() {
     const handleLogin = async (event) => {
         event.preventDefault();
         setError(''); setSuccessMessage('');
-        setIsLoggingIn(true); // <<< Usa estado específico
+        setIsLoggingIn(true); // Ativa loading DO LOGIN
 
         console.log(`Tentando login com: ${email}`);
 
@@ -44,7 +44,7 @@ function Login() {
                 console.log("É usuário comum. Redirecionando...");
                 navigate('/dashboard'); return;
             } catch (userError) {
-                if (userError.status !== 404) { throw userError; } // Relança erro inesperado
+                if (userError.status !== 404) { throw userError; }
                 console.log("Não usuário comum. Verificando funcionário...");
             }
 
@@ -53,52 +53,55 @@ function Login() {
                 console.log("É funcionário. Redirecionando...");
                 navigate('/funcionario-dashboard'); return;
             } catch (funcionarioError) {
-                if (funcionarioError.status !== 404 ) { throw funcionarioError; } // Relança erro inesperado
+                if (funcionarioError.status !== 404 ) { throw funcionarioError; }
                 console.warn("Usuário autenticado mas sem registro:", user.uid, user.email);
                 setError("Conta autenticada, mas sem acesso registrado.");
                 await auth.signOut();
             }
         } catch (authError) {
             console.error("Erro no processo de login:", authError);
-            if(authError.code === 'auth/invalid-credential' || authError.code === 'auth/invalid-login-credentials' || authError.code === 'auth/user-not-found' || authError.code === 'auth/wrong-password'){ setError("Email ou senha inválidos."); }
-            else if (authError.message.includes("verificar seus dados")) { setError(authError.message); } // Mostra erros das chamadas API
+            if(authError.code === 'auth/invalid-credential' || /*...*/ authError.code === 'auth/wrong-password'){ setError("Email ou senha inválidos."); }
+            else if (authError.message.includes("verificar seus dados")) { setError(authError.message); }
             else { setError("Falha na autenticação. Verifique conexão."); }
         } finally {
-            setIsLoggingIn(false); // <<< Usa estado específico
+            setIsLoggingIn(false); // Desativa loading DO LOGIN
         }
     };
 
     const handlePasswordReset = async () => {
         if (!email) { setError("Digite seu email para redefinir a senha."); return; }
         setError(''); setSuccessMessage('');
-        setIsResettingPassword(true);
+        setIsResettingPassword(true); // Ativa loading DO RESET
         try {
             await sendPasswordResetEmail(auth, email);
-            setSuccessMessage(`Email de redefinição enviado para ${email}.`);
+            setSuccessMessage(`Email de redefinição enviado para ${email}. Verifique sua caixa de entrada.`);
         } catch (resetError) {
             console.error("Erro no reset:", resetError.code, resetError.message);
             if (resetError.code === 'auth/user-not-found' || resetError.code === 'auth/invalid-email') { setError("Email não encontrado ou inválido."); }
             else { setError("Erro ao enviar email de redefinição."); }
-        } finally { setIsResettingPassword(false); }
+        } finally {
+            setIsResettingPassword(false); // Desativa loading DO RESET
+        }
     };
 
     return (
         <div className={styles.container}>
+            {/* Remove o overlay do LoadingSpinner מכאן */}
             <form className={styles.form} onSubmit={handleLogin}>
                 <h2 className={styles.title}>Login</h2>
                 <label className={styles.label}> Email:
-                    <input className={styles.input} type="email" value={email} onChange={(e) => setEmail(e.target.value)} required disabled={isLoggingIn || isResettingPassword} placeholder="seuemail@exemplo.com" />
+                    <input className={styles.input} type="email" value={email} onChange={(e) => setEmail(e.target.value)} required disabled={isLoggingIn || isResettingPassword} />
                 </label>
                 <label className={styles.label}> Senha:
-                    <input className={styles.input} type="password" value={password} onChange={(e) => setPassword(e.target.value)} required disabled={isLoggingIn || isResettingPassword} placeholder="********"/>
+                    <input className={styles.input} type="password" value={password} onChange={(e) => setPassword(e.target.value)} required disabled={isLoggingIn || isResettingPassword} />
                 </label>
                 {error && <p className={styles.error}>{error}</p>}
                 {successMessage && <p className={styles.success}>{successMessage}</p>}
                 <button className={styles.button} type="submit" disabled={isLoggingIn || isResettingPassword}>
-                    {isLoggingIn ? <LoadingSpinner size="small" text="Entrando..." inline={true} /> : 'Entrar'}
+                    {isLoggingIn ? 'Entrando...' : 'Entrar'} {/* Texto do botão muda */}
                 </button>
                 <button type="button" className={styles.button} onClick={handlePasswordReset} disabled={isLoggingIn || isResettingPassword}>
-                    {isResettingPassword ? <LoadingSpinner size="small" text="Enviando..." inline={true} /> : 'Esqueci minha senha'}
+                    {isResettingPassword ? 'Enviando...' : 'Esqueci minha senha'} {/* Texto do botão muda */}
                 </button>
                 <button type="button" className={styles.button} onClick={() => navigate('/cadastro')} disabled={isLoggingIn || isResettingPassword}>
                     Não tem uma conta? Cadastre-se

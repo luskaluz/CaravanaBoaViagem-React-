@@ -121,7 +121,7 @@ function Roteiros() {
                                                  <h4 className={styles.titulo}>{caravana.nomeLocalidade || 'Destino Indefinido'}</h4>
                                                  <p className={styles.data}>Data: {caravana.data ? new Date(caravana.data + 'T00:00:00Z').toLocaleDateString('pt-BR', { timeZone: 'UTC' }) : 'N/A'}</p>
                                                  <p className={styles.capacidade}>Capacidade Total: {disponibilidade.capacidadeTotalExibida > 0 ? disponibilidade.capacidadeTotalExibida : 'A definir'}</p>
-                                                 <p className={styles.vagas}>Vagas (Clientes): {disponibilidade.capacidadeTotalExibida === 0 ? 'A definir' : (disponibilidade.vagasCliente === 0 ? 'Esgotado' : disponibilidade.vagasCliente)}</p>
+                                                 <p className={styles.vagas}>Vagas Restantes: {disponibilidade.capacidadeTotalExibida === 0 ? 'A definir' : (disponibilidade.vagasCliente === 0 ? 'Esgotado' : disponibilidade.vagasCliente)}</p>
                                                  <p className={styles.preco}>{caravana.preco ? `R$ ${caravana.preco.toFixed(2)}` : 'Preço a definir'}</p>
                                                  <button className={styles.botao} onClick={() => openPopup(caravana)}> Ver Detalhes </button>
                                              </div>

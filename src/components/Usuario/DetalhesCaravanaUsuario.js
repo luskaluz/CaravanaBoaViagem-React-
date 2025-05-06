@@ -76,8 +76,7 @@ function DetalhesCaravanaUsuario({ caravana, onClose }) {
 
     return (
         <div className={styles.container}>
-            {/* Botão Fechar pode ser adicionado aqui se necessário, ou gerenciado pelo modal pai */}
-            {/* <button onClick={onClose} className={styles.closeButton}>×</button> */}
+
             <h2 className={styles.title}>Detalhes da Caravana</h2>
             {/* Usa imagemCapaLocalidade como fallback primário */}
             {(caravana.imagemCapaLocalidade || (caravana.imagensLocalidade && caravana.imagensLocalidade.length > 0)) && (

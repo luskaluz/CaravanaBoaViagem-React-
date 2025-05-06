@@ -10,18 +10,15 @@ const apiRequest = async (method, url, data = null, params = null) => {
         const config = {
             method,
             url: `${API_URL}${url}`,
-            // Envia 'data' apenas se não for null. GET/DELETE não devem ter corpo.
             ...(data && { data: data }),
-            params, // Axios usa 'params' para query strings
+            params, 
             headers: {
                 'Content-Type': 'application/json',
-                // Inclui token apenas se existir
                 ...(token && { Authorization: `Bearer ${token}` }),
             },
-            timeout: 10000, // 10 segundos de timeout
+            timeout: 60000, 
         };
 
-        // console.log("API Request Config:", config); // Descomente para debug
         const response = await axios(config);
         return response.data;
 
