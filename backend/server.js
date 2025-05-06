@@ -753,7 +753,7 @@ async function getCaravanasUsuarioPorStatus(userId, status = undefined) {
 
 // ROTAS DE FUNCIONÁRIOS (ADMIN/INTERNO) - Necessitarão de revisão de permissões
 
-app.post('/funcionarios', verificarAutenticacao, verificarAdmin, async (req, res) => {
+app.post('/funcionarios', verificarAutenticacao, async (req, res) => {
     try {
         // Removido 'salario' da desestruturação e validação
         const { nome, email, telefone, senha, cargo, fotoUrl } = req.body;

@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react'; // <<< useCallback ADICIONADO AQUI
-import styles from '../Usuario/DetalhesCaravanaUsuario.module.css';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import styles from '../Usuario/DetalhesCaravanaUsuario.module.css'; // Reutilizando estilos
 import * as api from '../../services/api';
 import translateStatus from '../translate/translate';
 
@@ -19,7 +19,7 @@ function DetalhesCaravanaFuncionario({ caravana }) {
                 const funcData = await api.getFuncionarios();
                 setFuncionarios(funcData);
             } catch (err) {
-                console.error("Erro ao buscar funcionários em DetalhesCaravanaFuncionario:", err);
+                console.error("Erro DetalhesFunc: buscar funcionários:", err);
                 setErrorFuncionarios("Falha ao carregar nomes da equipe.");
             }
             finally { setLoadingFuncionarios(false); }
@@ -51,7 +51,6 @@ function DetalhesCaravanaFuncionario({ caravana }) {
         return func ? func.nome : `Funcionário (ID: ${uid.substring(0, 6)}...) Não Encontrado`;
     }, [funcionarios, loadingFuncionarios, errorFuncionarios]);
 
-
      const formatarDataHora = (dateTimeString) => {
         if (!dateTimeString) return 'A definir';
         try {
@@ -74,7 +73,6 @@ function DetalhesCaravanaFuncionario({ caravana }) {
             motoristasVeiculos: new Map(),
             veiculosInfo: []
         };
-
         if (!caravana) return resultado;
 
         const transporteDefinido = caravana.transporteDefinidoManualmente || caravana.transporteAutoDefinido;
@@ -91,7 +89,7 @@ function DetalhesCaravanaFuncionario({ caravana }) {
                     resultado.motoristasVeiculos.set(v.motoristaUid, motoristaNome);
                 }
                 resultado.veiculosInfo.push({
-                    id: v.id || `${v.tipoId}-${index}`,
+                    id: v.idInternoVeiculo || `${v.tipoId}-${index}`, // Usa um ID interno se vier do backend, senão gera
                     nomeTipo: v.nomeTipo,
                     assentos: v.assentos,
                     placa: v.placa,
@@ -123,7 +121,7 @@ function DetalhesCaravanaFuncionario({ caravana }) {
 
     return (
         <div className={styles.container}>
-            <h2 className={styles.title}>Detalhes da Caravana (Funcionário)</h2>
+            <h2 className={styles.title}>Detalhes da Caravana</h2>
             {(caravana.imagemCapaLocalidade || (caravana.imagensLocalidade && caravana.imagensLocalidade.length > 0)) && (
                 <img
                     src={caravana.imagemCapaLocalidade || caravana.imagensLocalidade[0]}
@@ -153,13 +151,13 @@ function DetalhesCaravanaFuncionario({ caravana }) {
                     {loadingFuncionarios ? ' Carregando...' :
                      detalhesEquipeVeiculos.adminsVeiculos.size > 0 ?
                      Array.from(detalhesEquipeVeiculos.adminsVeiculos.values()).join(', ') :
-                     'Não Definido'}
+                     'A ser confirmado'}
                  </p>
                  <p className={styles.infoItem}><strong>Motorista(s) da Viagem:</strong>
                     {loadingFuncionarios ? ' Carregando...' :
                      detalhesEquipeVeiculos.motoristasVeiculos.size > 0 ?
                      Array.from(detalhesEquipeVeiculos.motoristasVeiculos.values()).join(', ') :
-                     'Não Definido'}
+                     'A ser confirmado'}
                  </p>
              </div>
 
@@ -185,7 +183,7 @@ function DetalhesCaravanaFuncionario({ caravana }) {
                 <h3>Participantes e Capacidade</h3>
                 <p className={styles.infoItem}><strong>Inscritos (Clientes):</strong> {caravana.vagasOcupadas || 0}</p>
                 <p className={styles.infoItem}>
-                    <strong>Capacidade Total Exibida:</strong> {capacidadeExibida > 0 ? capacidadeExibida : 'Não definida'}
+                    <strong>Capacidade Total:</strong> {capacidadeExibida > 0 ? capacidadeExibida : 'Não definida'}
                 </p>
                 <p className={styles.infoItem}>
                     <strong>Vagas Disponíveis (Clientes):</strong> {capacidadeExibida > 0 ? vagasDisponiveisParaClientes : 'N/A'}

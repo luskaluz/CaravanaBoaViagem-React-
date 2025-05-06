@@ -8,7 +8,7 @@ import ModalDetalhesCaravanaFuncionario from './ModalDetalhesCaravanasFuncionari
 import ParticipantesModal from './ParticipantesModal'; // Assume que este é um modal que ENCAPSULA o componente Participantes
 import { signOut } from 'firebase/auth';
 import { useNavigate } from 'react-router-dom';
-import LoadingSpinner from '../../LoadingSpinner/LoadingSpinner'; // Importe seu spinner
+import LoadingSpinner from '../LoadingSpinner/LoadingSpinner'; // Importe seu spinner
 
 function FuncionarioDashboard() {
     const [caravanasFuncionario, setCaravanasFuncionario] = useState([]);
