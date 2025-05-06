@@ -3080,6 +3080,24 @@ cron.schedule('0 0 * * *', enviarLembretes, { scheduled: true, timezone: "Americ
 cron.schedule('0 0 * * *', confirmarOuCancelarPosVendas, { scheduled: true, timezone: "America/Sao_Paulo" });
 cron.schedule('0 0 * * *', finalizarTransporteAutomaticamente, { scheduled: true, timezone: "America/Sao_Paulo"});
 
+
+
+
+
+
+
+
+
+
+
+app.get('/health-check', (req, res) => {
+    console.log('Health check ping recebido!');
+    res.status(200).send('OK');
+  });
+
+  
+
+  
 app.listen(PORT, () => {
     console.log(`Servidor rodando na porta: ${PORT}`);
 });
