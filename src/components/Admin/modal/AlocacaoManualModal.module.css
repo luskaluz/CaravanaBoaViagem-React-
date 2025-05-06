@@ -1,0 +1,183 @@
+/* src/components/Admin/modal/AlocacaoManualModal.module.css */
+
+/* Estilos para o fundo escuro */
+.modalOverlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.65); /* Levemente mais escuro */
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 1050; /* Acima de outros elementos */
+    padding: 20px;
+    box-sizing: border-box;
+}
+
+/* Estilos para a caixa branca do modal */
+.modalContent {
+    background-color: #fff;
+    padding: 25px 30px;
+    border-radius: 8px;
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+    width: 90%;
+    max-width: 650px; /* Um pouco maior para a lista */
+    position: relative;
+    max-height: 90vh;
+    display: flex; /* Permite alinhar conteúdo interno */
+    flex-direction: column; /* Conteúdo empilhado */
+}
+
+/* Botão de fechar */
+.closeButton {
+    position: absolute;
+    top: 15px;
+    right: 15px;
+    background: none;
+    border: none;
+    font-size: 1.8rem;
+    line-height: 1;
+    cursor: pointer;
+    color: #888;
+    padding: 0;
+}
+.closeButton:hover {
+    color: #333;
+}
+
+/* Título do modal */
+.modalContent h2 {
+    text-align: center;
+    color: #0056b3;
+    margin-top: 0;
+    margin-bottom: 15px;
+    font-size: 1.4rem;
+    font-weight: 600;
+}
+
+/* Parágrafo de vagas necessárias */
+.modalContent > p { /* Seleciona o <p> filho direto */
+    text-align: center;
+    font-weight: 500;
+    margin-bottom: 20px;
+    color: #555;
+}
+
+
+/* Container da lista de transportes com rolagem */
+.listaTransportesScroll {
+    flex-grow: 1; /* Faz a lista ocupar o espaço disponível */
+    max-height: 40vh; /* Altura máxima antes de rolar */
+    overflow-y: auto;
+    border: 1px solid #eee;
+    padding: 15px;
+    margin-bottom: 15px;
+    border-radius: 4px;
+    background-color: #fdfdfd; /* Fundo ligeiramente diferente */
+}
+
+/* Cada item na lista de seleção */
+.transporteItem {
+    display: flex;
+    align-items: center;
+    padding: 10px 5px; /* Mais padding vertical */
+    border-bottom: 1px solid #f0f0f0;
+    cursor: pointer; /* Indica que a linha é clicável (para o label) */
+}
+.transporteItem:last-child {
+    border-bottom: none;
+}
+.transporteItem:hover {
+    background-color: #f8f8f8;
+}
+
+/* Checkbox */
+.transporteItem input[type="checkbox"] {
+    margin-right: 12px;
+    width: 18px;
+    height: 18px;
+    cursor: pointer;
+    accent-color: #007bff; /* Cor do check */
+    flex-shrink: 0;
+}
+.transporteItem input[type="checkbox"]:disabled + label {
+     cursor: not-allowed;
+     opacity: 0.6;
+}
+
+/* Label do transporte */
+.transporteItem label {
+    cursor: pointer;
+    flex-grow: 1;
+    font-size: 0.95rem;
+    color: #333;
+}
+
+/* Estilo para texto quando indisponível e não selecionado */
+.indisponivelLabel {
+     color: #999;
+     text-decoration: line-through;
+}
+/* Tag "(Indisponível)" */
+.indisponivelTag {
+    font-style: italic;
+    color: #888;
+    font-size: 0.85em;
+    margin-left: 8px;
+}
+
+/* Resumo da capacidade selecionada */
+.resumoAlocacao {
+    margin-top: 15px;
+    padding-top: 15px;
+    border-top: 1px solid #eee;
+    text-align: center;
+}
+.resumoAlocacao p {
+    margin: 5px 0;
+    font-weight: 500;
+    color: #444;
+}
+.resumoAlocacao strong {
+    font-size: 1.1em;
+}
+
+/* Mensagem de aviso de capacidade insuficiente */
+.aviso {
+    color: #dc3545; /* Vermelho */
+    font-weight: bold;
+    margin-top: 10px;
+}
+
+/* Estados de Loading e Error */
+.loading { text-align: center; padding: 20px; color: #555; }
+.error { color: red; background-color: #fdd; border: 1px solid red; padding: 10px; border-radius: 4px; text-align: center; margin-bottom: 15px; }
+
+/* Grupo de botões Salvar/Cancelar */
+.buttonGroup {
+    display: flex;
+    justify-content: flex-end; /* Alinha à direita */
+    gap: 10px;
+    margin-top: 25px; /* Espaço acima */
+    padding-top: 15px;
+    border-top: 1px solid #eee; /* Linha separadora */
+}
+
+/* Estilos dos botões (pode reutilizar de outros formulários) */
+.saveButton, .cancelButton {
+    padding: 10px 20px;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 1rem;
+    font-weight: 500;
+    transition: background-color 0.2s;
+}
+.saveButton { background-color: #28a745; color: white; }
+.saveButton:hover:not(:disabled) { background-color: #218838; }
+.saveButton:disabled { background-color: #a3d9b1; cursor: not-allowed; }
+.cancelButton { background-color: #6c757d; color: white; }
+.cancelButton:hover:not(:disabled) { background-color: #5a6268; }
+.cancelButton:disabled { background-color: #cccccc; cursor: not-allowed; }

@@ -10,7 +10,7 @@ function FormularioFuncionario({ funcionario, onSalvar, onCancelar }) {
         telefone: '',
         senha: '',
         cargo: 'motorista',
-        salario: '',
+        // salario: '', // Removido
     });
     const [fotoUrl, setFotoUrl] = useState(null);
     const [arquivoFoto, setArquivoFoto] = useState(null);
@@ -26,9 +26,9 @@ function FormularioFuncionario({ funcionario, onSalvar, onCancelar }) {
                 nome: funcionario.nome || '',
                 email: funcionario.email || '',
                 telefone: funcionario.telefone || '',
-                senha: '',
+                senha: '', // Senha não é preenchida na edição
                 cargo: funcionario.cargo || 'motorista',
-                salario: funcionario.salario ? String(funcionario.salario) : '',
+                // salario: funcionario.salario ? String(funcionario.salario) : '', // Removido
             });
             setFotoUrl(funcionario.fotoUrl || null);
             setPreviewFoto(funcionario.fotoUrl || null);
@@ -37,7 +37,7 @@ function FormularioFuncionario({ funcionario, onSalvar, onCancelar }) {
             setIsEditMode(false);
             setFormData({
                 nome: '', email: '', telefone: '', senha: '',
-                cargo: 'motorista', salario: '',
+                cargo: 'motorista', // salario: '', // Removido
             });
             setFotoUrl(null);
             setArquivoFoto(null);
@@ -92,8 +92,9 @@ function FormularioFuncionario({ funcionario, onSalvar, onCancelar }) {
         event.preventDefault();
         setError(null);
 
-        if (!formData.nome || !formData.email || !formData.telefone || !formData.salario || (!isEditMode && !formData.senha)) {
-             setError("Nome, Email, Telefone e Salário são obrigatórios. Senha é obrigatória na criação.");
+        // Validação sem Salário
+        if (!formData.nome || !formData.email || !formData.telefone || (!isEditMode && !formData.senha)) {
+             setError("Nome, Email e Telefone são obrigatórios. Senha é obrigatória na criação.");
              return;
         }
         if (!isEditMode && formData.senha.length < 6) {
@@ -109,13 +110,9 @@ function FormularioFuncionario({ funcionario, onSalvar, onCancelar }) {
             setError("Formato de telefone inválido.");
              return;
         }
-        if (isNaN(parseFloat(formData.salario)) || parseFloat(formData.salario) < 0) {
-             setError("Salário inválido.");
-             return;
-        }
+        // Remoção da validação de Salário
 
         setIsLoading(true);
-
         let uploadedFotoUrl = fotoUrl;
 
         if (arquivoFoto) {
@@ -135,28 +132,35 @@ function FormularioFuncionario({ funcionario, onSalvar, onCancelar }) {
              uploadedFotoUrl = null;
         }
 
-
+        // Objeto de dados sem Salário
         const funcionarioData = {
             nome: formData.nome,
             email: formData.email,
             telefone: formData.telefone,
             cargo: formData.cargo,
-            salario: parseFloat(formData.salario),
+            // salario: parseFloat(formData.salario), // Removido
             fotoUrl: uploadedFotoUrl,
             ...(!isEditMode && { senha: formData.senha }),
         };
 
         try {
             if (isEditMode) {
+                // A API updateFuncionario no backend precisa ser ajustada para NÃO esperar/atualizar salário
                 await api.updateFuncionario(funcionario.id, funcionarioData);
             } else {
+                 // A API createFuncionario no backend precisa ser ajustada para NÃO esperar/salvar salário
                 await api.createFuncionario(funcionarioData);
             }
             onSalvar();
 
         } catch (error) {
             console.error('Erro ao salvar funcionário:', error);
-            setError(error.message || `Erro ao ${isEditMode ? 'atualizar' : 'criar'} funcionário.`);
+            // Mostra o erro específico da API se possível
+            if (error.response && error.response.data && error.response.data.error) {
+                 setError(error.response.data.error);
+            } else {
+                 setError(error.message || `Erro ao ${isEditMode ? 'atualizar' : 'criar'} funcionário.`);
+            }
         } finally {
             setIsLoading(false);
         }
@@ -173,7 +177,8 @@ function FormularioFuncionario({ funcionario, onSalvar, onCancelar }) {
                 </div>
                 <div className={styles.formGroup}>
                     <label htmlFor="email-func" className={styles.label}>Email:</label>
-                    <input type="email" id="email-func" name="email" value={formData.email} onChange={handleChange} required className={styles.input} />
+                    {/* Desabilita email na edição se ele for usado para login */}
+                    <input type="email" id="email-func" name="email" value={formData.email} onChange={handleChange} required className={styles.input} disabled={isEditMode}/>
                 </div>
                  <div className={styles.formGroup}>
                     <label htmlFor="telefone-func" className={styles.label}>Telefone:</label>
@@ -193,30 +198,20 @@ function FormularioFuncionario({ funcionario, onSalvar, onCancelar }) {
                         <option value="guia">Guia</option>
                     </select>
                 </div>
+                {/* --- CAMPO SALÁRIO REMOVIDO ---
                 <div className={styles.formGroup}>
                     <label htmlFor="salario-func" className={styles.label}>Salário (R$):</label>
                     <input type="number" id="salario-func" name="salario" value={formData.salario} onChange={handleChange} step="0.01" min="0" required className={styles.input}/>
                 </div>
+                */}
 
                  <div className={styles.formGroup}>
-                   <label htmlFor="foto-func" className={styles.label}>Foto:</label>
-                   <input
-                        type="file"
-                        id="foto-func"
-                        onChange={handleFotoChange}
-                        accept="image/*"
-                        className={styles.inputFile}
-                    />
+                   <label htmlFor="foto-func" className={styles.label}>Foto (Opcional):</label>
+                   <input type="file" id="foto-func" onChange={handleFotoChange} accept="image/*" className={styles.inputFile}/>
                     {previewFoto && (
                          <div className={styles.imagemPreviewContainer}>
                               <img src={previewFoto} alt="Preview" className={styles.imagemPreview} />
-                              <button
-                                  type="button"
-                                  onClick={handleRemoverFoto}
-                                  className={styles.removeImageButton}
-                              >
-                                  Remover Foto
-                              </button>
+                              <button type="button" onClick={handleRemoverFoto} className={styles.removeImageButton} > Remover Foto </button>
                          </div>
                     )}
                  </div>

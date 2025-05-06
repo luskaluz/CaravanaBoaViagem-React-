@@ -1,0 +1,77 @@
+/* src/components/Admin/modal/AlocacaoManualModal.module.css */
+.modalOverlay { /* ... (estilo de overlay como outros modais) ... */ }
+.modalContent { /* ... (estilo da caixa do modal, com max-height, overflow-y) ... */ }
+.closeButton { /* ... */ }
+.loading { /* ... */ }
+.error { /* ... */ }
+.buttonGroup { /* ... (alinhar botões no final) ... */ }
+.saveButton { /* ... */ }
+.cancelButton { /* ... */ }
+
+.listaTransportesScroll {
+    max-height: 300px; /* Altura máxima para a lista rolar */
+    overflow-y: auto;
+    border: 1px solid #eee;
+    padding: 10px;
+    margin-bottom: 15px;
+    border-radius: 4px;
+}
+
+.transporteItem {
+    display: flex;
+    align-items: center;
+    padding: 8px 0;
+    border-bottom: 1px solid #f0f0f0;
+}
+.transporteItem:last-child {
+    border-bottom: none;
+}
+
+.transporteItem input[type="checkbox"] {
+    margin-right: 10px;
+    width: 18px;
+    height: 18px;
+    cursor: pointer;
+}
+.transporteItem input[type="checkbox"]:disabled + label {
+     cursor: not-allowed;
+     opacity: 0.6;
+}
+
+
+.transporteItem label {
+    cursor: pointer;
+    flex-grow: 1;
+}
+
+.indisponivelLabel {
+     color: #999;
+     text-decoration: line-through;
+}
+.indisponivelTag {
+    font-style: italic;
+    color: #888;
+    font-size: 0.9em;
+    margin-left: 5px;
+}
+.jaAlocado {
+     font-style: italic;
+     color: #007bff; /* Azul para destacar que já estava alocado */
+     font-size: 0.9em;
+     margin-left: 5px;
+}
+
+
+.resumoAlocacao {
+    margin-top: 15px;
+    padding-top: 15px;
+    border-top: 1px solid #eee;
+}
+.resumoAlocacao p {
+    margin: 5px 0;
+    font-weight: 500;
+}
+.aviso {
+    color: #dc3545; /* Vermelho para aviso */
+    font-weight: bold;
+}

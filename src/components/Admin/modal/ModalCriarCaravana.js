@@ -6,7 +6,6 @@ function ModalCriarCaravana({ preSelectedLocalidadeId, onClose, onCaravanaCreate
     return (
         <div className={styles.modalOverlay} onClick={onClose}>
             <div className={styles.modal} onClick={(e) => e.stopPropagation()}>
-                <button className={styles.closeButton} onClick={onClose}>×</button>
                 <FormularioCaravana
                     preSelectedLocalidadeId={preSelectedLocalidadeId}
                     onSalvar={onCaravanaCreated}

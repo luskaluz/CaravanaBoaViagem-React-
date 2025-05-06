@@ -66,3 +66,65 @@
     margin-top: 5px;
     text-align: center;
 }
+/* Login.module.css */
+
+/* ... (Seus estilos existentes para .container, .form, .label, .input, .button, .error, etc.) ... */
+
+.success {
+    color: #28a745; /* Verde para sucesso */
+    background-color: #d4edda;
+    border: 1px solid #c3e6cb;
+    padding: 10px 15px;
+    border-radius: 4px;
+    margin-bottom: 15px;
+    font-size: 0.9rem;
+    text-align: center;
+  }
+  
+  .linkButton {
+    background: none; /* Remove fundo */
+    border: none; /* Remove borda */
+    color: var(--cor-primaria); /* Usa a cor primária ou outra cor de link */
+    text-decoration: underline; /* Sublinhado para indicar link */
+    cursor: pointer;
+    padding: 8px 0; /* Adiciona um pouco de padding vertical */
+    margin-top: 5px; /* Espaço acima */
+    font-size: 0.9rem;
+    width: auto; /* Não ocupa largura total */
+    display: inline-block; /* Para permitir margin/padding */
+    align-self: center; /* Centraliza se o form for flex column */
+  }
+  
+  .linkButton:hover:not(:disabled) {
+    color: darken(var(--cor-primaria), 15%); /* Escurece no hover */
+    text-decoration: none; /* Remove sublinhado no hover (opcional) */
+  }
+  
+  .linkButton:disabled {
+    color: #aaa; /* Cor cinza para desabilitado */
+    cursor: not-allowed;
+    text-decoration: none;
+  }
+  
+  .buttonSecondary {
+    background-color: #6c757d; /* Cor diferente para botão secundário */
+    color: white;
+    margin-top: 10px; /* Espaçamento */
+    width: 100%; /* Ocupa largura total como o botão principal */
+    padding: 12px 20px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 1rem;
+    transition: background-color 0.2s ease, opacity 0.2s ease;
+  }
+  
+  .buttonSecondary:hover:not(:disabled) {
+    background-color: #5a6268;
+  }
+  
+  .buttonSecondary:disabled {
+    background-color: #bdc3c7;
+    cursor: not-allowed;
+    opacity: 0.7;
+  }
