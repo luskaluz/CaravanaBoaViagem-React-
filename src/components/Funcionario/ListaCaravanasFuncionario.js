@@ -1,18 +1,15 @@
+// ListaCaravanasFuncionario.js (Revisão da parte relevante)
 import React from 'react';
 import styles from './ListaCaravanasFuncionario.module.css';
+// Importe ModalParticipantes se for abrir diretamente aqui, ou o handler do pai cuidará
+// import ModalParticipantes from '../modal/Participantes';
 
-// Assume que recebe funcionarioLogado de um componente pai (Dashboard)
 function ListaCaravanasFuncionario({ caravanas, onCaravanaClick, onParticipantesClick, funcionarioLogado }) {
 
     const handleVerParticipantes = (event, caravanaId) => {
         event.stopPropagation();
-        if (!funcionarioLogado) {
-            console.error("Dados do funcionário logado não disponíveis.");
-            // Idealmente, mostrar um erro para o usuário
-            return;
-        }
-        // Passa caravanaId, uid e cargo para o handler no componente pai
-        onParticipantesClick(caravanaId, funcionarioLogado.uid, funcionarioLogado.cargo);
+        // Para que o funcionário veja a lista completa como admin, passamos null para funcionarioUid e cargo
+        onParticipantesClick(caravanaId, null, null);
     };
 
     return (
@@ -27,18 +24,18 @@ function ListaCaravanasFuncionario({ caravanas, onCaravanaClick, onParticipantes
                     const dataCaravana = new Date(caravana.data + 'T00:00:00Z');
                     const isPast = dataCaravana < hoje;
                     const isCancelled = caravana.status === 'cancelada';
-                    const cardClass = `${styles.card} ${isPast || isCancelled ? styles.caravanaInativa : ''}`;
+                    const isConcluida = caravana.status === 'concluida';
+                    const cardClass = `${styles.card} ${isPast || isCancelled || isConcluida ? styles.caravanaInativa : ''}`;
 
-                    // Determina se o botão de participantes deve ser mostrado para este funcionário
-                    // Guia sempre vê. Admin/Motorista só vê se o transporte foi definido.
-                    const podeVerParticipantes = true;
+                    const transporteJaDefinido = caravana.transporteDefinidoManualmente || caravana.transporteAutoDefinido;
 
                     return (
-                        <div key={caravana.id} className={cardClass} >
+                        <div key={caravana.id} className={cardClass} onClick={() => onCaravanaClick(caravana)}>
                             <img
                                 src={caravana.imagemCapaLocalidade || caravana.imagensLocalidade?.[0] || './images/imagem_padrao.jpg'}
                                 alt={caravana.nomeLocalidade}
                                 className={styles.image}
+                                onError={(e) => { e.target.onerror = null; e.target.src="./images/imagem_padrao.jpg" }}
                             />
                             <h3 className={styles.cardTitle}>{caravana.nomeLocalidade}</h3>
                             <p className={styles.cardDate}>
@@ -47,22 +44,22 @@ function ListaCaravanasFuncionario({ caravanas, onCaravanaClick, onParticipantes
                             <p className={styles.cardTime}>
                                 Horário de Saída: {caravana.horarioSaida || 'A definir'}
                             </p>
-
-                            <button
-                                className={styles.detailsButton}
-                                onClick={() => onCaravanaClick(caravana)} // Assume que onCaravanaClick abre detalhes gerais
-                            >
-                                Ver Detalhes
-                            </button>
-
-                            {podeVerParticipantes && (
+                            <div className={styles.buttonArea}>
                                 <button
-                                    className={styles.participantesButton}
-                                    onClick={(event) => handleVerParticipantes(event, caravana.id)}
+                                    className={styles.detailsButton}
+                                    onClick={(e) => { e.stopPropagation(); onCaravanaClick(caravana);}}
                                 >
-                                    Ver Participantes
+                                    Ver Detalhes
                                 </button>
-                            )}
+                                {transporteJaDefinido && (
+                                    <button
+                                        className={styles.participantesButton}
+                                        onClick={(event) => handleVerParticipantes(event, caravana.id)}
+                                    >
+                                        Ver Lista de Passageiros
+                                    </button>
+                                )}
+                            </div>
                         </div>
                     );
                 }))}

@@ -8,13 +8,13 @@ function DetalhesCaravanaUsuario({ caravana, onClose }) {
     const [isLoadingDesc, setIsLoadingDesc] = useState(false);
     const [funcionarios, setFuncionarios] = useState([]);
     const [loadingFuncionarios, setLoadingFuncionarios] = useState(true);
-    const [errorFuncionarios, setErrorFuncionarios] = useState(null); // Adicionado estado de erro
+    const [errorFuncionarios, setErrorFuncionarios] = useState(null);
 
     useEffect(() => {
         const fetchFuncionarios = async () => {
              if(!caravana) return;
             setLoadingFuncionarios(true);
-            setErrorFuncionarios(null); // Limpa erro anterior
+            setErrorFuncionarios(null);
             try {
                 const funcData = await api.getFuncionarios();
                 setFuncionarios(funcData);
@@ -112,13 +112,22 @@ function DetalhesCaravanaUsuario({ caravana, onClose }) {
                      </>
                  ) : (
                     <>
-                        <p className={styles.infoItem}><strong>Administrador(es) do(s) Veículo(s):</strong> {loadingFuncionarios ? 'Carregando...' : (Array.from(new Set(caravana.transportesFinalizados?.map(t => t.administradorUid).filter(Boolean))).map(uid => getNomeFuncionario(uid)).join(', ') || 'A ser confirmado')}</p>
-                        <p className={styles.infoItem}><strong>Motorista(s) do(s) Veículo(s):</strong> {loadingFuncionarios ? 'Carregando...' : (Array.from(new Set(caravana.transportesFinalizados?.map(t => t.motoristaUid).filter(Boolean))).map(uid => getNomeFuncionario(uid)).join(', ') || 'A ser confirmado')}</p>
+                        {/* Para o usuário, pode ser melhor mostrar apenas os nomes dos admins/motoristas dos veículos,
+                            sem repetir a estrutura da lista de veículos daqui, pois pode ser confuso.
+                            Apenas lista os nomes únicos. */}
+                        <p className={styles.infoItem}><strong>Administrador(es):</strong> {loadingFuncionarios ? 'Carregando...' : (Array.from(new Set(caravana.transportesFinalizados?.map(t => t.administradorUid).filter(Boolean))).map(uid => getNomeFuncionario(uid)).join(' / ') || 'A ser confirmado')}</p>
+                        <p className={styles.infoItem}><strong>Motorista(s):</strong> {loadingFuncionarios ? 'Carregando...' : (Array.from(new Set(caravana.transportesFinalizados?.map(t => t.motoristaUid).filter(Boolean))).map(uid => getNomeFuncionario(uid)).join(' / ') || 'A ser confirmado')}</p>
                     </>
                  )}
                 <EmployeeInfoBasic uid={caravana.guiaUid} role="Guia" />
             </div>
 
+             {transporteDefinido && caravana.transportesFinalizados && caravana.transportesFinalizados.length > 0 && (
+                 <div className={styles.transportInfo}>
+                    <h4>Transporte Designado</h4>
+                    <p>Sua alocação específica no veículo será informada pela equipe mais próximo à data da viagem. Verifique seus e-mails para atualizações.</p>
+                 </div>
+            )}
         </div>
     );
 }

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import styles from '../Usuario/DetalhesCaravanaUsuario.module.css'; // Reutiliza estilos
+import styles from '../Usuario/DetalhesCaravanaUsuario.module.css';
 import * as api from '../../services/api';
 import translateStatus from '../translate/translate';
 
@@ -19,13 +19,14 @@ function DetalhesCaravanaFuncionario({ caravana }) {
                 const funcData = await api.getFuncionarios();
                 setFuncionarios(funcData);
             } catch (err) {
-                console.error("Erro ao buscar funcionários:", err);
+                console.error("Erro ao buscar funcionários em DetalhesCaravanaFuncionario:", err);
                 setErrorFuncionarios("Falha ao carregar dados da equipe.");
             }
             finally { setLoadingFuncionarios(false); }
         };
         if (caravana) fetchFuncionarios();
     }, [caravana]);
+
 
     useEffect(() => {
         const fetchDescricao = async () => {
@@ -45,7 +46,7 @@ function DetalhesCaravanaFuncionario({ caravana }) {
         if (!uid) return 'Não Definido';
         if (loadingFuncionarios) return 'Carregando...';
         const func = funcionarios.find(f => (f.uid || f.id) === uid);
-        return func ? func.nome : `Não Encontrado`; // Simplificado
+        return func ? func.nome : `Funcionário Não Encontrado`;
     };
 
      const formatarDataHora = (dateTimeString) => {
@@ -99,11 +100,12 @@ function DetalhesCaravanaFuncionario({ caravana }) {
                 {isLoadingDesc ? <p>Carregando...</p> : <p className={styles.descricao}>{descricao || 'Sem descrição disponível.'}</p>}
             </div>
 
-            <div className={styles.infoSection}>
-                 <h3>Equipe Geral Atribuída</h3>
+             <div className={styles.infoSection}>
+                 <h3>Equipe Geral</h3>
                  <p className={styles.infoItem}><strong>Guia:</strong> {getNomeFuncionario(caravana.guiaUid)}</p>
                  {errorFuncionarios && <p className={styles.errorSmall}>{errorFuncionarios}</p>}
-                 {/* Não mostra mais admin/motorista geral se o transporte foi finalizado */}
+                 {/* Admin e Motorista principal (geral da caravana antes da definição por veículo) */}
+                 {/* Só mostra se o transporte NÃO estiver finalizado */}
                  {!transporteDefinido && (
                      <>
                          <p className={styles.infoItem}><strong>Administrador Principal (Pré-Definição):</strong> {getNomeFuncionario(caravana.administradorUid)}</p>
