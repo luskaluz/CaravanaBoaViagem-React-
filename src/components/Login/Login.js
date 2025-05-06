@@ -97,10 +97,10 @@ function Login() {
                 <button className={styles.button} type="submit" disabled={isLoggingIn || isResettingPassword}>
                     {isLoggingIn ? <LoadingSpinner size="small" text="Entrando..." inline={true} /> : 'Entrar'}
                 </button>
-                <button type="button" className={styles.linkButton} onClick={handlePasswordReset} disabled={isLoggingIn || isResettingPassword}>
+                <button type="button" className={styles.button} onClick={handlePasswordReset} disabled={isLoggingIn || isResettingPassword}>
                     {isResettingPassword ? <LoadingSpinner size="small" text="Enviando..." inline={true} /> : 'Esqueci minha senha'}
                 </button>
-                <button type="button" className={styles.buttonSecondary} onClick={() => navigate('/cadastro')} disabled={isLoggingIn || isResettingPassword}>
+                <button type="button" className={styles.button} onClick={() => navigate('/cadastro')} disabled={isLoggingIn || isResettingPassword}>
                     Não tem uma conta? Cadastre-se
                 </button>
             </form>
