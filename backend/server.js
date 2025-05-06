@@ -1212,80 +1212,150 @@ app.put('/caravanas/:id', verificarAutenticacao, verificarAdmin, async (req, res
 
 app.put('/caravanas/:id/confirmar-manual', verificarAutenticacao, verificarAdmin, async (req, res) => {
     const { id: caravanaId } = req.params;
+    let caravanaPreUpdateParaEmail = null; // Para dados da caravana ANTES da transação
 
     try {
         const caravanaRef = db.collection('caravanas').doc(caravanaId);
-        const caravanaDoc = await caravanaRef.get();
 
-        if (!caravanaDoc.exists) {
-            return res.status(404).json({ error: "Caravana não encontrada." });
-        }
-        const caravana = caravanaDoc.data();
-
-        if (caravana.status === 'confirmada') {
-            return res.status(400).json({ error: "Esta caravana já está confirmada." });
-        }
-        if (caravana.status === 'cancelada' || caravana.status === 'concluida') {
-            return res.status(400).json({ error: `Não é possível confirmar uma caravana com status '${caravana.status}'.` });
-        }
-
-        // Validações para confirmação manual
-        const ocupacaoMinima = caravana.ocupacaoMinima || 0;
-        const vagasOcupadasClientes = caravana.vagasOcupadas || 0; // Apenas clientes
-        if (vagasOcupadasClientes < ocupacaoMinima) {
-            return res.status(400).json({ error: `Ocupação mínima de clientes (${ocupacaoMinima}) não atingida. Atualmente com ${vagasOcupadasClientes} clientes.` });
-        }
-
-        const transporteDefinidoECompleto =
-            (caravana.transporteDefinidoManualmente === true || caravana.transporteAutoDefinido === true) &&
-            Array.isArray(caravana.transportesFinalizados) &&
-            caravana.transportesFinalizados.length > 0 &&
-            caravana.transportesFinalizados.every(v => v.placa && v.motoristaUid && v.administradorUid);
-
-        if (!transporteDefinidoECompleto) {
-            return res.status(400).json({ error: "Para confirmar manualmente, o transporte deve estar completamente definido: Todos os veículos devem ter tipo, placa, motorista e administrador atribuídos." });
-        }
-
-        // Se passou nas validações, confirma
-        await caravanaRef.update({
-            status: 'confirmada',
-            confirmadaEm: admin.firestore.FieldValue.serverTimestamp(),
-            motivoCancelamento: null,
-            lastUpdate: admin.firestore.FieldValue.serverTimestamp()
-        });
-
-        // Enviar notificação aos participantes
-        try {
-            const participantes = await buscarParticipantesParaNotificacao(caravanaId);
-            if (participantes.length > 0) {
-                const localidadeInfo = await getLocalidadeData(caravana.localidadeId);
-                const nomeLocalidade = localidadeInfo.nomeLocalidade || 'Destino Desconhecido';
-                const dataFormatada = await formatDate(caravana.data);
-                const emailSubject = `Caravana Confirmada! - ${nomeLocalidade} (${dataFormatada})`;
-                const emailHtml = `
-                    <p>Olá!</p>
-                    <p>Ótima notícia! A caravana para ${nomeLocalidade}na data ${dataFormatada} foi confirmada pela administração!</p>
-                    <p>Prepare-se para a viagem! Mais detalhes e lembretes serão enviados.</p>
-                    <p>Atenciosamente,<br/>Equipe Caravana da Boa Viagem</p>
-                `;
-                for (const p of participantes) {
-                    await sendEmail(p.email, emailSubject, emailHtml);
-                }
-                console.log(`[${caravanaId}] Emails de confirmação manual (status) enviados.`);
+        // --- INÍCIO DA TRANSAÇÃO ---
+        const statusUpdate = await db.runTransaction(async (transaction) => {
+            const caravanaDoc = await transaction.get(caravanaRef);
+            if (!caravanaDoc.exists) {
+                throw new Error("Caravana não encontrada.");
             }
-        } catch (emailError) {
-            console.error(`[${caravanaId}] Erro ao enviar emails de confirmação manual (status):`, emailError);
+            const caravana = caravanaDoc.data();
+            caravanaPreUpdateParaEmail = { ...caravana, id: caravanaId }; // Guarda estado ANTES para email
+
+            if (caravana.status === 'confirmada') {
+                return { jaConfirmada: true, message: "Esta caravana já está confirmada." };
+            }
+            if (caravana.status === 'cancelada' || caravana.status === 'concluida') {
+                throw new Error(`Não é possível confirmar uma caravana com status '${caravana.status}'.`);
+            }
+
+            const ocupacaoMinima = caravana.ocupacaoMinima || 0;
+            const vagasOcupadasClientes = caravana.vagasOcupadas || 0;
+            if (vagasOcupadasClientes < ocupacaoMinima) {
+                throw new Error(`Ocupação mínima de clientes (${ocupacaoMinima}) não atingida. Atualmente com ${vagasOcupadasClientes} clientes.`);
+            }
+
+            const transporteDefinidoECompleto =
+                (caravana.transporteDefinidoManualmente === true || caravana.transporteAutoDefinido === true) &&
+                Array.isArray(caravana.transportesFinalizados) &&
+                caravana.transportesFinalizados.length > 0 &&
+                caravana.transportesFinalizados.every(v => v.placa && v.motoristaUid && v.administradorUid);
+
+            if (!transporteDefinidoECompleto) {
+                throw new Error("Para confirmar manualmente, o transporte deve estar completamente definido: Todos os veículos devem ter tipo, placa, motorista e administrador atribuídos.");
+            }
+
+            let transportesFinaisParaSalvar = [...caravana.transportesFinalizados];
+            const precisaDistribuir = transportesFinaisParaSalvar.some(v => !v.participantesAtribuidos || v.participantesAtribuidos.length === 0);
+
+            if (precisaDistribuir) {
+                console.log(`[ConfirmarManual ${caravanaId}] Re-distribuindo participantes pois faltava atribuição...`);
+                const veiculosBase = transportesFinaisParaSalvar.map(({ participantesAtribuidos, ...resto }) => resto);
+
+            }
+
+            const hoje = new Date();
+            const dataFechamentoVendasNova = hoje.toISOString().split('T')[0];
+
+            const updateData = {
+                status: 'confirmada',
+                confirmadaEm: admin.firestore.FieldValue.serverTimestamp(),
+                motivoCancelamento: null,
+                dataFechamentoVendas: dataFechamentoVendasNova,
+                // transportesFinalizados não precisa ser atualizado aqui se a distribuição já foi feita
+                // ao definir o transporte. Apenas confirmamos o status.
+                lastUpdate: admin.firestore.FieldValue.serverTimestamp()
+            };
+
+            transaction.update(caravanaRef, updateData);
+            return { sucesso: true, message: "Caravana confirmada manualmente com sucesso!" };
+        });
+        // --- FIM DA TRANSAÇÃO ---
+
+        if (statusUpdate.jaConfirmada) {
+            return res.status(400).json({ error: statusUpdate.message });
         }
 
-        res.status(200).json({ message: "Caravana confirmada manualmente com sucesso!" });
+        // --- Envio de Email aos Participantes (APÓS a transação) ---
+        if (statusUpdate.sucesso && caravanaPreUpdateParaEmail) { // Usa caravanaPreUpdateParaEmail para dados como localidade, data, etc.
+            try {
+                // <<< BUSCA OS DADOS ATUALIZADOS DA CARAVANA PARA O EMAIL >>>
+                const caravanaAtualizadaDoc = await caravanaRef.get();
+                if (!caravanaAtualizadaDoc.exists) {
+                    throw new Error("Caravana não encontrada após atualização para envio de email.");
+                }
+                const caravanaAtualizadaParaEmail = caravanaAtualizadaDoc.data();
+                const transportesParaEmail = caravanaAtualizadaParaEmail.transportesFinalizados || []; // Usa o campo atualizado
+
+
+                const participantes = await buscarParticipantesParaNotificacao(caravanaId);
+                if (participantes.length > 0) {
+                    const localidadeInfo = await getLocalidadeData(caravanaPreUpdateParaEmail.localidadeId);
+                    const nomeLocalidade = localidadeInfo.nomeLocalidade || 'Destino Desconhecido';
+                    const dataFormatadaEmail = await formatDate(caravanaPreUpdateParaEmail.data);
+                    const emailSubject = `Caravana Confirmada! - ${nomeLocalidade} (${dataFormatadaEmail})`;
+
+                    console.log(`[ConfirmarManual ${caravanaId}] Preparando ${participantes.length} emails de confirmação...`);
+
+                    for (const p of participantes) {
+                        const participanteDocSnapshot = await db.collection('participantes').where('caravanaId', '==', caravanaId).where('email', '==', p.email).limit(1).get();
+                        let veiculoAtribuidoInfo = "Seu veículo será detalhado em breve.";
+                        let nomeParticipanteParaEmail = p.nome || 'Viajante'; // Usa o nome do objeto 'p' se disponível
+
+                        if (!participanteDocSnapshot.empty) {
+                             const participanteDocId = participanteDocSnapshot.docs[0].id;
+                             const participanteData = participanteDocSnapshot.docs[0].data();
+                             nomeParticipanteParaEmail = participanteData.nome || nomeParticipanteParaEmail; // Prioriza nome do doc
+
+                             let indiceVeiculo = -1;
+                             let veiculoEncontrado = null;
+
+                             for(let i = 0; i < transportesParaEmail.length; i++) {
+                                 if(transportesParaEmail[i].participantesAtribuidos?.includes(participanteDocId)) {
+                                     veiculoEncontrado = transportesParaEmail[i];
+                                     indiceVeiculo = i + 1;
+                                     break;
+                                 }
+                             }
+                             if (veiculoEncontrado) {
+                                 veiculoAtribuidoInfo = `Transporte ${indiceVeiculo}: ${veiculoEncontrado.nomeTipo || 'Tipo não informado'}`;
+                                 if (veiculoEncontrado.placa) veiculoAtribuidoInfo += ` (Placa: ${veiculoEncontrado.placa})`;
+                                 veiculoAtribuidoInfo += ".";
+                             }
+                        } else {
+                            console.warn(`[ConfirmarManual ${caravanaId}] Não foi possível encontrar o documento do participante com email ${p.email} para detalhar veículo.`);
+                        }
+
+                        const emailHtml = `
+                            <p>Olá ${nomeParticipanteParaEmail}!</p>
+                            <p>Ótima notícia! A caravana para <strong>${nomeLocalidade}</strong> na data <strong>${dataFormatadaEmail}</strong> foi confirmada pela administração!</p>
+                            <p>Você foi alocado(a) no: ${veiculoAtribuidoInfo}</p>
+                            <p>Ponto de Encontro: ${caravanaPreUpdateParaEmail.pontoEncontro || 'A definir'}</p>
+                            <p>Horário de Saída Previsto: ${caravanaPreUpdateParaEmail.horarioSaida || 'A definir'}</p>
+                            <p>Retorno Estimado: ${caravanaPreUpdateParaEmail.dataHoraRetorno ? await formatDate(new Date(caravanaPreUpdateParaEmail.dataHoraRetorno).toISOString().split('T')[0]) + ' às ' + new Date(caravanaPreUpdateParaEmail.dataHoraRetorno).toLocaleTimeString('pt-BR', {hour: '2-digit', minute: '2-digit', timeZone: 'America/Sao_Paulo'}) : 'A definir'}</p>
+                            <p>Prepare-se para a viagem! Mais detalhes e lembretes serão enviados.</p>
+                            <p>Atenciosamente,<br/>Equipe Caravana da Boa Viagem</p>
+                        `;
+                        await sendEmail(p.email, emailSubject, emailHtml);
+                    }
+                    console.log(`[ConfirmarManual ${caravanaId}] Emails de confirmação manual enviados.`);
+                }
+            } catch (emailError) {
+                console.error(`[ConfirmarManual ${caravanaId}] Erro ao enviar emails de confirmação:`, emailError);
+            }
+        }
+
+        res.status(200).json({ message: statusUpdate.message });
 
     } catch (error) {
         console.error(`Erro ao confirmar caravana ${caravanaId} manualmente:`, error);
-        if (error.message.includes('não encontrada') || error.message.includes('inválido') || error.message.includes('insuficiente') || error.message.includes('atingida')) {
-            res.status(400).json({ error: error.message });
-        } else {
-            res.status(500).json({ error: "Erro interno ao confirmar caravana.", details: error.message });
-        }
+        res.status(error.message.includes('não encontrada') || error.message.includes('inválido') || error.message.includes('insuficiente') || error.message.includes('atingida') ? 400 : 500).json({
+             error: error.message || "Erro interno ao confirmar caravana."
+        });
     }
 });
 
