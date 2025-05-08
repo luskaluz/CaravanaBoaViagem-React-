@@ -223,8 +223,8 @@
   }
   
   .funcionarioFoto {
-    width: 60px; /* Ajuste conforme necessário */
-    height: 60px;
+    width: 90px; /* Ajuste conforme necessário */
+    height: 140px;
     object-fit: cover; /* Garante que a imagem cubra o espaço sem distorcer */
     margin-right: 15px;
     border: 2px solid #ddd;

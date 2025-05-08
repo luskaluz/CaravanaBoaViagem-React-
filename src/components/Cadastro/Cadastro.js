@@ -70,7 +70,7 @@ function Cadastro() {
                  </button>
                  {error && <p className={styles.errorMessage || styles.error}>{error}</p>}
                  <button type="button" className={styles.buttonSecondary || styles.button} onClick={() => navigate('/login')} disabled={isRegistering}>
-                     Já tem uma conta? Faça Login
+                     Já tem uma conta?
                  </button>
              </form>
          </div>
