@@ -3281,6 +3281,76 @@ const finalizarTransporteAutomaticamente = async () => {
 
 
 
+app.get('/auth/me', verificarAutenticacao, async (req, res) => {
+    const uid = req.user.uid; // UID do usuário autenticado vindo do token
+    const email = req.user.email; // Email do usuário autenticado
+
+    console.log(`[GET /auth/me] Buscando perfil para UID: ${uid}, Email: ${email}`);
+
+    try {
+        // 1. Verifica se é Admin (caso especial pelo email)
+        // Note: Seria melhor ter o admin na coleção 'funcionarios' também.
+        if (email === process.env.ADMIN_EMAIL) {
+            console.log(`[GET /auth/me] Usuário é ADMIN.`);
+            // Busca dados do admin na coleção 'funcionarios' se existir, senão retorna dados básicos
+            const adminFuncData = await getFuncionarioData(uid); // Busca pelo UID
+            return res.status(200).json({
+                uid: uid,
+                nome: adminFuncData?.nome || email, // Nome do Firestore ou fallback para email
+                email: email,
+                tipo: 'admin', // Identifica o tipo
+                // Adicione outros campos se relevantes para o header/contexto
+            });
+        }
+
+        // 2. Tenta buscar na coleção 'users'
+        const userDocRef = db.collection('users').doc(uid);
+        const userDoc = await userDocRef.get();
+        if (userDoc.exists) {
+            console.log(`[GET /auth/me] Encontrado na coleção 'users'.`);
+            const userData = userDoc.data();
+            return res.status(200).json({
+                uid: uid,
+                nome: userData.nome || email, // Nome do Firestore ou fallback para email
+                email: userData.email || email, // Email do Firestore ou fallback
+                telefone: userData.telefone || null,
+                fotoUrl: userData.fotoUrl || req.user.photoURL || null, // Prioriza Firestore, depois Auth
+                tipo: 'user'
+            });
+        }
+
+        // 3. Se não achou em 'users', tenta buscar em 'funcionarios'
+        console.log(`[GET /auth/me] Não encontrado em 'users', buscando em 'funcionarios'...`);
+        // Usamos a função getFuncionarioData que já busca por ID do doc ou campo uid
+        const funcionarioData = await getFuncionarioData(uid);
+        if (funcionarioData) {
+            console.log(`[GET /auth/me] Encontrado na coleção 'funcionarios' como ${funcionarioData.cargo}.`);
+            return res.status(200).json({
+                uid: uid,
+                nome: funcionarioData.nome || email,
+                email: funcionarioData.email || email,
+                telefone: funcionarioData.telefone || null,
+                fotoUrl: funcionarioData.fotoUrl || req.user.photoURL || null,
+                tipo: funcionarioData.cargo || 'funcionario' // Usa o cargo como tipo
+            });
+        }
+
+        // 4. Se não achou em nenhuma coleção (mas está autenticado)
+        console.warn(`[GET /auth/me] Usuário autenticado (UID: ${uid}) não encontrado em 'users' ou 'funcionarios'.`);
+        return res.status(404).json({
+            error: 'Registro do usuário não encontrado no sistema.',
+            // Pode retornar dados básicos do Auth se desejar
+             uid: uid,
+             email: email,
+             nome: req.user.displayName || email, // Nome do Auth ou email
+             tipo: 'unknown'
+        });
+
+    } catch (error) {
+        console.error(`[GET /auth/me] Erro ao buscar perfil para UID ${uid}:`, error);
+        res.status(500).json({ error: "Erro interno ao buscar dados do perfil." });
+    }
+});
 
 
 

@@ -99,3 +99,5 @@ export const getDadosUsuario = async (uid) => apiRequest('get', `/user/${uid}`);
 export const getCaravanasUsuarioPorStatus = async (userId, status) => apiRequest('get', `/usuario/${userId}/caravanas/${status}`);
 export const getCaravanasUsuario = async (userId) => apiRequest('get', `/usuario/${userId}/caravanas`);
 
+
+export const getUserProfile = async () => apiRequest('get', '/auth/me');
