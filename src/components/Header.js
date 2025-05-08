@@ -1,75 +1,78 @@
-import React, { useState, useEffect, useMemo } from 'react'; // <<< ADICIONADO useMemo AQUI
-import styles from './Header.module.css';
+import React, { useState, useEffect } from 'react';
+// import { Link } from 'react-router-dom'; // << REMOVER IMPORT DO LINK
 import { auth } from '../services/firebase';
 import { onAuthStateChanged } from 'firebase/auth';
-import { Link, useNavigate } from 'react-router-dom';
 import * as api from '../services/api';
+import styles from './Header.module.css';
 
+const ADMIN_EMAIL = process.env.REACT_APP_ADMIN_EMAIL;
 
 function Header() {
-  const [userAuth, setUserAuth] = useState(null);
-  const [userProfile, setUserProfile] = useState(null);
-  const [isLoadingUser, setIsLoadingUser] = useState(true);
-  const navigate = useNavigate();
+    const [user, setUser] = useState(null);
+    const [userData, setUserData] = useState(null);
+    const [loadingUser, setLoadingUser] = useState(true);
 
-  useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
-      setUserAuth(currentUser);
-      if (currentUser) {
-        try {
-          console.log("Header: Usuário autenticado, buscando perfil na API...");
-          const profile = await api.getUserProfile();
-          console.log("Header: Perfil recebido:", profile);
-          setUserProfile(profile);
-        } catch (error) {
-          console.error("Header: Erro ao buscar perfil do usuário:", error);
-          setUserProfile({
-              nome: currentUser.displayName || currentUser.email,
-              tipo: 'unknown',
-              error: true
-          });
-        }
-      } else {
-        setUserProfile(null);
-      }
-      setIsLoadingUser(false);
-    });
-    return () => unsubscribe();
-  }, []);
+    useEffect(() => {
+        const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
+            setUser(currentUser);
+            if (currentUser) {
+                setLoadingUser(true);
+                try {
+                    const data = await api.getDadosUsuario(currentUser.uid);
+                    setUserData(data);
+                } catch (error) {
+                    if (error.status !== 404) {
+                         console.error("Erro ao buscar dados do usuário no Header:", error);
+                    }
+                    setUserData(null);
+                } finally {
+                    setLoadingUser(false);
+                }
+            } else {
+                setUserData(null);
+                setLoadingUser(false);
+            }
+        });
+        return () => unsubscribe();
+    }, []);
 
-  const displayUserName = useMemo(() => {
-      if (userProfile && userProfile.nome) {
-          return userProfile.nome;
-      }
-      if (userAuth) {
-          return userAuth.displayName || userAuth.email;
-      }
-      return '';
-  }, [userAuth, userProfile]);
+    const getDashboardLink = () => {
+        if(user && ADMIN_EMAIL && user.email === ADMIN_EMAIL) return '/admin-dashboard';
+        if (user) return '/dashboard';
+        return '/login';
+    };
 
+    return (
+        <header>
+            <nav className={styles.navbar}>
+                <ul className={styles.menu}>
+                    <li>
+                        {/* Link para Home como <a> */}
+                        <a href="/">
+                            <img src="./images/logocbv.svg" alt="Logo" className={styles.logo} />
+                        </a>
+                    </li>
+                    {/* Links de navegação como <a> */}
+                    <li><a href="/">Home</a></li>
+                    <li><a href="/sobre">Sobre</a></li>
+                    <li><a href="/roteiros">Roteiros</a></li>
 
-  return (
-    <header>
-        <nav className={styles.navbar}>
-            <ul className={styles.menu}>
-                <img src="./images/logocbv.svg" alt="Logo" className={styles.logo} />
-                <li><Link to="/">Home</Link></li>
-                <li><Link to="/sobre">Sobre</Link></li>
-                <li><Link to="/roteiros">Roteiros</Link></li>
-
-                {isLoadingUser ? (
-                    <li className={styles.loadingAuthLink}>Carregando...</li>
-                ) : userAuth ? (
-                    <li><Link to="/login" className={styles.userLink}>Olá, {displayUserName}</Link></li>
-                ) : (
-                    <>
-                        <li><Link to="/cadastro">Cadastro</Link></li>
-                    </>
-                )}
-            </ul>
-        </nav>
-    </header>
-  );
+                    <li className={styles.navItemRight}>
+                        {loadingUser ? (
+                            <span>Carregando...</span>
+                        ) : user ? (
+                            <a href={getDashboardLink()} className={styles.userNameLink}>
+                                {userData?.nome || user?.displayName || user?.email || 'Meu Perfil'}
+                            </a>
+                        ) : (
+                            // Link para Cadastro como <a>
+                            <a href="/cadastro">Cadastro</a>
+                        )}
+                    </li>
+                </ul>
+            </nav>
+        </header>
+    );
 }
 
 export default Header;

@@ -3354,7 +3354,47 @@ app.get('/auth/me', verificarAutenticacao, async (req, res) => {
 
 
 
+app.get('/caravanas/:caravanaId/meus-ingressos', verificarAutenticacao, async (req, res) => {
+    const { caravanaId } = req.params;
+    const usuarioUid = req.user.uid; // Pega o UID do usuário autenticado pelo middleware
 
+    if (!caravanaId || !usuarioUid) {
+        return res.status(400).json({ error: "ID da Caravana e ID do Usuário são necessários." });
+    }
+
+    console.log(`[Meus Ingressos] Buscando ingressos para Usuário ${usuarioUid} na Caravana ${caravanaId}`);
+
+    try {
+        // Verifica se a caravana existe (opcional, mas bom para evitar buscas inúteis)
+        const caravanaDoc = await db.collection('caravanas').doc(caravanaId).get();
+        if (!caravanaDoc.exists) {
+             console.log(`[Meus Ingressos] Caravana ${caravanaId} não encontrada.`);
+            return res.status(404).json({ error: 'Caravana não encontrada.' });
+        }
+
+        // Busca todos os registros de participantes para este usuário NESTA caravana
+        const participantesSnapshot = await db.collection('participantes')
+            .where('caravanaId', '==', caravanaId)
+            .where('uid', '==', usuarioUid) // Filtra pelo UID do usuário logado
+            .get();
+
+        let quantidadeTotalUsuario = 0;
+        if (!participantesSnapshot.empty) {
+            participantesSnapshot.forEach(doc => {
+                quantidadeTotalUsuario += doc.data().quantidade || 0; // Soma a quantidade de cada registro de compra
+            });
+        }
+
+        console.log(`[Meus Ingressos] Usuário ${usuarioUid} tem ${quantidadeTotalUsuario} ingresso(s) para Caravana ${caravanaId}.`);
+
+        // Retorna apenas a quantidade total
+        res.status(200).json({ quantidadeTotalUsuario: quantidadeTotalUsuario });
+
+    } catch (error) {
+        console.error(`[Meus Ingressos] Erro ao buscar ingressos do usuário ${usuarioUid} para caravana ${caravanaId}:`, error);
+        res.status(500).json({ error: "Erro interno ao buscar quantidade de ingressos." });
+    }
+});
 
 
 

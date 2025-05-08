@@ -101,3 +101,7 @@ export const getCaravanasUsuario = async (userId) => apiRequest('get', `/usuario
 
 
 export const getUserProfile = async () => apiRequest('get', '/auth/me');
+export const getMeusIngressosCaravana = async (caravanaId) => {
+    // A autenticação (token) já é enviada automaticamente pelo apiRequest
+    return apiRequest('get', `/caravanas/${caravanaId}/meus-ingressos`);
+};

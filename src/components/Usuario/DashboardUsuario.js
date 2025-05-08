@@ -110,6 +110,7 @@ useEffect(() => {
         <div className={styles.container}>
             <div className={styles.sidebar}>
 
+            <h2>Painel do Usuário</h2>
                 <button
                     className={`${styles.menuButton} ${activeSection === 'confirmadas' ? styles.active : ''}`}
                     onClick={() => handleSectionChange('confirmadas')}

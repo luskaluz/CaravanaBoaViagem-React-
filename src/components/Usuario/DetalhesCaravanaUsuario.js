@@ -5,73 +5,96 @@ import translateStatus from '../translate/translate';
 import { auth } from '../../services/firebase';
 
 const PLACEHOLDER_FUNC_IMG = "https://via.placeholder.com/80x80?text=Equipe";
-const PLACEHOLDER_USER_IMG = "https://via.placeholder.com/80x80?text=Eu";
+const PLACEHOLDER_USER_IMG = "https://via.placeholder.com/80x80?text=Perfil";
 
+// Recebe usuarioLogado (com nome, email, tel, foto)
 function DetalhesCaravanaUsuario({ caravana, usuarioLogado }) {
     const [descricaoLocalidade, setDescricaoLocalidade] = useState('');
     const [isLoadingDesc, setIsLoadingDesc] = useState(false);
-    const [todosFuncionarios, setTodosFuncionarios] = useState([]); // Armazena todos os funcionários
+    const [todosFuncionarios, setTodosFuncionarios] = useState([]);
     const [loadingEquipe, setLoadingEquipe] = useState(true);
     const [errorEquipe, setErrorEquipe] = useState(null);
+    // --- NOVO ESTADO PARA QUANTIDADE DE INGRESSOS ---
+    const [quantidadeUsuario, setQuantidadeUsuario] = useState(null);
+    const [loadingIngressos, setLoadingIngressos] = useState(false);
+    const [errorIngressos, setErrorIngressos] = useState(null);
+    // --- FIM NOVO ESTADO ---
 
-    // Efeito para buscar todos os funcionários uma vez
+    // Busca todos os funcionários (para nomes da equipe)
     useEffect(() => {
         let isMounted = true;
         const fetchAllFuncionarios = async () => {
-            if (!isMounted) return;
-            setLoadingEquipe(true);
-            setErrorEquipe(null);
+            if (!caravana) { if (isMounted) setLoadingEquipe(false); return; }
+            if (isMounted) { setLoadingEquipe(true); setErrorEquipe(null); }
             try {
                 const funcData = await api.getFuncionarios();
-                if (isMounted) {
-                    console.log("DetalhesCaravanaUsuario - Todos Funcionários Recebidos:", funcData);
-                    setTodosFuncionarios(funcData || []);
-                }
+                if (isMounted) setTodosFuncionarios(funcData || []);
             } catch (err) {
-                console.error("Erro DetalhesCaravanaUsuario: buscar todos os funcionários:", err);
+                console.error("Erro DetalhesUser: buscar todos os funcionários:", err);
                 if (isMounted) setErrorEquipe("Falha ao carregar dados da equipe.");
             } finally {
                 if (isMounted) setLoadingEquipe(false);
             }
         };
-        fetchAllFuncionarios();
+        if (caravana) fetchAllFuncionarios();
         return () => { isMounted = false; };
-    }, []); // Busca apenas uma vez quando o componente monta
+    }, [caravana]);
 
-    // Efeito para buscar descrição da localidade
+    // Busca descrição da localidade
     useEffect(() => {
         let isMounted = true;
         const fetchDescricao = async () => {
-            if (caravana && caravana.localidadeId) {
-                if (isMounted) setIsLoadingDesc(true);
-                try {
-                    const localidadeData = await api.getDescricaoLocalidade(caravana.localidadeId);
-                    if (isMounted) setDescricaoLocalidade(localidadeData.descricao || '');
-                } catch (error) {
-                    console.error("Erro ao buscar descrição:", error);
-                    if (isMounted) setDescricaoLocalidade('Erro ao carregar descrição.');
-                } finally {
-                    if (isMounted) setIsLoadingDesc(false);
-                }
-            } else {
-                if (isMounted) setDescricaoLocalidade('N/A');
-            }
+             if (caravana && caravana.localidadeId) {
+                 if (isMounted) setIsLoadingDesc(true);
+                 try {
+                     const localidadeData = await api.getDescricaoLocalidade(caravana.localidadeId);
+                     if (isMounted) setDescricaoLocalidade(localidadeData.descricao || '');
+                 } catch (error) {
+                     console.error("Erro ao buscar descrição:", error);
+                     if (isMounted) setDescricaoLocalidade('Erro ao carregar descrição.');
+                 } finally {
+                     if (isMounted) setIsLoadingDesc(false);
+                 }
+             } else {
+                 if (isMounted) setDescricaoLocalidade('N/A');
+             }
         };
         if (caravana) fetchDescricao();
         return () => { isMounted = false; };
     }, [caravana]);
 
-    // Hook para obter os dados completos de um funcionário pelo UID a partir da lista carregada
+    // --- NOVO useEffect PARA BUSCAR QUANTIDADE DE INGRESSOS ---
+    useEffect(() => {
+        let isMounted = true;
+        const fetchQuantidade = async () => {
+            // Só busca se tiver a caravana e o usuário logado estiver identificado
+            if (caravana && caravana.id && auth.currentUser) {
+                 if(isMounted) { setLoadingIngressos(true); setErrorIngressos(null); }
+                try {
+                    const resultado = await api.getMeusIngressosCaravana(caravana.id);
+                    if (isMounted) setQuantidadeUsuario(resultado.quantidadeTotalUsuario);
+                } catch (err) {
+                     console.error("Erro ao buscar quantidade de ingressos:", err);
+                     if (isMounted) setErrorIngressos("Erro ao buscar seus ingressos.");
+                } finally {
+                    if (isMounted) setLoadingIngressos(false);
+                }
+            } else {
+                 // Se não tiver caravana ou usuário, define como 0 ou null
+                 if (isMounted) { setQuantidadeUsuario(0); setLoadingIngressos(false); }
+            }
+        };
+        fetchQuantidade();
+         return () => { isMounted = false; };
+    }, [caravana]); // Depende da caravana para buscar
+    // --- FIM NOVO useEffect ---
+
     const getFuncionarioDetalhado = useCallback((uid) => {
         if (!uid) return null;
         if (loadingEquipe) return { nome: 'Carregando...', isLoading: true, uid };
         if (errorEquipe) return { nome: 'Falha ao carregar equipe', isError: true, uid };
-
-        const funcionarioEncontrado = todosFuncionarios.find(f => f.uid === uid || f.id === uid);
-        if (funcionarioEncontrado) {
-            return { ...funcionarioEncontrado, isLoading: false, isError: false };
-        }
-        return { nome: `Responsável (ID: ${uid.substring(0,6)}...)`, isNotFound: true, isLoading: false, uid };
+        const func = todosFuncionarios.find(f => (f.uid === uid || f.id === uid));
+        return func ? { ...func, isLoading: false, isError: false } : { nome: `Resp. (ID:${uid.substring(0,6)}...)`, isNotFound: true, uid };
     }, [todosFuncionarios, loadingEquipe, errorEquipe]);
 
     const formatarDataHora = (dateTimeString) => {
@@ -79,59 +102,43 @@ function DetalhesCaravanaUsuario({ caravana, usuarioLogado }) {
         try {
             const dt = new Date(dateTimeString);
             if (!isNaN(dt.getTime())) {
-                return dt.toLocaleString('pt-BR', {
-                    day: '2-digit', month: '2-digit', year: 'numeric',
-                    hour: '2-digit', minute: '2-digit',
-                    timeZone: 'America/Sao_Paulo'
-                });
+                return dt.toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', timeZone: 'America/Sao_Paulo' });
             }
         } catch (e) { console.warn("Erro ao formatar data/hora:", dateTimeString); }
         return 'Inválido';
     };
 
-    // Memoiza os detalhes da equipe para evitar recálculos desnecessários
     const equipeDaCaravana = useMemo(() => {
-        const resultado = {
-            guia: caravana ? getFuncionarioDetalhado(caravana.guiaUid) : null,
-            adminsDosVeiculos: new Map(),
-            motoristasDosVeiculos: new Map()
-        };
-
+        const resultado = { guia: null, adminsDosVeiculos: new Map(), motoristasDosVeiculos: new Map() };
         if (!caravana || loadingEquipe || errorEquipe) return resultado;
-
+        resultado.guia = getFuncionarioDetalhado(caravana.guiaUid);
         const transporteDefinido = caravana.transporteDefinidoManualmente || caravana.transporteAutoDefinido;
-
         if (transporteDefinido && Array.isArray(caravana.transportesFinalizados)) {
-            caravana.transportesFinalizados.forEach((veiculo) => {
-                if (veiculo.administradorUid) {
-                    const admin = getFuncionarioDetalhado(veiculo.administradorUid);
+            caravana.transportesFinalizados.forEach((v) => {
+                if (v.administradorUid) {
+                    const admin = getFuncionarioDetalhado(v.administradorUid);
                     if (admin && !admin.isNotFound && !resultado.adminsDosVeiculos.has(admin.uid || admin.id)) {
                         resultado.adminsDosVeiculos.set(admin.uid || admin.id, admin);
                     }
                 }
-                if (veiculo.motoristaUid) {
-                    const motorista = getFuncionarioDetalhado(veiculo.motoristaUid);
+                if (v.motoristaUid) {
+                    const motorista = getFuncionarioDetalhado(v.motoristaUid);
                     if (motorista && !motorista.isNotFound && !resultado.motoristasDosVeiculos.has(motorista.uid || motorista.id)) {
                         resultado.motoristasDosVeiculos.set(motorista.uid || motorista.id, motorista);
                     }
                 }
             });
         }
-        // console.log("Equipe da caravana processada:", resultado);
         return resultado;
-    }, [caravana, getFuncionarioDetalhado, loadingEquipe, errorEquipe]);
+    }, [caravana, getFuncionarioDetalhado, loadingEquipe, errorEquipe, todosFuncionarios]);
 
-
-    // Subcomponente para renderizar o card de um funcionário (ou do usuário logado)
     const RenderFuncionarioCard = ({ funcionarioData, role, isCurrentUser = false }) => {
         const targetData = isCurrentUser ? usuarioLogado : funcionarioData;
-
         if (!targetData && !isCurrentUser) return <p className={styles.infoItem}><strong>{role}:</strong> A ser confirmado</p>;
         if (isCurrentUser && !targetData) return <p className={styles.infoItem}><strong>{role}:</strong> Dados do usuário não carregados</p>;
         if (targetData?.isLoading) return <p className={styles.infoItem}><strong>{role}:</strong> Carregando...</p>;
         if (targetData?.isError && !targetData?.isNotFound) return <p className={styles.infoItemError}><strong>{role}:</strong> {targetData.nome}</p>;
         if (targetData?.isNotFound) return <p className={styles.infoItem}><strong>{role}:</strong> {targetData.nome}</p>;
-
 
         const foto = targetData.fotoUrl || (isCurrentUser && auth.currentUser?.photoURL) || (isCurrentUser ? PLACEHOLDER_USER_IMG : PLACEHOLDER_FUNC_IMG);
         const nome = targetData.nome || (isCurrentUser && auth.currentUser?.displayName) || 'Nome não disponível';
@@ -140,12 +147,7 @@ function DetalhesCaravanaUsuario({ caravana, usuarioLogado }) {
 
         return (
             <div className={styles.funcionarioCard}>
-                <img
-                    src={foto}
-                    alt={nome}
-                    className={styles.funcionarioFoto}
-                    onError={(e) => { e.target.onerror = null; e.target.src = isCurrentUser ? PLACEHOLDER_USER_IMG : PLACEHOLDER_FUNC_IMG; }}
-                />
+                <img src={foto} alt={nome} className={styles.funcionarioFoto} onError={(e) => { e.target.onerror = null; e.target.src = isCurrentUser ? PLACEHOLDER_USER_IMG : PLACEHOLDER_FUNC_IMG; }} />
                 <div className={styles.funcionarioInfo}>
                     <p className={styles.funcionarioNome}><strong>{role}:</strong> {nome}</p>
                     <p className={styles.funcionarioDetalheSmall}><strong>Email:</strong> {email}</p>
@@ -164,12 +166,15 @@ function DetalhesCaravanaUsuario({ caravana, usuarioLogado }) {
             {usuarioLogado && (
                 <div className={styles.infoSection}>
                     <h3>Seus Dados</h3>
-                    <RenderFuncionarioCard
-                        funcionarioData={null}
-                        role="Participante"
-                        isCurrentUser={true}
-                    />
-                    <p className={styles.infoItem}><strong>Ingressos Comprados por você:</strong> {caravana.quantidadeTotalUsuario || 'N/A'}</p>
+                    <RenderFuncionarioCard funcionarioData={null} role="Participante" isCurrentUser={true} />
+                     {/* Exibe a quantidade buscada pela API */}
+                     <p className={styles.infoItem}>
+                        <strong>Ingressos Comprados por você:</strong> {
+                            loadingIngressos ? 'Buscando...' :
+                            errorIngressos ? <span className={styles.errorSmall}>{errorIngressos}</span> :
+                            (quantidadeUsuario !== null ? quantidadeUsuario : 'N/A')
+                        }
+                    </p>
                 </div>
             )}
             <hr className={styles.separator} />
@@ -192,7 +197,7 @@ function DetalhesCaravanaUsuario({ caravana, usuarioLogado }) {
             <div className={styles.infoSection}>
                 <h3>Equipe Responsável</h3>
                 {errorEquipe && <p className={`${styles.errorSmall} ${styles.infoItemError}`}>{errorEquipe}</p>}
-                {!loadingEquipe && !errorEquipe && <RenderFuncionarioCard funcionarioData={equipeDaCaravana.guia} role="Guia" />}
+                <RenderFuncionarioCard funcionarioData={equipeDaCaravana.guia} role="Guia" />
 
                 {(!loadingEquipe && !errorEquipe && equipeDaCaravana.adminsDosVeiculos.size > 0) && <h4>Administrador(es) da Viagem:</h4>}
                 {loadingEquipe && !errorEquipe && <p>Carregando administradores...</p>}
@@ -204,7 +209,7 @@ function DetalhesCaravanaUsuario({ caravana, usuarioLogado }) {
                  {loadingEquipe && !errorEquipe && <p>Carregando motoristas...</p>}
                  {!loadingEquipe && !errorEquipe && equipeDaCaravana.motoristasDosVeiculos.size > 0 ? (
                     Array.from(equipeDaCaravana.motoristasDosVeiculos.values()).map(motorista => <RenderFuncionarioCard key={motorista.uid || motorista.id} funcionarioData={motorista} role="Motorista" />)
-                ) : ( !loadingEquipe  && <p className={styles.infoItem}>Motorista: A ser confirmado</p> )}
+                ) : ( !loadingEquipe && !errorEquipe && <p className={styles.infoItem}>Motorista: A ser confirmado</p> )}
             </div>
 
              {(caravana.transporteDefinidoManualmente || caravana.transporteAutoDefinido) && Array.isArray(caravana.transportesFinalizados) && caravana.transportesFinalizados.length > 0 && (
