@@ -62,7 +62,7 @@ function Header() {
                             <span>Carregando...</span>
                         ) : user ? (
                             <a href={getDashboardLink()} className={styles.userNameLink}>
-                                {userData?.nome || user?.displayName || user?.email || 'Meu Perfil'}
+                                Olá, {userData?.nome || user?.displayName || user?.email || 'Meu Perfil'}
                             </a>
                         ) : (
                             // Link para Cadastro como <a>
