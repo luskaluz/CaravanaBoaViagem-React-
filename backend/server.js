@@ -3417,6 +3417,7 @@ app.get('/api/cron/pos-vendas', async (req, res) => {
 app.get('/api/cron/enviar-lembretes', async (req, res) => {
   const agora = new Date().toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" });
   console.log(`[${agora}] Endpoint /api/cron/enviar-lembretes chamado.`);
+  pingWebhook('/api/cron/enviar-lembretes'); 
   try {
     const resultado = await enviarLembretes();
     res.status(200).json({ success: true, ...resultado });
@@ -3446,6 +3447,43 @@ app.get('/api/cron/finalizar-transporte-auto', async (req, res) => {
 
 
 
+const WEBHOOK_URL_TESTE = 'https://webhook.site/22d37ffc-c559-4a8d-9dd2-3234ed97ae13'; // Ex: https://webhook.site/xxxx-xxxx-xxxx-xxxx
+
+function pingWebhook(endpointName) {
+    if (!WEBHOOK_URL_TESTE || WEBHOOK_URL_TESTE === 'https://webhook.site/22d37ffc-c559-4a8d-9dd2-3234ed97ae13') {
+        console.warn(`[${new Date().toISOString()}] WEBHOOK_URL_TESTE não configurado. Ping externo para ${endpointName} não enviado.`);
+        return;
+    }
+
+    const data = JSON.stringify({
+        message: `Endpoint ${endpointName} chamado pela Vercel Cron`,
+        timestamp: new Date().toISOString()
+    });
+
+    const url = new URL(WEBHOOK_URL_TESTE); // Usar URL para parsear hostname e path
+
+    const options = {
+        hostname: url.hostname,
+        path: url.pathname + url.search, // Inclui query params se houver no URL do webhook
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'Content-Length': data.length
+        }
+    };
+
+    console.log(`[${new Date().toISOString()}] Tentando pingar webhook para ${endpointName}: ${WEBHOOK_URL_TESTE}`);
+    const req = https.request(options, (res) => {
+        console.log(`[${new Date().toISOString()}] Webhook para ${endpointName} respondeu com status: ${res.statusCode}`);
+    });
+
+    req.on('error', (e) => {
+        console.error(`[${new Date().toISOString()}] Erro ao pingar webhook para ${endpointName}:`, e);
+    });
+
+    req.write(data);
+    req.end();
+}
 
 
 
