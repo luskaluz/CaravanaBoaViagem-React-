@@ -3403,7 +3403,7 @@ app.get('/caravanas/:caravanaId/meus-ingressos', verificarAutenticacao, async (r
 app.get('/api/cron/executar-todas-tarefas-diarias', async (req, res) => {
   const agora = new Date().toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" });
   console.log(`[${agora}] Endpoint /api/cron/executar-todas-tarefas-diarias chamado.`);
-
+    pingWebhookDiario("INICIOU", { endpointChamado: true }); 
   const resultados = {
     posVendas: null,
     lembretes: null,
@@ -3419,6 +3419,7 @@ app.get('/api/cron/executar-todas-tarefas-diarias', async (req, res) => {
     console.error(`[${agora}] Erro em confirmarOuCancelarPosVendas:`, error);
     resultados.erros.push({ tarefa: 'posVendas', error: error.message });
   }
+pingWebhookDiario("APOS_POS_VENDAS", { resultadoPosVendas: resultados.posVendas, errosAtuais: resultados.erros });
 
   try {
     console.log(`[${agora}] Iniciando enviarLembretes...`);
@@ -3428,7 +3429,7 @@ app.get('/api/cron/executar-todas-tarefas-diarias', async (req, res) => {
     console.error(`[${agora}] Erro em enviarLembretes:`, error);
     resultados.erros.push({ tarefa: 'lembretes', error: error.message });
   }
-
+ pingWebhookDiario("APOS_LEMBRETES", { resultadoLembretes: resultados.lembretes, errosAtuais: resultados.erros });
   try {
     console.log(`[${agora}] Iniciando finalizarTransporteAutomaticamente...`);
     resultados.finalizarTransporte = await finalizarTransporteAutomaticamente();
@@ -3437,14 +3438,18 @@ app.get('/api/cron/executar-todas-tarefas-diarias', async (req, res) => {
     console.error(`[${agora}] Erro em finalizarTransporteAutomaticamente:`, error);
     resultados.erros.push({ tarefa: 'finalizarTransporte', error: error.message });
   }
-
+ pingWebhookDiario("APOS_FINALIZAR_TRANSPORTE", { resultadoTransporte: resultados.finalizarTransporte, errosAtuais: resultados.erros });
   if (resultados.erros.length > 0) {
+    
+    pingWebhookDiario("FALHOU", resultados);
     res.status(500).json({
       success: false,
       message: "Uma ou mais tarefas diárias falharam.",
       details: resultados
     });
   } else {
+    
+    pingWebhookDiario("SUCESSO", resultados);
     res.status(200).json({
       success: true,
       message: "Todas as tarefas diárias executadas com sucesso.",
