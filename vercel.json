@@ -2,8 +2,7 @@
   "crons": [                    
     {
       "path": "/api/cron/executar-todas-tarefas-diarias",
-      "schedule": "0 1 * * *",  
-      "timezone": "America/Sao_Paulo"
+      "schedule": "6 1 * * *"
     }
   ]
 }
