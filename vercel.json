@@ -12,11 +12,11 @@
   "crons": [
     {
       "path": "/api/cron/executar-todas-tarefas-diarias", 
-      "schedule": "40 0 * * *"    
+      "schedule": "55 0 * * *"    
     },
     {
       "path": "/api/cron/executar-todas-tarefas-diarias", 
-      "schedule": "40 1 * * *"    
+      "schedule": "55 1 * * *"    
     }
   ]
 }
