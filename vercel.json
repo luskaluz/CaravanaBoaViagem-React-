@@ -12,17 +12,17 @@
   "crons": [                    
     {
       "path": "/api/cron/pos-vendas",
-      "schedule": "0 1 * * *",
+      "schedule": "0 0 * * *",
       "timezone": "America/Sao_Paulo"
     },
     {
       "path": "/api/cron/enviar-lembretes",
-      "schedule": "*/10 * * * *",
+      "schedule": "* * * * *",
       "timezone": "America/Sao_Paulo"
     },
     {
       "path": "/api/cron/finalizar-transporte-auto",
-      "schedule": "0 2 * * *",
+      "schedule": "0 0 * * *",
       "timezone": "America/Sao_Paulo"
     }
   ]
