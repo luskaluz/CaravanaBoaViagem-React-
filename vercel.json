@@ -2,7 +2,7 @@
   "crons": [                    
     {
       "path": "/api/cron/executar-todas-tarefas-diarias",
-      "schedule": "6 1 * * *"
+      "schedule": "13 1 * * *"
     }
   ]
 }
