@@ -11,8 +11,12 @@
   ],
   "crons": [
     {
-      "path": "/api/simple-ping-test", 
-      "schedule": "*/2 * * * *"    
+      "path": "/api/cron/executar-todas-tarefas-diarias", 
+      "schedule": "40 0 * * *"    
+    },
+    {
+      "path": "/api/cron/executar-todas-tarefas-diarias", 
+      "schedule": "40 1 * * *"    
     }
   ]
 }
