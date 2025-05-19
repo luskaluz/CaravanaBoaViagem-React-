@@ -1,9 +1,8 @@
 {
   "crons": [                    
-
     {
-      "path": "/api/cron/enviar-lembretes",
-      "schedule": "54 21 * * *",
+      "path": "/api/cron/executar-todas-tarefas-diarias",
+      "schedule": "0 1 * * *",  
       "timezone": "America/Sao_Paulo"
     }
   ]

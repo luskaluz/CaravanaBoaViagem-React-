@@ -3400,45 +3400,59 @@ app.get('/caravanas/:caravanaId/meus-ingressos', verificarAutenticacao, async (r
 
 //pros cron job funcionar
 
-app.get('/api/cron/pos-vendas', async (req, res) => {
+app.get('/api/cron/executar-todas-tarefas-diarias', async (req, res) => {
   const agora = new Date().toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" });
-  console.log(`[${agora}] Endpoint /api/cron/pos-vendas chamado.`);
-  try {
+  console.log(`[${agora}] Endpoint /api/cron/executar-todas-tarefas-diarias chamado.`);
 
-    const resultado = await confirmarOuCancelarPosVendas();
-    res.status(200).json({ success: true, ...resultado });
+  const resultados = {
+    posVendas: null,
+    lembretes: null,
+    finalizarTransporte: null,
+    erros: []
+  };
+
+  try {
+    console.log(`[${agora}] Iniciando confirmarOuCancelarPosVendas...`);
+    resultados.posVendas = await confirmarOuCancelarPosVendas();
+    console.log(`[${agora}] confirmarOuCancelarPosVendas concluído.`);
   } catch (error) {
-    console.error(`[${agora}] Erro no endpoint /api/cron/pos-vendas:`, error);
-    res.status(500).json({ success: false, error: 'Erro interno ao processar pós-vendas.' });
+    console.error(`[${agora}] Erro em confirmarOuCancelarPosVendas:`, error);
+    resultados.erros.push({ tarefa: 'posVendas', error: error.message });
+  }
+
+  try {
+    console.log(`[${agora}] Iniciando enviarLembretes...`);
+    resultados.lembretes = await enviarLembretes();
+    console.log(`[${agora}] enviarLembretes concluído.`);
+  } catch (error) {
+    console.error(`[${agora}] Erro em enviarLembretes:`, error);
+    resultados.erros.push({ tarefa: 'lembretes', error: error.message });
+  }
+
+  try {
+    console.log(`[${agora}] Iniciando finalizarTransporteAutomaticamente...`);
+    resultados.finalizarTransporte = await finalizarTransporteAutomaticamente();
+    console.log(`[${agora}] finalizarTransporteAutomaticamente concluído.`);
+  } catch (error) {
+    console.error(`[${agora}] Erro em finalizarTransporteAutomaticamente:`, error);
+    resultados.erros.push({ tarefa: 'finalizarTransporte', error: error.message });
+  }
+
+  if (resultados.erros.length > 0) {
+    res.status(500).json({
+      success: false,
+      message: "Uma ou mais tarefas diárias falharam.",
+      details: resultados
+    });
+  } else {
+    res.status(200).json({
+      success: true,
+      message: "Todas as tarefas diárias executadas com sucesso.",
+      details: resultados
+    });
   }
 });
 
-
-app.get('/api/cron/enviar-lembretes', async (req, res) => {
-  const agora = new Date().toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" });
-  console.log(`[${agora}] Endpoint /api/cron/enviar-lembretes chamado.`);
-  pingWebhook('/api/cron/enviar-lembretes'); 
-  try {
-    const resultado = await enviarLembretes();
-    res.status(200).json({ success: true, ...resultado });
-  } catch (error) {
-    console.error(`[${agora}] Erro no endpoint /api/cron/enviar-lembretes:`, error);
-    res.status(500).json({ success: false, error: 'Erro interno ao enviar lembretes.' });
-  }
-});
-
-// Endpoint para finalizarTransporteAutomaticamente
-app.get('/api/cron/finalizar-transporte-auto', async (req, res) => {
-  const agora = new Date().toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" });
-  console.log(`[${agora}] Endpoint /api/cron/finalizar-transporte-auto chamado.`);
-  try {
-    const resultado = await finalizarTransporteAutomaticamente();
-    res.status(200).json({ success: true, ...resultado });
-  } catch (error) {
-    console.error(`[${agora}] Erro no endpoint /api/cron/finalizar-transporte-auto:`, error);
-    res.status(500).json({ success: false, error: 'Erro interno ao finalizar transporte.' });
-  }
-});
 
 
 // cron.schedule('0 0 * * *', enviarLembretes, { scheduled: true, timezone: "America/Sao_Paulo" }); 
