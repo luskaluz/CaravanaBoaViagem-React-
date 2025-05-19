@@ -3401,8 +3401,21 @@ app.get('/caravanas/:caravanaId/meus-ingressos', verificarAutenticacao, async (r
 //pros cron job funcionar
 
 app.get('/api/cron/executar-todas-tarefas-diarias', async (req, res) => {
-  const agora = new Date().toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" });
+  await faztudo(req, res);
+});
+
+
+
+
+const faztudo = async () => {
+    const agora = new Date().toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" });
   console.log(`[${agora}] Endpoint /api/cron/executar-todas-tarefas-diarias chamado.`);
+  const resultados = {
+    posVendas: null,
+    lembretes: null,
+    finalizarTransporte: null,
+    erros: []
+  };
 
   try {
     console.log(`[${agora}] Iniciando confirmarOuCancelarPosVendas...`);
@@ -3421,6 +3434,7 @@ app.get('/api/cron/executar-todas-tarefas-diarias', async (req, res) => {
     console.error(`[${agora}] Erro em enviarLembretes:`, error);
     resultados.erros.push({ tarefa: 'lembretes', error: error.message });
   }
+  
   try {
     console.log(`[${agora}] Iniciando finalizarTransporteAutomaticamente...`);
     resultados.finalizarTransporte = await finalizarTransporteAutomaticamente();
@@ -3430,6 +3444,7 @@ app.get('/api/cron/executar-todas-tarefas-diarias', async (req, res) => {
     resultados.erros.push({ tarefa: 'finalizarTransporte', error: error.message });
   }
  
+  
   if (resultados.erros.length > 0) {
     
     res.status(500).json({
@@ -3445,7 +3460,48 @@ app.get('/api/cron/executar-todas-tarefas-diarias', async (req, res) => {
       details: resultados
     });
   }
-});
+};
+
+
+
+const WEBHOOK_URL_TESTE = 'https://webhook.site/22d37ffc-c559-4a8d-9dd2-3234ed97ae13'; // Ex: https://webhook.site/xxxx-xxxx-xxxx-xxxx
+
+function pingWebhook(endpointName) {
+    if (!WEBHOOK_URL_TESTE || WEBHOOK_URL_TESTE === 'https://webhook.site/22d37ffc-c559-4a8d-9dd2-3234ed97ae13') {
+        console.warn(`[${new Date().toISOString()}] WEBHOOK_URL_TESTE não configurado. Ping externo para ${endpointName} não enviado.`);
+        return;
+    }
+
+    const data = JSON.stringify({
+        message: `Endpoint ${endpointName} chamado pela Vercel Cron`,
+        timestamp: new Date().toISOString()
+    });
+
+    const url = new URL(WEBHOOK_URL_TESTE); // Usar URL para parsear hostname e path
+
+    const options = {
+        hostname: url.hostname,
+        path: url.pathname + url.search, // Inclui query params se houver no URL do webhook
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'Content-Length': data.length
+        }
+    };
+
+    console.log(`[${new Date().toISOString()}] Tentando pingar webhook para ${endpointName}: ${WEBHOOK_URL_TESTE}`);
+    const req = https.request(options, (res) => {
+        console.log(`[${new Date().toISOString()}] Webhook para ${endpointName} respondeu com status: ${res.statusCode}`);
+    });
+
+    req.on('error', (e) => {
+        console.error(`[${new Date().toISOString()}] Erro ao pingar webhook para ${endpointName}:`, e);
+    });
+
+    req.write(data);
+    req.end();
+}
+
 
 
 
