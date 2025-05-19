@@ -1,29 +1,16 @@
 {
-  "version": 2,
-  "builds": [
-    {
-      "src": "backend/server.js",  
-      "use": "@vercel/node"
-    }
-  ],
-  "routes": [
-    { "src": "/(.*)", "dest": "backend/server.js" } 
-  ],
   "crons": [                    
     {
       "path": "/api/cron/pos-vendas",
-      "schedule": "0 0 * * *",
-      "timezone": "America/Sao_Paulo"
+      "schedule": "0 0 * * *"
     },
     {
       "path": "/api/cron/enviar-lembretes",
-      "schedule": "* * * * *",
-      "timezone": "America/Sao_Paulo"
+      "schedule": "* * * * *"
     },
     {
       "path": "/api/cron/finalizar-transporte-auto",
-      "schedule": "0 0 * * *",
-      "timezone": "America/Sao_Paulo"
+      "schedule": "0 0 * * *"
     }
   ]
 }
