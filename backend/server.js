@@ -3403,13 +3403,6 @@ app.get('/caravanas/:caravanaId/meus-ingressos', verificarAutenticacao, async (r
 app.get('/api/cron/executar-todas-tarefas-diarias', async (req, res) => {
   const agora = new Date().toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" });
   console.log(`[${agora}] Endpoint /api/cron/executar-todas-tarefas-diarias chamado.`);
-    pingWebhookDiario("INICIOU", { endpointChamado: true }); 
-  const resultados = {
-    posVendas: null,
-    lembretes: null,
-    finalizarTransporte: null,
-    erros: []
-  };
 
   try {
     console.log(`[${agora}] Iniciando confirmarOuCancelarPosVendas...`);
@@ -3419,7 +3412,6 @@ app.get('/api/cron/executar-todas-tarefas-diarias', async (req, res) => {
     console.error(`[${agora}] Erro em confirmarOuCancelarPosVendas:`, error);
     resultados.erros.push({ tarefa: 'posVendas', error: error.message });
   }
-pingWebhookDiario("APOS_POS_VENDAS", { resultadoPosVendas: resultados.posVendas, errosAtuais: resultados.erros });
 
   try {
     console.log(`[${agora}] Iniciando enviarLembretes...`);
@@ -3429,7 +3421,6 @@ pingWebhookDiario("APOS_POS_VENDAS", { resultadoPosVendas: resultados.posVendas,
     console.error(`[${agora}] Erro em enviarLembretes:`, error);
     resultados.erros.push({ tarefa: 'lembretes', error: error.message });
   }
- pingWebhookDiario("APOS_LEMBRETES", { resultadoLembretes: resultados.lembretes, errosAtuais: resultados.erros });
   try {
     console.log(`[${agora}] Iniciando finalizarTransporteAutomaticamente...`);
     resultados.finalizarTransporte = await finalizarTransporteAutomaticamente();
@@ -3438,10 +3429,9 @@ pingWebhookDiario("APOS_POS_VENDAS", { resultadoPosVendas: resultados.posVendas,
     console.error(`[${agora}] Erro em finalizarTransporteAutomaticamente:`, error);
     resultados.erros.push({ tarefa: 'finalizarTransporte', error: error.message });
   }
- pingWebhookDiario("APOS_FINALIZAR_TRANSPORTE", { resultadoTransporte: resultados.finalizarTransporte, errosAtuais: resultados.erros });
+ 
   if (resultados.erros.length > 0) {
     
-    pingWebhookDiario("FALHOU", resultados);
     res.status(500).json({
       success: false,
       message: "Uma ou mais tarefas diárias falharam.",
@@ -3449,7 +3439,6 @@ pingWebhookDiario("APOS_POS_VENDAS", { resultadoPosVendas: resultados.posVendas,
     });
   } else {
     
-    pingWebhookDiario("SUCESSO", resultados);
     res.status(200).json({
       success: true,
       message: "Todas as tarefas diárias executadas com sucesso.",
@@ -3457,53 +3446,6 @@ pingWebhookDiario("APOS_POS_VENDAS", { resultadoPosVendas: resultados.posVendas,
     });
   }
 });
-
-
-
-// cron.schedule('0 0 * * *', enviarLembretes, { scheduled: true, timezone: "America/Sao_Paulo" }); 
-// cron.schedule('0 0 * * *', confirmarOuCancelarPosVendas, { scheduled: true, timezone: "America/Sao_Paulo" });
-// cron.schedule('0 0 * * *', finalizarTransporteAutomaticamente, { scheduled: true, timezone: "America/Sao_Paulo"});
-
-
-
-const WEBHOOK_URL_TESTE = 'https://webhook.site/22d37ffc-c559-4a8d-9dd2-3234ed97ae13'; // Ex: https://webhook.site/xxxx-xxxx-xxxx-xxxx
-
-function pingWebhook(endpointName) {
-    if (!WEBHOOK_URL_TESTE || WEBHOOK_URL_TESTE === 'https://webhook.site/22d37ffc-c559-4a8d-9dd2-3234ed97ae13') {
-        console.warn(`[${new Date().toISOString()}] WEBHOOK_URL_TESTE não configurado. Ping externo para ${endpointName} não enviado.`);
-        return;
-    }
-
-    const data = JSON.stringify({
-        message: `Endpoint ${endpointName} chamado pela Vercel Cron`,
-        timestamp: new Date().toISOString()
-    });
-
-    const url = new URL(WEBHOOK_URL_TESTE); // Usar URL para parsear hostname e path
-
-    const options = {
-        hostname: url.hostname,
-        path: url.pathname + url.search, // Inclui query params se houver no URL do webhook
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'Content-Length': data.length
-        }
-    };
-
-    console.log(`[${new Date().toISOString()}] Tentando pingar webhook para ${endpointName}: ${WEBHOOK_URL_TESTE}`);
-    const req = https.request(options, (res) => {
-        console.log(`[${new Date().toISOString()}] Webhook para ${endpointName} respondeu com status: ${res.statusCode}`);
-    });
-
-    req.on('error', (e) => {
-        console.error(`[${new Date().toISOString()}] Erro ao pingar webhook para ${endpointName}:`, e);
-    });
-
-    req.write(data);
-    req.end();
-}
-
 
 
 
