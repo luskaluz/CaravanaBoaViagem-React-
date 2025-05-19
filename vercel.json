@@ -1,8 +1,18 @@
 {
-  "crons": [                    
+  "version": 2,
+  "builds": [
     {
-      "path": "/api/cron/executar-todas-tarefas-diarias",
-      "schedule": "30 0 * * *"
+      "src": "backend/server.js",
+      "use": "@vercel/node"
+    }
+  ],
+  "routes": [
+    { "src": "/(.*)", "dest": "backend/server.js" }
+  ],
+  "crons": [
+    {
+      "path": "/api/simple-ping-test", 
+      "schedule": "*/2 * * * *"    
     }
   ]
 }
