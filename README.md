@@ -11,4 +11,7 @@ A plataforma que conecta viajantes a roteiros incríveis, promovendo aventuras e
 ## 📌 Sobre o Projeto
 
 O **Caravana da Boa Viagem** é um projeto parte da disciplina de Projeto Integrador, nossa proposta é facilitar a organização de viagens, cadastro de localidades junto de criação de caravanas.
+
+Descrições sobre a empresa "Caravana da Boa Viagem" são hipotéticas, o foco do projeto é a solução em relação a gestão de caravanas.
+
 ---
